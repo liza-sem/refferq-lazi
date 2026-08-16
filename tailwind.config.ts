@@ -9,6 +9,18 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: ['"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+  		},
+  		boxShadow: {
+  			sm: 'none',
+  			DEFAULT: 'none',
+  			md: 'none',
+  			lg: 'none',
+  			xl: 'none',
+  			'2xl': 'none',
+  			inner: 'none',
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

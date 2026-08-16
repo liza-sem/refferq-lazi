@@ -124,21 +124,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
         {/* Logo & Branding */}
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary border border-foreground">
             <Target className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Refferq</h1>
+          <h1 className="text-2xl font-medium tracking-tight">LAZI</h1>
           <p className="text-sm text-muted-foreground">
-            Affiliate Marketing Platform
+            Partner Portal
           </p>
         </div>
 
         {/* Login Card */}
-        <Card className="border-0 shadow-xl shadow-black/5">
+        <Card>
           {step === 'email' ? (
             <>
               <CardHeader className="text-center pb-4">

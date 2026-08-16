@@ -91,7 +91,7 @@ function AdminSidebar({ brandName, logo, accentColor }: { brandName: string; log
               {logo ? (
                 <img src={logo} alt={brandName} className="h-10 w-10 rounded-xl object-contain" />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm" style={{ backgroundColor: accentColor }}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg text-white border border-foreground" style={{ backgroundColor: accentColor }}>
                   <span className="text-lg font-bold">{brandName.charAt(0)}</span>
                 </div>
               )}

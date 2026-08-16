@@ -101,19 +101,19 @@ export default function AffiliateOnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary border border-foreground">
             <Target className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Finish setup</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Finish setup</h1>
           <p className="text-sm text-muted-foreground">
             We pay affiliates with PayPal only
           </p>
         </div>
 
-        <Card className="border-0 shadow-xl shadow-black/5">
+        <Card>
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <Wallet className="h-6 w-6 text-primary" />

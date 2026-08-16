@@ -74,7 +74,7 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
     return pathname.startsWith(url);
   };
 
-  const accentColor = brand.brandButtonColor || '#059669';
+  const accentColor = brand.brandButtonColor || '#1a1a1a';
   const brandName = brand.companyName || brand.programName || 'LAZI';
 
   return (
@@ -86,7 +86,7 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
               {brand.companyLogo ? (
                 <img src={brand.companyLogo} alt={brandName} className="h-10 w-10 rounded-xl object-contain" />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm" style={{ backgroundColor: accentColor }}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg text-white border border-foreground" style={{ backgroundColor: accentColor }}>
                   <span className="text-lg font-bold">{brandName.charAt(0)}</span>
                 </div>
               )}
@@ -199,7 +199,7 @@ function AffiliateLoading({ color }: { color?: string }) {
       <div className="text-center">
         <div className="relative mx-auto h-12 w-12">
           <div className="absolute inset-0 rounded-full border-4 border-muted" />
-          <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent" style={{ borderTopColor: color || '#059669' }} />
+          <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent" style={{ borderTopColor: color || '#1a1a1a' }} />
         </div>
         <p className="mt-4 text-sm text-muted-foreground">Loading your dashboard...</p>
       </div>

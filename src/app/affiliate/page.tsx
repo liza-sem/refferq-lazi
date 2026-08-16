@@ -188,21 +188,20 @@ export default function AffiliateDashboard() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.2 }}
       >
-        <Card className="bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white border-0 shadow-lg overflow-hidden relative group">
-          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl -translate-x-full group-hover:translate-x-full" />
+        <Card className="bg-primary text-primary-foreground border border-foreground overflow-hidden relative">
           <CardContent className="flex items-center justify-between p-6 relative z-10">
             <div className="flex items-center gap-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-inner">
-                <span className="text-2xl font-bold">{currencySymbol}</span>
+              <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-primary-foreground/10 border border-primary-foreground/20">
+                <span className="text-2xl font-medium">{currencySymbol}</span>
               </div>
               <div>
-                <p className="text-sm text-white/90 font-medium tracking-wide">
+                <p className="text-sm text-primary-foreground/80 font-medium tracking-widest uppercase">
                   {stats?.announcement || `Earn ${stats?.commissionRate ?? 20}% commission on all paid customers`}
                 </p>
-                <p className="text-xl font-bold mt-1 tracking-tight">Share your link. Stripe confirms the sale.</p>
+                <p className="text-xl font-medium mt-1 tracking-tight">Share your link. Stripe confirms the sale.</p>
               </div>
             </div>
-            <p className="text-sm text-white/80 max-w-xs text-right hidden sm:block">
+            <p className="text-sm text-primary-foreground/70 max-w-xs text-right hidden sm:block">
               Sales are confirmed by Stripe. Email hello@lazi.studio if something looks wrong.
             </p>
           </CardContent>
@@ -216,8 +215,8 @@ export default function AffiliateDashboard() {
             label: 'Available Balance',
             value: formatCurrency(stats?.totalEarnings || 0),
             icon: Banknote,
-            color: 'text-emerald-600',
-            bg: 'bg-emerald-500/10',
+            color: 'text-foreground',
+            bg: 'bg-secondary',
             description: 'Ready for payout'
           },
           {
@@ -241,10 +240,10 @@ export default function AffiliateDashboard() {
             transition={{ delay: 0.3 + i * 0.1 }}
             whileHover={{ y: -5 }}
           >
-            <Card className="glass-card border-0">
+            <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${stat.bg} backdrop-blur-sm transition-transform group-hover:scale-110`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${stat.bg}`}>
                     {stat.icon === Banknote ? (
                       <span className={`text-lg font-bold ${stat.color}`}>{currencySymbol}</span>
                     ) : (
@@ -300,7 +299,7 @@ export default function AffiliateDashboard() {
                     size="icon"
                     onClick={() => copyToClipboard(stats?.referralLink || '', 'link')}
                   >
-                    {copied === 'link' ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                    {copied === 'link' ? <Check className="h-4 w-4 text-foreground" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
@@ -313,7 +312,7 @@ export default function AffiliateDashboard() {
                     size="icon"
                     onClick={() => copyToClipboard(stats?.referralCode || '', 'code')}
                   >
-                    {copied === 'code' ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                    {copied === 'code' ? <Check className="h-4 w-4 text-foreground" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
@@ -371,7 +370,7 @@ export default function AffiliateDashboard() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/affiliate/referrals'}>
+        <Card className="hover:border-foreground transition-colors cursor-pointer" onClick={() => window.location.href = '/affiliate/referrals'}>
           <CardContent className="p-5 flex items-center gap-3">
             <Users className="h-5 w-5 text-blue-600" />
             <div>
@@ -381,9 +380,9 @@ export default function AffiliateDashboard() {
             <ArrowRight className="h-4 w-4 ml-auto text-muted-foreground" />
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/affiliate/reports'}>
+        <Card className="hover:border-foreground transition-colors cursor-pointer" onClick={() => window.location.href = '/affiliate/reports'}>
           <CardContent className="p-5 flex items-center gap-3">
-            <TrendingUp className="h-5 w-5 text-emerald-600" />
+            <TrendingUp className="h-5 w-5 text-foreground" />
             <div>
               <p className="font-medium">View Reports</p>
               <p className="text-xs text-muted-foreground">Analyze your performance</p>
@@ -391,7 +390,7 @@ export default function AffiliateDashboard() {
             <ArrowRight className="h-4 w-4 ml-auto text-muted-foreground" />
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => window.location.href = '/affiliate/resources'}>
+        <Card className="hover:border-foreground transition-colors cursor-pointer" onClick={() => window.location.href = '/affiliate/resources'}>
           <CardContent className="p-5 flex items-center gap-3">
             <Target className="h-5 w-5 text-violet-600" />
             <div>

@@ -324,7 +324,7 @@ export default function AdminDashboardPage() {
           {quickActions.map((action) => (
             <Card
               key={action.title}
-              className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/20"
+              className="group cursor-pointer transition-colors hover:border-foreground"
               onClick={() => router.push(action.href)}
             >
               <CardContent className="flex items-center gap-3 p-4">
