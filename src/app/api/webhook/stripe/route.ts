@@ -68,6 +68,9 @@ export async function POST(request: NextRequest) {
       source: 'stripe_webhook',
       stripeSessionId: session.id,
       paymentIntent: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+      payment_status: session.payment_status || 'paid',
+      kirby_product_id: metadata.kirby_product_id || metadata.product_id || null,
+      price_id: metadata.price_id || metadata.stripe_price_id || null,
       country: session.customer_details?.address?.country || null,
     },
   });

@@ -56,6 +56,7 @@ interface Referral {
   createdAt: string;
   estimatedValue: number;
   confirmedRevenueCents?: number;
+  purchaseCount?: number;
   company: string;
   affiliate: {
     id: string;
@@ -247,7 +248,7 @@ export default function CustomersPage() {
                   <TableHead>Lead</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Referred By</TableHead>
-                  <TableHead>Est. Value</TableHead>
+                  <TableHead>Purchase</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -300,9 +301,16 @@ export default function CustomersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1 text-sm font-medium">
-                        <DollarSign className="h-3.5 w-3.5" />
-                        {formatMoney(referral.confirmedRevenueCents ?? Math.round((referral.estimatedValue || 0) * 100))}
+                      <div className="text-sm font-medium">
+                        <div className="flex items-center gap-1">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          {formatMoney(referral.confirmedRevenueCents ?? Math.round((referral.estimatedValue || 0) * 100))}
+                        </div>
+                        <p className="text-xs font-normal text-muted-foreground">
+                          {(referral.purchaseCount || 0) > 0
+                            ? `${referral.purchaseCount} purchase${referral.purchaseCount === 1 ? '' : 's'}`
+                            : 'Est.'}
+                        </p>
                       </div>
                     </TableCell>
                     <TableCell>

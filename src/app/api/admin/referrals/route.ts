@@ -5,6 +5,7 @@ import { commissionMultiplier, commissionPercent } from '@/lib/commission-rate';
 import { realLeadWhere } from '@/lib/program-metrics';
 import { backfillReferralPublicIds, normalizeLeadPublicId } from '@/lib/lead-public-id';
 import { countryFromMetadata } from '@/lib/lead-privacy';
+import { toAdminPurchase } from '@/lib/admin-purchase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -62,7 +63,16 @@ export async function GET(request: NextRequest) {
           }
         },
         conversions: {
-          select: { amountCents: true, status: true, eventType: true },
+          select: {
+            id: true,
+            amountCents: true,
+            currency: true,
+            status: true,
+            eventType: true,
+            createdAt: true,
+            eventMetadata: true,
+          },
+          orderBy: { createdAt: 'desc' },
         },
       },
       orderBy: {
@@ -90,9 +100,10 @@ export async function GET(request: NextRequest) {
         const metadata = referral.metadata as Record<string, unknown> | null;
         const affiliate = referral.affiliate;
         const rate = affiliate.partnerGroup?.commissionRate ?? 20;
-        const confirmedCents = referral.conversions
-          .filter((c) => c.status !== 'REJECTED')
-          .reduce((sum, c) => sum + c.amountCents, 0);
+        const purchases = referral.conversions.map(toAdminPurchase);
+        const confirmedCents = purchases
+          .filter((p) => p.status !== 'REJECTED')
+          .reduce((sum, p) => sum + p.amountCents, 0);
 
         return {
           id: referral.id,
@@ -106,6 +117,8 @@ export async function GET(request: NextRequest) {
           createdAt: referral.createdAt,
           estimatedValue: Number(metadata?.estimated_value) || 0,
           confirmedRevenueCents: confirmedCents,
+          purchaseCount: purchases.length,
+          purchases,
           commissionCents: commissionByReferral.get(referral.id) || Math.round(confirmedCents * commissionMultiplier(rate)),
           company: typeof metadata?.company === 'string' ? metadata.company : '',
           country: countryFromMetadata(metadata),

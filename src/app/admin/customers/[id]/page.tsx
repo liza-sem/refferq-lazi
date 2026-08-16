@@ -44,9 +44,12 @@ import {
   FileText,
   Shield,
   Loader2,
+  Receipt,
 } from 'lucide-react';
 import { commissionMultiplier, commissionPercent } from '@/lib/commission-rate';
 import { formatMoney } from '@/lib/money';
+import { symbolForCurrency } from '@/lib/currency';
+import type { AdminPurchase } from '@/lib/admin-purchase';
 
 interface Referral {
   id: string;
@@ -62,6 +65,7 @@ interface Referral {
   commissionCents?: number;
   company: string;
   country?: string | null;
+  purchases?: AdminPurchase[];
   affiliate: {
     id: string;
     name: string;
@@ -351,6 +355,83 @@ export default function CustomerDetailPage() {
             </CardContent>
           </Card>
 
+          {(referral.purchases || []).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  Purchases
+                </CardTitle>
+                <CardDescription>
+                  Confirmed Stripe sales linked to this customer
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(referral.purchases || []).map((purchase) => (
+                  <div key={purchase.id} className="rounded-md border p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">
+                          {formatMoney(purchase.amountCents, symbolForCurrency(purchase.currency))}
+                          <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                            {purchase.currency}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(purchase.createdAt).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                          {' at '}
+                          {new Date(purchase.createdAt).toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <Badge variant={purchase.status === 'REJECTED' ? 'destructive' : 'default'}>
+                        {purchase.statusLabel}
+                      </Badge>
+                    </div>
+                    {(purchase.productId || purchase.priceId) && (
+                      <div className="space-y-1 text-sm">
+                        {purchase.productId && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">Product</span>
+                            <code className="text-xs">{purchase.productId}</code>
+                          </div>
+                        )}
+                        {purchase.priceId && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">Price</span>
+                            <code className="text-xs">{purchase.priceId}</code>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {(purchase.stripeSessionId || purchase.paymentIntent) && (
+                      <div className="space-y-1 text-xs">
+                        {purchase.stripeSessionId && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">Checkout session</span>
+                            <code className="break-all text-right">{purchase.stripeSessionId}</code>
+                          </div>
+                        )}
+                        {purchase.paymentIntent && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">Payment intent</span>
+                            <code className="break-all text-right">{purchase.paymentIntent}</code>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Review Actions Card - only for PENDING */}
           {referral.status === 'PENDING' && (
             <Card>
@@ -412,10 +493,20 @@ export default function CustomerDetailPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
-                  {referral.confirmedRevenueCents ? 'Confirmed sale' : 'Estimated Value'}
+                  {(referral.purchases || []).length > 0
+                    ? (referral.purchases || []).length === 1
+                      ? 'Confirmed sale'
+                      : 'Confirmed sales'
+                    : 'Estimated Value'}
                 </span>
                 <span className="font-semibold">{formatMoney(saleCents)}</span>
               </div>
+              {(referral.purchases || []).length > 1 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Purchases</span>
+                  <span className="font-semibold">{referral.purchases?.length}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Commission Rate</span>
                 <span className="font-semibold">{ratePercent}%</span>
