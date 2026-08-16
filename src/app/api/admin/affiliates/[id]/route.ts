@@ -28,34 +28,93 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, notes } = body;
+    const { status, notes, partnerGroupId, partnerGroupLocked } = body;
 
-    if (!status) {
-      return NextResponse.json(
-        { error: 'Status is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate status
-    const validStatuses = ['PENDING', 'ACTIVE', 'INACTIVE', 'SUSPENDED'];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Get affiliate to find userId
     const affiliate = await prisma.affiliate.findUnique({
       where: { id: params.id },
-      include: { user: true }
+      include: { user: true, partnerGroup: true }
     });
 
     if (!affiliate) {
       return NextResponse.json(
         { error: 'Affiliate not found' },
         { status: 404 }
+      );
+    }
+
+    if (partnerGroupId !== undefined || partnerGroupLocked !== undefined) {
+      const data: {
+        partnerGroupId?: string;
+        partnerGroupLocked?: boolean;
+        tierAssignedAt?: Date;
+        tierAssignedReason?: string;
+      } = {};
+
+      if (partnerGroupId !== undefined) {
+        if (typeof partnerGroupId !== 'string' || !partnerGroupId) {
+          return NextResponse.json({ error: 'partnerGroupId is required' }, { status: 400 });
+        }
+        const group = await prisma.partnerGroup.findUnique({ where: { id: partnerGroupId } });
+        if (!group) {
+          return NextResponse.json({ error: 'Partner group not found' }, { status: 404 });
+        }
+        data.partnerGroupId = group.id;
+        data.tierAssignedAt = new Date();
+        data.tierAssignedReason = `admin_manual:${group.name}`;
+      }
+
+      if (partnerGroupLocked !== undefined) {
+        data.partnerGroupLocked = Boolean(partnerGroupLocked);
+      }
+
+      const updated = await prisma.affiliate.update({
+        where: { id: params.id },
+        data,
+        include: { partnerGroup: true },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: 'UPDATE_AFFILIATE_TIER',
+          objectType: 'AFFILIATE',
+          objectId: params.id,
+          payload: {
+            oldGroupId: affiliate.partnerGroupId,
+            newGroupId: updated.partnerGroupId,
+            oldLocked: affiliate.partnerGroupLocked,
+            newLocked: updated.partnerGroupLocked,
+            affiliateEmail: affiliate.user.email,
+          },
+        },
+      });
+
+      if (!status) {
+        return NextResponse.json({
+          success: true,
+          message: 'Partner tier updated',
+          affiliate: {
+            id: updated.id,
+            partnerGroupId: updated.partnerGroupId,
+            partnerGroup: updated.partnerGroup?.name,
+            partnerGroupLocked: updated.partnerGroupLocked,
+          },
+        });
+      }
+    }
+
+    if (!status) {
+      return NextResponse.json(
+        { error: 'Status or partner group update is required' },
+        { status: 400 }
+      );
+    }
+
+    const validStatuses = ['PENDING', 'ACTIVE', 'INACTIVE', 'SUSPENDED'];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
+        { status: 400 }
       );
     }
 

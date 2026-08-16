@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { affiliateIds, action, status, group } = body;
+    const { affiliateIds, action, status } = body;
 
     if (!affiliateIds || !Array.isArray(affiliateIds) || affiliateIds.length === 0) {
       return NextResponse.json(
@@ -96,31 +96,33 @@ export async function POST(request: NextRequest) {
           count: updatedCount
         });
 
-      case 'changeGroup':
-        if (!group) {
+      case 'changeGroup': {
+        const partnerGroupId = body.partnerGroupId || body.group;
+        if (!partnerGroupId || typeof partnerGroupId !== 'string') {
           return NextResponse.json(
-            { error: 'group is required for changeGroup action' },
+            { error: 'partnerGroupId is required for changeGroup action' },
             { status: 400 }
           );
         }
 
-        // Update affiliate metadata with group
-        for (const affiliateId of affiliateIds) {
-          await prisma.affiliate.update({
-            where: { id: affiliateId },
-            data: {
-              payoutDetails: {
-                // Preserve existing data and add/update group
-                ...(await prisma.affiliate.findUnique({
-                  where: { id: affiliateId },
-                  select: { payoutDetails: true }
-                }).then(a => a?.payoutDetails as any) || {}),
-                group
-              }
-            }
-          });
-          updatedCount++;
+        const group = await prisma.partnerGroup.findUnique({ where: { id: partnerGroupId } });
+        if (!group) {
+          return NextResponse.json({ error: 'Partner group not found' }, { status: 404 });
         }
+
+        const lock = body.partnerGroupLocked !== false;
+
+        const result = await prisma.affiliate.updateMany({
+          where: { id: { in: affiliateIds } },
+          data: {
+            partnerGroupId: group.id,
+            partnerGroupLocked: lock,
+            tierAssignedAt: new Date(),
+            tierAssignedReason: `admin_manual:${group.name}`,
+          },
+        });
+
+        updatedCount = result.count;
 
         await prisma.auditLog.create({
           data: {
@@ -130,17 +132,20 @@ export async function POST(request: NextRequest) {
             objectId: 'BATCH',
             payload: {
               affiliateIds,
-              newGroup: group,
-              count: updatedCount
-            }
-          }
+              newGroupId: group.id,
+              newGroupName: group.name,
+              locked: lock,
+              count: updatedCount,
+            },
+          },
         });
 
         return NextResponse.json({
           success: true,
-          message: `Updated ${updatedCount} affiliate(s) group to ${group}`,
-          count: updatedCount
+          message: `Moved ${updatedCount} partner(s) to ${group.name}`,
+          count: updatedCount,
         });
+      }
 
       case 'delete':
         // Get all affiliates to find their userIds

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
 import { getCurrencySymbol } from '@/lib/currency';
+import { commissionMultiplier } from '@/lib/commission-rate';
 
 
 export async function GET(request: NextRequest) {
@@ -78,9 +79,9 @@ export async function GET(request: NextRequest) {
       // Get commission rate from partner group or default to 20%
       const affiliate = ref.affiliate as any;
       const partnerGroupId = affiliate.partnerGroupId;
-      const commissionRate = partnerGroupId 
-        ? (partnerGroupMap.get(partnerGroupId) || 0.20)
-        : 0.20;
+      const commissionRate = commissionMultiplier(
+        partnerGroupId ? partnerGroupMap.get(partnerGroupId) : undefined
+      );
       const commissionInCents = Math.floor(valueInCents * commissionRate);
       
       totalEstimatedRevenue += valueInCents;

@@ -36,6 +36,13 @@ export async function GET(request: NextRequest) {
             createdAt: true
           }
         },
+        partnerGroup: {
+          select: {
+            id: true,
+            name: true,
+            commissionRate: true,
+          }
+        },
         _count: {
           select: {
             referrals: true,
@@ -61,6 +68,12 @@ export async function GET(request: NextRequest) {
         status: affiliate.user.status,
         totalClicks: affiliate._count.clicks,
         totalLeads: affiliate._count.referrals,
+        partnerGroup: affiliate.partnerGroup?.name || 'Standard',
+        partnerGroupId: affiliate.partnerGroupId,
+        partnerGroupLocked: affiliate.partnerGroupLocked,
+        commissionRate: affiliate.partnerGroup?.commissionRate ?? 20,
+        tierAssignedAt: affiliate.tierAssignedAt,
+        tierAssignedReason: affiliate.tierAssignedReason,
       })),
       currencySymbol,
     });
@@ -107,6 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, email, password, paypalEmail, company } = data;
+    const requestedGroupId = typeof body.partnerGroupId === 'string' ? body.partnerGroupId : null;
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -141,11 +155,16 @@ export async function POST(request: NextRequest) {
     // Create affiliate profile
     const { getOrCreateDefaultPartnerGroup } = await import('@/lib/default-partner-group');
     const defaultGroup = await getOrCreateDefaultPartnerGroup();
+    let partnerGroupId = defaultGroup.id;
+    if (requestedGroupId) {
+      const requested = await prisma.partnerGroup.findUnique({ where: { id: requestedGroupId } });
+      if (requested) partnerGroupId = requested.id;
+    }
     const affiliate = await prisma.affiliate.create({
       data: {
         userId: newUser.id,
         referralCode: `AF${Date.now()}${(await import('crypto')).randomBytes(3).toString('hex').toUpperCase().slice(0, 4)}`,
-        partnerGroupId: defaultGroup.id,
+        partnerGroupId,
         balanceCents: 0,
         payoutDetails: {
           paymentMethod: 'PayPal',

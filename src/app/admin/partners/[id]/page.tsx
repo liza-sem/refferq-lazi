@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft,
   Users,
@@ -58,7 +59,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Ban,
+  Lock,
 } from 'lucide-react';
+import { commissionPercent } from '@/lib/commission-rate';
 
 interface Partner {
   id: string;
@@ -66,6 +69,9 @@ interface Partner {
   email: string;
   referralCode: string;
   partnerGroup?: string;
+  partnerGroupId?: string | null;
+  partnerGroupLocked?: boolean;
+  tierAssignedReason?: string | null;
   commissionRate: number;
   status: string;
   totalClicks: number;
@@ -121,6 +127,8 @@ export default function PartnerDetailPage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [editingPayout, setEditingPayout] = useState<Payout | null>(null);
   const [newStatus, setNewStatus] = useState<'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'>('PENDING');
+  const [tiers, setTiers] = useState<{ id: string; name: string }[]>([]);
+  const [savingTier, setSavingTier] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'ADMIN')) {
@@ -129,6 +137,7 @@ export default function PartnerDetailPage() {
     }
     if (user && partnerId) {
       fetchPartnerData();
+      fetchTiers();
       fetchCustomers();
       fetchCommissions();
       fetchPayouts();
@@ -148,7 +157,10 @@ export default function PartnerDetailPage() {
             email: affiliate.email,
             referralCode: affiliate.referralCode,
             partnerGroup: affiliate.partnerGroup,
-            commissionRate: affiliate.commissionRate || 0.20,
+            partnerGroupId: affiliate.partnerGroupId,
+            partnerGroupLocked: Boolean(affiliate.partnerGroupLocked),
+            tierAssignedReason: affiliate.tierAssignedReason,
+            commissionRate: affiliate.commissionRate || 20,
             status: affiliate.status,
             totalClicks: affiliate.totalClicks || 0,
             totalLeads: affiliate.totalLeads || 0,
@@ -161,6 +173,37 @@ export default function PartnerDetailPage() {
       console.error('Error fetching partner:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTiers = async () => {
+    try {
+      const res = await fetch('/api/admin/partner-groups');
+      const data = await res.json();
+      if (data.success) setTiers(data.partnerGroups || []);
+    } catch (error) {
+      console.error('Failed to fetch tiers:', error);
+    }
+  };
+
+  const saveTier = async (patch: { partnerGroupId?: string; partnerGroupLocked?: boolean }) => {
+    setSavingTier(true);
+    try {
+      const res = await fetch(`/api/admin/affiliates/${partnerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPartnerData();
+      } else {
+        alert(data.error || 'Failed to update tier');
+      }
+    } catch (error) {
+      console.error('Failed to update tier:', error);
+    } finally {
+      setSavingTier(false);
     }
   };
 
@@ -368,8 +411,14 @@ export default function PartnerDetailPage() {
                     {partner.partnerGroup}
                   </Badge>
                 )}
+                {partner.partnerGroupLocked && (
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Lock className="h-3 w-3" />
+                    Locked
+                  </Badge>
+                )}
                 <Badge variant="outline" className="text-xs">
-                  {(partner.commissionRate * 100).toFixed(0)}% commission
+                  {commissionPercent(partner.commissionRate)}% commission
                 </Badge>
               </div>
             </div>
@@ -462,8 +511,7 @@ export default function PartnerDetailPage() {
                   { label: 'Name', value: partner.name },
                   { label: 'Email', value: partner.email },
                   { label: 'Referral Code', value: partner.referralCode, mono: true },
-                  { label: 'Partner Group', value: partner.partnerGroup || 'Default' },
-                  { label: 'Commission Rate', value: `${(partner.commissionRate * 100).toFixed(0)}%` },
+                  { label: 'Commission Rate', value: `${commissionPercent(partner.commissionRate)}%` },
                   { label: 'Partner Since', value: formatDate(partner.createdAt) },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center justify-between">
@@ -471,6 +519,34 @@ export default function PartnerDetailPage() {
                     <span className={`text-sm font-medium ${item.mono ? 'font-mono' : ''}`}>{item.value}</span>
                   </div>
                 ))}
+                <div className="space-y-2 border-t pt-4">
+                  <Label className="text-sm text-muted-foreground">Partner tier</Label>
+                  <Select
+                    value={partner.partnerGroupId || ''}
+                    onValueChange={(value) => saveTier({ partnerGroupId: value, partnerGroupLocked: true })}
+                    disabled={savingTier}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tiers.map((tier) => (
+                        <SelectItem key={tier.id} value={tier.id}>{tier.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Switch
+                      checked={Boolean(partner.partnerGroupLocked)}
+                      onCheckedChange={(checked) => saveTier({ partnerGroupLocked: checked })}
+                      disabled={savingTier}
+                    />
+                    <Label className="text-sm">Lock tier (skip auto-assignment)</Label>
+                  </div>
+                  {partner.tierAssignedReason && (
+                    <p className="text-xs text-muted-foreground">{partner.tierAssignedReason}</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 

@@ -34,9 +34,12 @@ model Affiliate {
   balanceCents   Int           @default(0) @map("balance_cents")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
-  partnerGroupId String?       @map("partner_group_id")
-  partnerGroup   PartnerGroup? @relation(fields: [partnerGroupId], references: [id])
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partnerGroupId       String?       @map("partner_group_id")
+  partnerGroup         PartnerGroup? @relation(fields: [partnerGroupId], references: [id])
+  partnerGroupLocked   Boolean       @default(false) @map("partner_group_locked")
+  tierAssignedAt       DateTime?     @map("tier_assigned_at")
+  tierAssignedReason   String?       @map("tier_assigned_reason")
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   commissions    Commission[]
   conversions    Conversion[]
   referrals      Referral[]
@@ -236,15 +239,20 @@ model ProgramSettings {
 }
 
 model PartnerGroup {
-  id             String      @id @default(cuid())
-  name           String
-  description    String?
-  commissionRate Float       @map("commission_rate")
-  signupUrl      String?     @map("signup_url")
-  isDefault      Boolean     @default(false) @map("is_default")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
-  affiliates     Affiliate[]
+  id                          String      @id @default(cuid())
+  name                        String
+  description                 String?
+  commissionRate              Float       @map("commission_rate")
+  signupUrl                   String?     @map("signup_url")
+  isDefault                   Boolean     @default(false) @map("is_default")
+  sortOrder                   Int         @default(0) @map("sort_order")
+  minRevenueCents             Int?        @map("min_revenue_cents")
+  minConversions              Int?        @map("min_conversions")
+  minApprovedCommissionCents  Int?        @map("min_approved_commission_cents")
+  demoteIfBelow               Boolean     @default(false) @map("demote_if_below")
+  createdAt                   DateTime    @default(now()) @map("created_at")
+  updatedAt                   DateTime    @updatedAt @map("updated_at")
+  affiliates                  Affiliate[]
 
   @@map("partner_groups")
 }

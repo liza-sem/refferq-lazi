@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authorizeCronOrAdmin } from '@/lib/cron-auth';
 import { matureDueCommissions } from '@/lib/mature-commissions';
 import { runAutoPayouts } from '@/lib/auto-payouts';
+import { evaluateAllAffiliateTiers } from '@/lib/partner-tier-automation';
 
 /**
  * Cron-safe payout drip.
@@ -19,12 +20,21 @@ async function handle(request: NextRequest) {
 
   try {
     const matured = await matureDueCommissions(auth.actorId);
+    let tiers = { evaluated: 0, changed: 0, skippedLocked: 0 };
+    try {
+      tiers = await evaluateAllAffiliateTiers();
+    } catch (error) {
+      console.error('Partner tier evaluation failed during payout cron:', error);
+    }
     const payouts = await runAutoPayouts({ actorId: auth.actorId });
 
     return NextResponse.json({
       success: true,
       matured: matured.matured,
       affiliatesUpdated: matured.affiliatesUpdated,
+      tiersEvaluated: tiers.evaluated,
+      tiersChanged: tiers.changed,
+      tiersLocked: tiers.skippedLocked,
       processed: payouts.processed,
       skipped: payouts.skipped,
       failed: payouts.failed,

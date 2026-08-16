@@ -12,6 +12,7 @@ export async function getOrCreateDefaultPartnerGroup() {
       description: 'Default partner group',
       commissionRate: 20,
       isDefault: true,
+      sortOrder: 0,
     },
   });
 }

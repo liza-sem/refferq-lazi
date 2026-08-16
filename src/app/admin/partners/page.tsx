@@ -63,6 +63,8 @@ import {
   Trash2,
   UserPlus,
   ArrowUpDown,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 
 interface Partner {
@@ -79,6 +81,14 @@ interface Partner {
   revenue: number;
   earnings: number;
   groupName?: string;
+  partnerGroupId?: string | null;
+  partnerGroupLocked?: boolean;
+}
+
+interface PartnerTierOption {
+  id: string;
+  name: string;
+  isDefault: boolean;
 }
 
 export default function PartnersPage() {
@@ -100,7 +110,7 @@ export default function PartnersPage() {
     lastName: '',
     email: '',
     company: '',
-    partnerGroup: 'Default',
+    partnerGroupId: '',
     country: 'N/A',
     payoutMethod: 'PayPal',
     paypalEmail: '',
@@ -110,12 +120,14 @@ export default function PartnersPage() {
 
   const [invitePartner, setInvitePartner] = useState({
     email: '',
-    partnerGroup: 'Default',
+    partnerGroupId: '',
     inviteType: 'single',
   });
+  const [tiers, setTiers] = useState<PartnerTierOption[]>([]);
 
   useEffect(() => {
     fetchPartners();
+    fetchTiers();
   }, []);
 
   useEffect(() => {
@@ -142,7 +154,9 @@ export default function PartnersPage() {
           customers: aff._count?.referrals || 0,
           revenue: 0,
           earnings: aff.balanceCents || 0,
-          groupName: '',
+          groupName: aff.partnerGroup || 'Standard',
+          partnerGroupId: aff.partnerGroupId || null,
+          partnerGroupLocked: Boolean(aff.partnerGroupLocked),
         }));
         setPartners(formattedPartners);
         setCurrencySymbol(data.currencySymbol || '$');
@@ -152,6 +166,53 @@ export default function PartnersPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchTiers = async () => {
+    try {
+      const res = await fetch('/api/admin/partner-groups');
+      const data = await res.json();
+      if (data.success) {
+        const groups = (data.partnerGroups || []) as PartnerTierOption[];
+        setTiers(groups);
+        const fallback = groups.find((g) => g.isDefault)?.id || groups[0]?.id || '';
+        setNewPartner((prev) => prev.partnerGroupId ? prev : { ...prev, partnerGroupId: fallback });
+        setInvitePartner((prev) => prev.partnerGroupId ? prev : { ...prev, partnerGroupId: fallback });
+      }
+    } catch (error) {
+      console.error('Failed to fetch tiers:', error);
+    }
+  };
+
+  const updatePartnerTier = async (partnerId: string, partnerGroupId: string, partnerGroupLocked?: boolean) => {
+    const res = await fetch(`/api/admin/affiliates/${partnerId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        partnerGroupId,
+        ...(partnerGroupLocked !== undefined ? { partnerGroupLocked } : { partnerGroupLocked: true }),
+      }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.error || 'Failed to update tier');
+      return;
+    }
+    fetchPartners();
+  };
+
+  const togglePartnerLock = async (partner: Partner) => {
+    const res = await fetch(`/api/admin/affiliates/${partner.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partnerGroupLocked: !partner.partnerGroupLocked }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.error || 'Failed to update lock');
+      return;
+    }
+    fetchPartners();
   };
 
   const filterPartners = () => {
@@ -212,6 +273,7 @@ export default function PartnersPage() {
           company: newPartner.company,
           payoutMethod: newPartner.payoutMethod,
           paypalEmail: newPartner.paypalEmail || newPartner.email,
+          partnerGroupId: newPartner.partnerGroupId || undefined,
         }),
       });
 
@@ -224,7 +286,7 @@ export default function PartnersPage() {
         setShowCreateModal(false);
         setNewPartner({
           firstName: '', lastName: '', email: '', company: '',
-          partnerGroup: 'Default', country: 'N/A', payoutMethod: 'PayPal',
+          partnerGroupId: tiers.find((t) => t.isDefault)?.id || tiers[0]?.id || '', country: 'N/A', payoutMethod: 'PayPal',
           paypalEmail: '', sendWelcomeEmail: true, trackingParameter: 'ref',
         });
         fetchPartners();
@@ -316,6 +378,37 @@ export default function PartnersPage() {
     } catch (error) {
       console.error('Bulk action failed:', error);
       alert('Action failed');
+    }
+  };
+
+  const handleBulkMove = async (partnerGroupId: string) => {
+    if (selectedPartners.length === 0) {
+      alert('Please select partners first');
+      return;
+    }
+    const tierName = tiers.find((t) => t.id === partnerGroupId)?.name || 'this tier';
+    if (!confirm(`Move ${selectedPartners.length} partner(s) to ${tierName} and lock them there?`)) return;
+    try {
+      const response = await fetch('/api/admin/affiliates/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          affiliateIds: selectedPartners,
+          action: 'changeGroup',
+          partnerGroupId,
+          partnerGroupLocked: true,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSelectedPartners([]);
+        fetchPartners();
+      } else {
+        alert(data.error || 'Move failed');
+      }
+    } catch (error) {
+      console.error('Bulk move failed:', error);
+      alert('Move failed');
     }
   };
 
@@ -420,6 +513,19 @@ export default function PartnersPage() {
                     <XCircle className="mr-2 h-4 w-4 text-amber-600" />
                     Reject Selected
                   </DropdownMenuItem>
+                  {tiers.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {tiers.map((tier) => (
+                        <DropdownMenuItem
+                          key={tier.id}
+                          onClick={() => handleBulkMove(tier.id)}
+                        >
+                          Move to {tier.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleBulkAction('delete')} className="text-destructive">
                     <Trash2 className="mr-2 h-4 w-4" />
@@ -473,6 +579,7 @@ export default function PartnersPage() {
                     </div>
                   </TableHead>
                   <TableHead>Referral Code</TableHead>
+                  <TableHead>Tier</TableHead>
                   <TableHead className="cursor-pointer" onClick={() => handleSort('leads')}>
                     <div className="flex items-center">
                       Leads <SortIcon field="leads" />
@@ -530,6 +637,37 @@ export default function PartnersPage() {
                       <TableCell>
                         <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{partner.referralCode}</code>
                       </TableCell>
+                      <TableCell onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <Select
+                            value={partner.partnerGroupId || ''}
+                            onValueChange={(value: string) => updatePartnerTier(partner.id, value, true)}
+                          >
+                            <SelectTrigger className="h-8 w-[140px] text-xs">
+                              <SelectValue placeholder="Select tier" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {tiers.map((tier) => (
+                                <SelectItem key={tier.id} value={tier.id}>{tier.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title={partner.partnerGroupLocked ? 'Unlock auto-assignment' : 'Lock to this tier'}
+                            onClick={() => togglePartnerLock(partner)}
+                          >
+                            {partner.partnerGroupLocked ? (
+                              <Lock className="h-3.5 w-3.5" />
+                            ) : (
+                              <Unlock className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>{partner.leads}</TableCell>
                       <TableCell>{partner.customers}</TableCell>
                       <TableCell className="text-right font-medium">
@@ -549,7 +687,7 @@ export default function PartnersPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={9}>
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <Users className="h-10 w-10 text-muted-foreground/50 mb-3" />
                         <p className="text-sm font-medium text-muted-foreground">No partners found</p>
@@ -615,16 +753,18 @@ export default function PartnersPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Partner Group</Label>
+                  <Label>Partner tier</Label>
                   <Select
-                    value={newPartner.partnerGroup}
-                    onValueChange={(value: string) => setNewPartner({ ...newPartner, partnerGroup: value })}
+                    value={newPartner.partnerGroupId}
+                    onValueChange={(value: string) => setNewPartner({ ...newPartner, partnerGroupId: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select tier" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Default">Default</SelectItem>
+                      {tiers.map((tier) => (
+                        <SelectItem key={tier.id} value={tier.id}>{tier.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -685,16 +825,18 @@ export default function PartnersPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Partner Group</Label>
+              <Label>Partner tier</Label>
               <Select
-                value={invitePartner.partnerGroup}
-                onValueChange={(value: string) => setInvitePartner({ ...invitePartner, partnerGroup: value })}
+                value={invitePartner.partnerGroupId}
+                onValueChange={(value: string) => setInvitePartner({ ...invitePartner, partnerGroupId: value })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select tier" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Default">Default</SelectItem>
+                  {tiers.map((tier) => (
+                    <SelectItem key={tier.id} value={tier.id}>{tier.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

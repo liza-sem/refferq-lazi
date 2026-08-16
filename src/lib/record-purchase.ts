@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { commissionMultiplier } from './commission-rate';
 
 export type RecordPurchaseInput = {
   referralCode: string;
@@ -103,8 +104,7 @@ export async function recordPurchase(input: RecordPurchaseInput) {
     },
   });
 
-  const ratePercent = affiliate.partnerGroup?.commissionRate ?? 20;
-  const rate = ratePercent > 1 ? ratePercent / 100 : ratePercent;
+  const rate = commissionMultiplier(affiliate.partnerGroup?.commissionRate);
   const commissionAmount = Math.round(amountCents * rate);
 
   const settings = await prisma.programSettings.findFirst();
@@ -124,6 +124,13 @@ export async function recordPurchase(input: RecordPurchaseInput) {
         maturesAt,
       },
     });
+  }
+
+  try {
+    const { evaluateAffiliateTier } = await import('./partner-tier-automation');
+    await evaluateAffiliateTier(affiliate.id);
+  } catch (error) {
+    console.error('Partner tier evaluation failed after purchase:', error);
   }
 
   return {

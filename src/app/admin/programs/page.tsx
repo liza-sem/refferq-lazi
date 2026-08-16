@@ -22,6 +22,8 @@ import {
 import {
   Layers, Plus, Star, Percent, Clock, Globe, Edit, Trash2,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PartnerTiersPanel } from './tiers-panel';
 
 interface Program {
   id: string;
@@ -181,16 +183,29 @@ export default function ProgramsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Programs</h1>
-          <p className="text-muted-foreground">Manage multiple affiliate programs with different commission structures</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Program
-        </Button>
+      <div>
+        <h1 className="text-2xl tracking-tight">Programs</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Partner tiers, commission rates, and auto-promotion rules
+        </p>
       </div>
+
+      <Tabs defaultValue="tiers">
+        <TabsList>
+          <TabsTrigger value="tiers">Partner tiers</TabsTrigger>
+          <TabsTrigger value="programs">Programs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="tiers" className="mt-6">
+          <PartnerTiersPanel />
+        </TabsContent>
+        <TabsContent value="programs" className="mt-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Additional program configurations</p>
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Program
+            </Button>
+          </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -304,6 +319,8 @@ export default function ProgramsPage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Program Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
