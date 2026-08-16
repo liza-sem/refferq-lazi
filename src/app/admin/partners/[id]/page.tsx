@@ -45,7 +45,7 @@ import {
   ArrowLeft,
   Users,
   Wallet,
-  IndianRupee,
+  DollarSign,
   CreditCard,
   Copy,
   ExternalLink,
@@ -289,7 +289,7 @@ export default function PartnerDetailPage() {
   };
 
   const formatCurrency = (cents: number) =>
-    `\u20B9${(cents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -614,7 +614,7 @@ export default function PartnerDetailPage() {
                 </Table>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <IndianRupee className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                  <DollarSign className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">No commissions yet</p>
                 </div>
               )}

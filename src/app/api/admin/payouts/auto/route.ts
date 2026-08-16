@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Get program settings for min payout threshold
     const settings = await prisma.programSettings.findFirst();
-    const minPayoutCents = settings?.minPayoutCents || 100000; // Default ₹1000
+    const minPayoutCents = settings?.minPayoutCents || 100000; // Default $1000
 
     // Find all affiliates with balance above minimum payout threshold
     // Status check is on User model, not Affiliate

@@ -236,7 +236,7 @@ function renderSummaryHTML(summary: Record<string, unknown>): string {
       <div class="stat">
         <div class="stat-value">${
           typeof value === 'number' && key.toLowerCase().includes('cents')
-            ? '₹' + (value / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+            ? '$' + (value / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })
             : value
         }</div>
         <div class="stat-label">${key.replace(/([A-Z])/g, ' $1').replace(/cents$/i, '').trim()}</div>
@@ -258,7 +258,7 @@ function renderTableHTML(data: Record<string, unknown>[]): string {
             .map((c) => {
               const v = row[c];
               if (typeof v === 'number' && c.toLowerCase().includes('cents')) {
-                return `<td>₹${(v / 100).toFixed(2)}</td>`;
+                return `<td>$${(v / 100).toFixed(2)}</td>`;
               }
               return `<td>${v ?? '—'}</td>`;
             })

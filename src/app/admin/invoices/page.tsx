@@ -19,7 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  FileText, Plus, Eye, IndianRupee, CheckCircle2, Clock, AlertCircle, Trash2,
+  FileText, Plus, Eye, DollarSign, CheckCircle2, Clock, AlertCircle, Trash2,
 } from 'lucide-react';
 
 interface Invoice {
@@ -119,7 +119,7 @@ export default function InvoicesPage() {
   };
 
   const formatCurrency = (cents: number) =>
-    `\u20B9${(cents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -195,7 +195,7 @@ export default function InvoicesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
-            <IndianRupee className="h-4 w-4 text-emerald-500" />
+            <DollarSign className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div></CardContent>
         </Card>
@@ -280,7 +280,7 @@ export default function InvoicesPage() {
               <div className="grid gap-2">
                 <Label>Amount (cents) *</Label>
                 <Input type="number" value={form.amountCents} onChange={e => setForm({...form, amountCents: e.target.value})} placeholder="100000" />
-                <p className="text-xs text-muted-foreground">100000 = ₹1,000</p>
+                <p className="text-xs text-muted-foreground">100000 = $1,000</p>
               </div>
               <div className="grid gap-2">
                 <Label>Tax (cents)</Label>

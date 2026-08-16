@@ -158,9 +158,9 @@ export default function ProgramsPage() {
     } catch (error) { console.error('Failed to delete program:', error); }
   };
 
-  const formatCurrency = (cents: number, currency: string = 'INR') => {
-    const symbol = currency === 'INR' ? '\u20B9' : currency === 'USD' ? '$' : currency === 'EUR' ? '\u20AC' : currency;
-    return `${symbol}${(cents / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
+  const formatCurrency = (cents: number, currency: string = 'USD') => {
+    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '\u20AC' : currency === 'GBP' ? '\u00A3' : currency === 'INR' ? '\u20B9' : '$';
+    return `${symbol}${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
   };
 
   const stats = {
@@ -354,10 +354,10 @@ export default function ProgramsPage() {
                 <Select value={form.currency} onValueChange={v => setForm({...form, currency: v})}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="INR">INR (\u20B9)</SelectItem>
                     <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (\u20AC)</SelectItem>
-                    <SelectItem value="GBP">GBP (\u00A3)</SelectItem>
+                    <SelectItem value="EUR">EUR (€)</SelectItem>
+                    <SelectItem value="GBP">GBP (£)</SelectItem>
+                    <SelectItem value="INR">INR (₹)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -191,7 +191,7 @@ model ProgramSettings {
   productName               String   @map("product_name")
   programName               String   @map("program_name")
   websiteUrl                String   @map("website_url")
-  currency                  String   @default("INR")
+  currency                  String   @default("USD")
   blockedCountries          Json     @default("[]") @map("blocked_countries")
   portalSubdomain           String   @map("portal_subdomain")
   termsOfService            String?  @map("terms_of_service")
@@ -551,7 +551,7 @@ model Coupon {
   description     String?
   discountType    String       @default("PERCENTAGE") @map("discount_type") // PERCENTAGE | FIXED
   discountValue   Float        @map("discount_value") // e.g. 20 = 20% or 20 = $20
-  currency        String       @default("INR")
+  currency        String       @default("USD")
   maxUses         Int?         @map("max_uses")
   usedCount       Int          @default(0) @map("used_count")
   affiliateId     String?      @map("affiliate_id") // null = program-wide
@@ -604,7 +604,7 @@ model Invoice {
   amountCents   Int           @map("amount_cents")
   taxCents      Int           @default(0) @map("tax_cents")
   totalCents    Int           @map("total_cents")
-  currency      String        @default("INR")
+  currency      String        @default("USD")
   status        InvoiceStatus @default(DRAFT)
   lineItems     Json          @default("[]") @map("line_items") // [{description, qty, unitPrice, total}]
   billingInfo   Json          @default("{}") @map("billing_info") // name, address, tax id
@@ -640,11 +640,11 @@ model Program {
   commissionRate    Float    @default(20) @map("commission_rate")
   commissionType    String   @default("PERCENTAGE") @map("commission_type")
   cookieDuration    Int      @default(30) @map("cookie_duration") // days
-  currency          String   @default("INR")
+  currency          String   @default("USD")
   isActive          Boolean  @default(true) @map("is_active")
   isDefault         Boolean  @default(false) @map("is_default")
   autoApprove       Boolean  @default(false) @map("auto_approve")
-  minPayoutCents    Int      @default(100000) @map("min_payout_cents") // 1000 INR
+  minPayoutCents    Int      @default(100000) @map("min_payout_cents") // $1,000
   payoutFrequency   String   @default("MONTHLY") @map("payout_frequency")
   termsUrl          String?  @map("terms_url")
   logoUrl           String?  @map("logo_url")

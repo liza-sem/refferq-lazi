@@ -1,5 +1,8 @@
 import { prisma } from './prisma';
 
+export const DEFAULT_CURRENCY = 'USD';
+export const DEFAULT_CURRENCY_SYMBOL = '$';
+
 const CURRENCY_SYMBOLS: Record<string, string> = {
     'USD': '$',
     'EUR': '€',
@@ -10,20 +13,24 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
     'AUD': 'A$',
 };
 
+export function symbolForCurrency(currency?: string | null): string {
+    const code = (currency || DEFAULT_CURRENCY).toUpperCase();
+    return CURRENCY_SYMBOLS[code] || DEFAULT_CURRENCY_SYMBOL;
+}
+
 export async function getCurrencySymbol(): Promise<string> {
     try {
         const settings = await prisma.programSettings.findFirst();
-        const currency = settings?.currency || 'USD';
-        return CURRENCY_SYMBOLS[currency] || currency;
+        return symbolForCurrency(settings?.currency);
     } catch (error) {
         console.error('Failed to fetch currency symbol:', error);
-        return '$';
+        return DEFAULT_CURRENCY_SYMBOL;
     }
 }
 
-export function formatCurrency(cents: number, symbol: string): string {
+export function formatCurrency(cents: number, symbol: string = DEFAULT_CURRENCY_SYMBOL): string {
     const amount = cents / 100;
-    return `${symbol}${amount.toLocaleString(undefined, {
+    return `${symbol}${amount.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     })}`;
