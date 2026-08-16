@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getRequestUserId } from '@/lib/request-user';
 
 /**
  * GET /api/admin/profile - Get admin profile
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')!;
+    const userId = await getRequestUserId(request);
     
     // Get user from database
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });
@@ -49,9 +53,12 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')!;
+    const userId = await getRequestUserId(request);
     
     // Get user from database
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });

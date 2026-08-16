@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getRequestUserId } from '@/lib/request-user';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')!;
+    const userId = await getRequestUserId(request);
 
-    // Get user from database to ensure they still exist and get latest data
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      );
+    }
 
-    // Get user from database to ensure they still exist and get latest data
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {

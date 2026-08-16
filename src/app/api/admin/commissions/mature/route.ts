@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { logAuditAction } from '@/lib/audit';
+import { getRequestUserId } from '@/lib/request-user';
 
 /**
  * POST /api/admin/commissions/mature
@@ -16,8 +17,11 @@ export async function POST(request: NextRequest) {
     try {
         // Auth check — must be admin or cron secret
         const cronSecret = request.headers.get('x-cron-secret');
-        const userId = request.headers.get('x-user-id');
+        const userId = await getRequestUserId(request);
 
+        if (!userId) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         let isAuthorized = false;
 
         // Method 1: Cron secret

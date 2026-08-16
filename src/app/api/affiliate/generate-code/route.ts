@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { getRequestUserId } from '@/lib/request-user';
 
 function generateReferralCode(name: string): string {
   const cleanName = name.replace(/[^a-zA-Z]/g, '').toUpperCase();
@@ -13,9 +14,12 @@ function generateReferralCode(name: string): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')!;
+    const userId = await getRequestUserId(request);
     
     // Get user from database
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {

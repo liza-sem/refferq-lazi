@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { emailService } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
+import { getRequestUserId } from '@/lib/request-user';
 
 
 // Only allow in development, or require admin auth in production
 async function requireAdminOrDev(request: NextRequest): Promise<{ error?: string; status?: number }> {
   try {
     // Block entirely in production unless authenticated as admin
-    const userId = request.headers.get('x-user-id')!;
+    const userId = await getRequestUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { getRequestUserId } from '@/lib/request-user';
 
 
 // Update affiliate status
@@ -10,8 +11,11 @@ export async function PATCH(
 ) {
   try {
     const params = await context.params;
-    const userId = request.headers.get('x-user-id')!;
+    const userId = await getRequestUserId(request);
     
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });
@@ -105,8 +109,11 @@ export async function DELETE(
 ) {
   try {
     const params = await context.params;
-    const userId = request.headers.get('x-user-id')!;
+    const userId = await getRequestUserId(request);
     
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });
