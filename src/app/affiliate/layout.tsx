@@ -192,7 +192,10 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
 
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
   const [brand, setBrand] = useState<BrandSettings>({});
+  const isOnboarding = pathname === '/affiliate/onboarding';
 
   useEffect(() => {
     fetch('/api/affiliate/branding')
@@ -202,6 +205,13 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (loading || !user?.hasAffiliate) return;
+    if (!user.onboardingComplete && !isOnboarding) {
+      router.replace('/affiliate/onboarding');
+    }
+  }, [loading, user, isOnboarding, router]);
 
   if (loading) {
     return (
@@ -215,6 +225,10 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
         </div>
       </div>
     );
+  }
+
+  if (isOnboarding && user?.hasAffiliate) {
+    return <>{children}</>;
   }
 
   if (!user || !user.hasAffiliate) {

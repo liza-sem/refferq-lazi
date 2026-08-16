@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, password } = data;
+    const { name, email, password, paypalEmail, company } = data;
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -136,7 +136,11 @@ export async function POST(request: NextRequest) {
         userId: newUser.id,
         referralCode: `AF${Date.now()}${(await import('crypto')).randomBytes(3).toString('hex').toUpperCase().slice(0, 4)}`,
         balanceCents: 0,
-        payoutDetails: {}
+        payoutDetails: {
+          paymentMethod: 'PayPal',
+          ...(paypalEmail ? { paymentEmail: paypalEmail.trim().toLowerCase() } : {}),
+          ...(company ? { company } : {}),
+        }
       }
     });
 

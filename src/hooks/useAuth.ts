@@ -10,6 +10,7 @@ interface User {
   role: string;
   hasAffiliate: boolean;
   profilePicture?: string;
+  onboardingComplete?: boolean;
 }
 
 interface AuthState {

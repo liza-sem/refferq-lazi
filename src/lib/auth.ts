@@ -51,7 +51,8 @@ class AuthService {
 
       // Determine initial status based on role
       const userRoleLower = data.role.toLowerCase();
-      const initialStatus = userRoleLower === 'admin' ? 'ACTIVE' : 'PENDING';
+      // Affiliates can log in immediately; the portal stays locked until PayPal onboarding.
+      const initialStatus = 'ACTIVE';
 
       // Create user using prisma client directly or db service
       // We'll use prisma client here since we've already hashed the password

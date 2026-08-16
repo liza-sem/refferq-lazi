@@ -630,29 +630,16 @@ export default function PartnersPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Payout Method</Label>
-                  <Select
-                    value={newPartner.payoutMethod}
-                    onValueChange={(value: string) => setNewPartner({ ...newPartner, payoutMethod: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PayPal">PayPal</SelectItem>
-                      <SelectItem value="Wise">Wise</SelectItem>
-                      <SelectItem value="Bank">Bank Transfer</SelectItem>
-                      <SelectItem value="Crypto">Crypto</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input value="PayPal" readOnly />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="paypalEmail">PayPal Email (Optional)</Label>
+                <Label htmlFor="paypalEmail">PayPal Email</Label>
                 <Input
                   id="paypalEmail"
                   type="email"
                   value={newPartner.paypalEmail}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPartner({ ...newPartner, paypalEmail: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPartner({ ...newPartner, paypalEmail: e.target.value, payoutMethod: 'PayPal' })}
                   placeholder="defaults to partner email"
                 />
               </div>

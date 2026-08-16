@@ -84,6 +84,8 @@ export default function LoginPage() {
         const user = data.user;
         if (user.role === 'ADMIN') {
           router.push('/admin');
+        } else if (!user.onboardingComplete) {
+          router.push('/affiliate/onboarding');
         } else {
           router.push('/affiliate');
         }

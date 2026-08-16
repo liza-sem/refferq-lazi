@@ -258,27 +258,16 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Payment Method</Label>
-              <Select
-                value={settingsForm.paymentMethod}
-                onValueChange={(v) => setSettingsForm({ ...settingsForm, paymentMethod: v })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PayPal">PayPal</SelectItem>
-                  <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="Stripe">Stripe</SelectItem>
-                  <SelectItem value="Wise">Wise</SelectItem>
-                  <SelectItem value="Wire Transfer">Wire Transfer</SelectItem>
-                  <SelectItem value="UPI">UPI</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value="PayPal" readOnly />
             </div>
             <div className="space-y-2">
-              <Label>Payment Email / Account</Label>
+              <Label>PayPal email</Label>
               <Input
+                type="email"
                 value={settingsForm.paymentEmail}
-                onChange={(e) => setSettingsForm({ ...settingsForm, paymentEmail: e.target.value })}
-                placeholder="payment@example.com"
+                onChange={(e) => setSettingsForm({ ...settingsForm, paymentEmail: e.target.value, paymentMethod: 'PayPal' })}
+                placeholder="you@paypal.com"
+                required
               />
             </div>
           </div>

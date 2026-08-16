@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Slug already exists' }, { status: 400 });
     }
 
+    const existingCount = await prisma.program.count();
+
     const program = await prisma.program.create({
       data: {
         name,
@@ -57,13 +59,14 @@ export async function POST(request: NextRequest) {
         commissionRate: commissionRate || 20,
         commissionType: commissionType || 'PERCENTAGE',
         cookieDuration: cookieDuration || 30,
-        currency: currency || 'INR',
+        currency: currency || 'USD',
         autoApprove: autoApprove || false,
         minPayoutCents: minPayoutCents || 100000,
         payoutFrequency: payoutFrequency || 'MONTHLY',
         termsUrl: termsUrl || null,
         logoUrl: logoUrl || null,
         brandColor: brandColor || '#10b981',
+        isDefault: existingCount === 0,
       },
     });
 
@@ -87,16 +90,48 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Program ID required' }, { status: 400 });
     }
 
-    // Only allow specific fields (prevent mass assignment)
-    const allowedFields = ['name', 'description', 'commissionType', 'commissionValue', 'cookieDuration', 'isActive', 'terms'];
-    const updates: Record<string, any> = {};
+    const allowedFields = [
+      'name',
+      'slug',
+      'description',
+      'commissionRate',
+      'commissionType',
+      'cookieDuration',
+      'currency',
+      'isActive',
+      'isDefault',
+      'autoApprove',
+      'minPayoutCents',
+      'payoutFrequency',
+      'termsUrl',
+      'logoUrl',
+      'brandColor',
+    ];
+    const updates: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (key in body && body[key] !== undefined) updates[key] = body[key];
     }
 
-    const program = await prisma.program.update({
-      where: { id },
-      data: updates,
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    if (updates.slug && typeof updates.slug === 'string') {
+      updates.slug = updates.slug.toLowerCase();
+    }
+
+    const program = await prisma.$transaction(async (tx) => {
+      if (updates.isDefault === true) {
+        await tx.program.updateMany({
+          where: { id: { not: id } },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.program.update({
+        where: { id },
+        data: updates,
+      });
     });
 
     return NextResponse.json({ success: true, program });

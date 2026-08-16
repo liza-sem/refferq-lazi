@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { otpService } from '@/lib/otp';
 import { SignJWT } from 'jose';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { isPaypalOnboardingComplete } from '@/lib/onboarding';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET!
@@ -62,7 +63,8 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name,
         role: user.role,
-        hasAffiliate: !!user.affiliate
+        hasAffiliate: !!user.affiliate,
+        onboardingComplete: user.role !== 'AFFILIATE' || isPaypalOnboardingComplete(user.affiliate?.payoutDetails),
       }
     });
 

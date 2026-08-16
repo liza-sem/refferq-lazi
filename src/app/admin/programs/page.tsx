@@ -45,7 +45,7 @@ interface Program {
 
 const emptyForm = {
   name: '', slug: '', description: '', commissionRate: '20', commissionType: 'PERCENTAGE',
-  cookieDuration: '30', currency: 'INR', autoApprove: false, minPayoutCents: '100000',
+  cookieDuration: '30', currency: 'USD', autoApprove: false, minPayoutCents: '100000',
   payoutFrequency: 'MONTHLY', termsUrl: '', logoUrl: '', brandColor: '#6366f1',
 };
 
@@ -136,12 +136,16 @@ export default function ProgramsPage() {
 
   const setDefault = async (id: string) => {
     try {
-      await fetch('/api/admin/programs', {
+      const res = await fetch('/api/admin/programs', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, isDefault: true }),
       });
-      // Unset all others locally — API should handle this too
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || 'Failed to set default program');
+        return;
+      }
       await fetchPrograms();
     } catch (error) { console.error('Failed to set default:', error); }
   };

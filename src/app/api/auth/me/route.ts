@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { isPaypalOnboardingComplete } from '@/lib/onboarding';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
         role: user.role,
         hasAffiliate: !!user.affiliate,
         profilePicture: user.profilePicture,
+        onboardingComplete: user.role !== 'AFFILIATE' || isPaypalOnboardingComplete(user.affiliate?.payoutDetails),
       }
     });
 

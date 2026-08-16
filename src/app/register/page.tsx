@@ -107,7 +107,7 @@ export default function RegisterPage() {
           if (user.role === 'ADMIN') {
             router.push('/admin');
           } else {
-            router.push('/affiliate');
+            router.push('/affiliate/onboarding');
           }
         }, 2000);
       } else {
@@ -322,7 +322,7 @@ export default function RegisterPage() {
                 <div>
                   <h3 className="text-lg font-semibold">Welcome aboard, {name}!</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Your account has been created. Redirecting to your dashboard...
+                    Next: add your PayPal email so we can pay you.
                   </p>
                 </div>
                 <div className="flex justify-center">

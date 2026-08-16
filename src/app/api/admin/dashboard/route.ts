@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { getCurrencySymbol } from '@/lib/currency';
 
 
 export async function GET(request: NextRequest) {
@@ -93,7 +94,9 @@ export async function GET(request: NextRequest) {
       totalEstimatedCommission, // Total commission to be paid
     };
 
-    return NextResponse.json({ success: true, stats });
+    const currencySymbol = await getCurrencySymbol();
+
+    return NextResponse.json({ success: true, stats, currencySymbol });
 
   } catch (error) {
     console.error('Admin dashboard API error:', error);

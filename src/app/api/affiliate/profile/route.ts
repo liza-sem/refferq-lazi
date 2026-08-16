@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { isValidPaypalEmail } from '@/lib/onboarding';
 
 export async function GET(request: NextRequest) {
   try {
@@ -158,7 +159,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, company, email, country, paymentMethod, paymentEmail } = body;
+    const { name, company, email, country, paymentEmail } = body;
 
     // Update user name and email if provided
     const userUpdateData: any = {};
@@ -186,19 +187,27 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Update affiliate payout details if provided
     if (user.affiliate) {
-      const payoutDetails: any = {};
+      const existing = (user.affiliate.payoutDetails as Record<string, unknown>) || {};
+      const paypalEmail = typeof paymentEmail === 'string' ? paymentEmail.trim().toLowerCase() : '';
 
-      if (company) payoutDetails.company = company.trim();
-      if (country) payoutDetails.country = country;
-      if (paymentMethod) payoutDetails.paymentMethod = paymentMethod;
-      if (paymentEmail) payoutDetails.paymentEmail = paymentEmail.trim();
+      if (paypalEmail && !isValidPaypalEmail(paypalEmail)) {
+        return NextResponse.json(
+          { error: 'Enter a valid PayPal email address' },
+          { status: 400 }
+        );
+      }
 
       await prisma.affiliate.update({
         where: { id: user.affiliate.id },
         data: {
-          payoutDetails: payoutDetails
+          payoutDetails: {
+            ...existing,
+            ...(company !== undefined ? { company: String(company).trim() } : {}),
+            ...(country !== undefined ? { country } : {}),
+            paymentMethod: 'PayPal',
+            ...(paypalEmail ? { paymentEmail: paypalEmail } : {}),
+          }
         }
       });
     }
