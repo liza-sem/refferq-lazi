@@ -78,7 +78,7 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
   const brandName = brand.companyName || brand.programName || 'LAZI';
 
   return (
-    <Sidebar variant="inset">
+    <Sidebar>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -86,7 +86,7 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
               {brand.companyLogo ? (
                 <img src={brand.companyLogo} alt={brandName} className="h-10 w-10 rounded-xl object-contain" />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg text-white border border-foreground" style={{ backgroundColor: accentColor }}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg text-white" style={{ backgroundColor: accentColor }}>
                   <span className="text-lg font-bold">{brandName.charAt(0)}</span>
                 </div>
               )}
@@ -263,7 +263,7 @@ function AffiliateShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AffiliateSidebar brand={brand} />
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-14 shrink-0 items-center gap-2 px-6">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="flex flex-1 items-center justify-between">
@@ -277,7 +277,7 @@ function AffiliateShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto px-8 py-8">
           {children}
         </main>
       </SidebarInset>

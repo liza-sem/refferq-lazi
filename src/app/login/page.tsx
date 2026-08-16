@@ -128,7 +128,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo & Branding */}
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary border border-foreground">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary">
             <Target className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-medium tracking-tight">LAZI</h1>

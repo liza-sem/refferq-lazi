@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -14,29 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-  TrendingUp,
-  CircleDollarSign,
-  Users,
-  Target,
-  Clock,
-  BarChart3,
-  ArrowRight,
-  ArrowUpRight,
-  Wallet,
-  UserCheck,
-  CreditCard,
-  Activity,
-  Eye,
-} from 'lucide-react';
+import { Users, UserCheck } from 'lucide-react';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -139,321 +116,208 @@ export default function AdminDashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  const statCards = [
-    {
-      title: 'Estimated Revenue',
-      value: `${currencySymbol}${stats ? (stats.totalEstimatedRevenue / 100).toFixed(2) : '0.00'}`,
-      icon: CircleDollarSign,
-      description: 'Total projected value',
-      trend: '+12%',
-      trendUp: true,
-      color: 'text-blue-600',
-      bg: 'bg-blue-500/10',
-    },
-    {
-      title: 'Confirmed Revenue',
-      value: `${currencySymbol}${stats ? (stats.totalRevenue / 100).toFixed(2) : '0.00'}`,
-      icon: TrendingUp,
-      description: 'Approved transactions',
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-500/10',
-    },
-    {
-      title: 'Commission Owed',
-      value: `${currencySymbol}${stats ? (stats.totalEstimatedCommission / 100).toFixed(2) : '0.00'}`,
-      icon: Wallet,
-      description: 'Pending payouts',
-      color: 'text-amber-600',
-      bg: 'bg-amber-500/10',
-    },
-    {
-      title: 'Total Partners',
-      value: stats?.totalAffiliates || 0,
-      icon: Users,
-      description: 'Active affiliates',
-      trend: '+5',
-      trendUp: true,
-      color: 'text-violet-600',
-      bg: 'bg-violet-500/10',
-    },
-  ];
-
   const conversionRate = stats && stats.totalLeads > 0
     ? ((stats.totalReferredCustomers / stats.totalLeads) * 100).toFixed(1)
     : '0.0';
 
-  const quickActions = [
+  const metrics = [
+    {
+      title: 'Estimated revenue',
+      value: `${currencySymbol}${stats ? (stats.totalEstimatedRevenue / 100).toFixed(2) : '0.00'}`,
+      hint: 'Projected value',
+    },
+    {
+      title: 'Confirmed revenue',
+      value: `${currencySymbol}${stats ? (stats.totalRevenue / 100).toFixed(2) : '0.00'}`,
+      hint: 'Approved transactions',
+    },
+    {
+      title: 'Commission owed',
+      value: `${currencySymbol}${stats ? (stats.totalEstimatedCommission / 100).toFixed(2) : '0.00'}`,
+      hint: 'Pending payouts',
+    },
     {
       title: 'Partners',
-      description: 'Manage affiliates',
-      icon: Users,
-      href: '/admin/partners',
-      color: 'text-blue-600',
-      bg: 'bg-blue-500/10',
-    },
-    {
-      title: 'Customers',
-      description: 'View referrals',
-      icon: UserCheck,
-      href: '/admin/customers',
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-500/10',
-    },
-    {
-      title: 'Payouts',
-      description: 'Process payments',
-      icon: CreditCard,
-      href: '/admin/payouts',
-      color: 'text-amber-600',
-      bg: 'bg-amber-500/10',
-    },
-    {
-      title: 'Reports',
-      description: 'Analytics & insights',
-      icon: BarChart3,
-      href: '/admin/reports',
-      color: 'text-violet-600',
-      bg: 'bg-violet-500/10',
+      value: String(stats?.totalAffiliates || 0),
+      hint: 'Active affiliates',
     },
   ];
 
   return (
-    <TooltipProvider>
-      <div className="space-y-6">
-        {/* Page Header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of your affiliate program performance
-          </p>
-        </div>
+    <div className="space-y-12">
+      <div>
+        <h1 className="text-2xl tracking-tight">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Program performance at a glance
+        </p>
+      </div>
 
-        {/* Primary Stat Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {statCards.map((stat) => (
-            <Card key={stat.title} className="relative overflow-hidden">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.bg}`}>
-                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <span className="text-2xl font-bold tracking-tight">{stat.value}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{stat.description}</span>
-                  {stat.trend && (
-                    <Badge variant="secondary" className="h-5 gap-0.5 px-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border-0">
-                      <ArrowUpRight className="h-3 w-3" />
-                      {stat.trend}
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="grid gap-10 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.title}>
+            <p className="text-sm text-muted-foreground">{metric.title}</p>
+            <p className="mt-2 text-3xl font-medium tracking-tight">{metric.value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{metric.hint}</p>
+          </div>
+        ))}
+      </div>
 
-        {/* Activity Overview Row */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
-                  <Clock className="h-5 w-5 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-2xl font-bold">{stats?.pendingReferrals || 0}</p>
-                  <p className="text-sm text-muted-foreground">Pending Leads</p>
-                </div>
-                {(stats?.pendingReferrals || 0) > 0 && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/admin/customers')}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Review pending</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10">
-                  <Activity className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-2xl font-bold">{stats?.totalLeads || 0}</p>
-                  <p className="text-sm text-muted-foreground">Total Leads</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10">
-                  <Target className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-2xl font-bold">{stats?.totalReferredCustomers || 0}</p>
-                  <p className="text-sm text-muted-foreground">Conversions</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-medium text-muted-foreground">Rate</p>
-                  <p className="text-sm font-bold text-emerald-600">{conversionRate}%</p>
-                </div>
-              </div>
-              <Progress
-                value={parseFloat(conversionRate)}
-                className="mt-3 h-1.5 [&>div]:bg-emerald-500"
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {quickActions.map((action) => (
-            <Card
-              key={action.title}
-              className="group cursor-pointer transition-colors hover:border-foreground"
-              onClick={() => router.push(action.href)}
-            >
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${action.bg}`}>
-                  <action.icon className={`h-5 w-5 ${action.color}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">{action.title}</p>
-                  <p className="text-xs text-muted-foreground">{action.description}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Data Tables */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Top Partners */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <div>
-                <CardTitle className="text-base font-semibold">Top Partners</CardTitle>
-                <CardDescription>Best performing affiliates</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push('/admin/partners')}>
-                View all
-                <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
-            </CardHeader>
-            <Separator />
-            <CardContent className="pt-4">
-              {topAffiliates.length > 0 ? (
-                <div className="space-y-1">
-                  {topAffiliates.map((affiliate: any, index: number) => (
-                    <div
-                      key={affiliate.id}
-                      className="flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-muted/50 cursor-pointer"
-                      onClick={() => router.push(`/admin/partners/${affiliate.id}`)}
-                    >
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                        {index + 1}
-                      </span>
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                          {affiliate.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{affiliate.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{affiliate.referralCode}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold">{currencySymbol}{(affiliate.totalRevenue / 100).toFixed(2)}</p>
-                        <p className="text-[11px] text-muted-foreground">{affiliate.totalReferrals} referrals</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={Users}
-                  title="No partners yet"
-                  description="Partners will appear here once they join"
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Customers */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <div>
-                <CardTitle className="text-base font-semibold">Recent Customers</CardTitle>
-                <CardDescription>Latest referred customers</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push('/admin/customers')}>
-                View all
-                <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
-            </CardHeader>
-            <Separator />
-            <CardContent className="pt-4">
-              {recentCustomers.length > 0 ? (
-                <div className="space-y-1">
-                  {recentCustomers.slice(0, 5).map((customer) => (
-                    <div
-                      key={customer.id}
-                      className="flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-muted/50"
-                    >
-                      <p className="text-[11px] text-muted-foreground w-12 shrink-0 text-center">
-                        {new Date(customer.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </p>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{customer.leadEmail}</p>
-                        <p className="text-xs text-muted-foreground">via {customer.affiliateName}</p>
-                      </div>
-                      <StatusBadge status={customer.status} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={UserCheck}
-                  title="No customers yet"
-                  description="Referred customers will appear here"
-                />
-              )}
-            </CardContent>
-          </Card>
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
+        <ActivityItem
+          label="Pending"
+          value={stats?.pendingReferrals || 0}
+          tone="pending"
+          onClick={() => router.push('/admin/customers')}
+        />
+        <ActivityItem label="Leads" value={stats?.totalLeads || 0} tone="info" />
+        <ActivityItem
+          label="Conversions"
+          value={stats?.totalReferredCustomers || 0}
+          tone="success"
+          extra={`${conversionRate}%`}
+        />
+        <div className="ml-auto flex flex-wrap gap-5 text-sm text-muted-foreground">
+          <button type="button" className="hover:text-foreground" onClick={() => router.push('/admin/partners')}>
+            Partners
+          </button>
+          <button type="button" className="hover:text-foreground" onClick={() => router.push('/admin/customers')}>
+            Customers
+          </button>
+          <button type="button" className="hover:text-foreground" onClick={() => router.push('/admin/payouts')}>
+            Payouts
+          </button>
+          <button type="button" className="hover:text-foreground" onClick={() => router.push('/admin/reports')}>
+            Reports
+          </button>
         </div>
       </div>
-    </TooltipProvider>
+
+      <div className="grid gap-10 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle className="text-base">Top partners</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => router.push('/admin/partners')}>
+              View all
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {topAffiliates.length > 0 ? (
+              <div className="divide-y divide-border">
+                {topAffiliates.map((affiliate) => (
+                  <button
+                    key={affiliate.id}
+                    type="button"
+                    className="flex w-full items-center gap-3 py-3 text-left hover:bg-muted/40 -mx-2 px-2 rounded-md"
+                    onClick={() => router.push(`/admin/partners/${affiliate.id}`)}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-secondary text-xs">
+                        {affiliate.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm">{affiliate.name}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{affiliate.referralCode}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm">{currencySymbol}{(affiliate.totalRevenue / 100).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">{affiliate.totalReferrals} referrals</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Users}
+                title="No partners yet"
+                description="Partners will appear here once they join"
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle className="text-base">Recent customers</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => router.push('/admin/customers')}>
+              View all
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {recentCustomers.length > 0 ? (
+              <div className="divide-y divide-border">
+                {recentCustomers.slice(0, 5).map((customer) => (
+                  <div key={customer.id} className="flex items-center gap-3 py-3">
+                    <p className="w-12 shrink-0 text-xs text-muted-foreground">
+                      {new Date(customer.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm">{customer.leadEmail}</p>
+                      <p className="text-xs text-muted-foreground">via {customer.affiliateName}</p>
+                    </div>
+                    <StatusBadge status={customer.status} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={UserCheck}
+                title="No customers yet"
+                description="Referred customers will appear here"
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
+function ActivityItem({
+  label,
+  value,
+  tone,
+  extra,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  tone: 'pending' | 'success' | 'info';
+  extra?: string;
+  onClick?: () => void;
+}) {
+  const inner = (
+    <>
+      <span className="font-medium tabular-nums">{value}</span>
+      <Badge variant={tone}>{label}</Badge>
+      {extra && <span className="text-xs text-muted-foreground">{extra}</span>}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" className="flex items-center gap-2 hover:opacity-80" onClick={onClick}>
+        {inner}
+      </button>
+    );
+  }
+
+  return <div className="flex items-center gap-2">{inner}</div>;
+}
+
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { variant: 'default' | 'secondary' | 'destructive'; label: string }> = {
-    APPROVED: { variant: 'default', label: 'Approved' },
-    PENDING: { variant: 'secondary', label: 'Pending' },
+  const config: Record<string, { variant: 'success' | 'pending' | 'destructive'; label: string }> = {
+    APPROVED: { variant: 'success', label: 'Approved' },
+    PENDING: { variant: 'pending', label: 'Pending' },
     REJECTED: { variant: 'destructive', label: 'Rejected' },
   };
-  const { variant, label } = config[status] || { variant: 'secondary' as const, label: status };
+  const { variant, label } = config[status] || { variant: 'pending' as const, label: status };
 
   return (
-    <Badge variant={variant} className="text-[10px] font-medium px-2 py-0.5">
+    <Badge variant={variant} className="text-[10px] px-2 py-0.5">
       {label}
     </Badge>
   );
@@ -461,11 +325,9 @@ function StatusBadge({ status }: { status: string }) {
 
 function EmptyState({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
-        <Icon className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <p className="mt-3 text-sm font-medium text-muted-foreground">{title}</p>
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Icon className="h-5 w-5 text-muted-foreground/50" />
+      <p className="mt-3 text-sm text-muted-foreground">{title}</p>
       <p className="mt-1 text-xs text-muted-foreground/70">{description}</p>
     </div>
   );
@@ -473,44 +335,25 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-12">
       <div>
-        <Skeleton className="h-7 w-36 mb-1" />
+        <Skeleton className="mb-1 h-7 w-36" />
         <Skeleton className="h-4 w-64" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-10 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-9 w-9 rounded-lg" />
-              </div>
-              <Skeleton className="h-8 w-32 mt-2" />
-              <Skeleton className="h-3 w-20 mt-2" />
-            </CardContent>
-          </Card>
+          <div key={i}>
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="mt-2 h-8 w-32" />
+            <Skeleton className="mt-2 h-3 w-20" />
+          </div>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="flex items-center gap-4 p-5">
-              <Skeleton className="h-12 w-12 rounded-xl" />
-              <div>
-                <Skeleton className="h-7 w-16 mb-1" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-10 lg:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
           <Card key={i}>
             <CardHeader>
               <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-3 w-48" />
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -518,7 +361,7 @@ function DashboardSkeleton() {
                   <div key={j} className="flex items-center gap-3">
                     <Skeleton className="h-8 w-8 rounded-full" />
                     <div className="flex-1">
-                      <Skeleton className="h-4 w-32 mb-1" />
+                      <Skeleton className="mb-1 h-4 w-32" />
                       <Skeleton className="h-3 w-20" />
                     </div>
                     <Skeleton className="h-4 w-16" />

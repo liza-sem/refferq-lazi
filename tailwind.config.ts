@@ -71,6 +71,18 @@ const config: Config = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			status: {
+  				sage: 'hsl(var(--status-sage))',
+  				'sage-bg': 'hsl(var(--status-sage-bg))',
+  				sand: 'hsl(var(--status-sand))',
+  				'sand-bg': 'hsl(var(--status-sand-bg))',
+  				clay: 'hsl(var(--status-clay))',
+  				'clay-bg': 'hsl(var(--status-clay-bg))',
+  				mist: 'hsl(var(--status-mist))',
+  				'mist-bg': 'hsl(var(--status-mist-bg))',
+  				rose: 'hsl(var(--status-rose))',
+  				'rose-bg': 'hsl(var(--status-rose-bg))'
   			}
   		},
   		borderRadius: {

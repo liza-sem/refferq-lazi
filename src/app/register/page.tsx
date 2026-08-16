@@ -159,7 +159,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary border border-foreground">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary">
             <Target className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-medium tracking-tight">LAZI</h1>
@@ -357,7 +357,7 @@ export default function RegisterPage() {
           {step === 'success' && (
             <CardContent className="py-12">
               <div className="text-center space-y-4">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg bg-secondary border border-border">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg bg-secondary">
                   <CheckCircle2 className="h-8 w-8 text-foreground" />
                 </div>
                 <div>
