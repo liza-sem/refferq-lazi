@@ -268,7 +268,19 @@ export async function DELETE(
       );
     }
 
-    // Delete the referral (will cascade delete related commissions due to Prisma schema)
+    const conversions = await prisma.conversion.findMany({
+      where: { referralId: params.id },
+      select: { id: true },
+    });
+    if (conversions.length) {
+      await prisma.commission.deleteMany({
+        where: { conversionId: { in: conversions.map((c) => c.id) } },
+      });
+      await prisma.conversion.deleteMany({
+        where: { id: { in: conversions.map((c) => c.id) } },
+      });
+    }
+
     await prisma.referral.delete({
       where: { id: params.id }
     });
