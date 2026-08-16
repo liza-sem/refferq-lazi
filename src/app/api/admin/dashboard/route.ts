@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       where: { NOT: clickPlaceholder },
     });
     const totalConversions = await prisma.conversion.count();
+    const totalClicks = await prisma.referralClick.count();
     
     const pendingReferrals = await prisma.referral.count({
       where: { status: 'PENDING', NOT: clickPlaceholder },
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest) {
       totalUsers,
       totalReferrals,
       totalConversions,
+      totalClicks,
       pendingReferrals,
       approvedReferrals,
       totalRevenue: totalRevenue._sum?.amountCents || 0, // Actual transaction revenue

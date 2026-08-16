@@ -63,9 +63,7 @@ export async function checkFraud({
         where: {
             ipAddress,
             createdAt: { gte: oneDayAgo },
-            referral: {
-                affiliateId,
-            },
+            affiliateId,
         },
     });
 

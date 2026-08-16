@@ -47,21 +47,23 @@ export async function POST(req: NextRequest) {
       return trackJson({ success: false, error: 'Affiliate is not active' }, 403);
     }
 
-    // Log the referral click
-    console.log('✅ Referral click tracked:', {
+    const { recordClick, clientIp } = await import('@/lib/record-click');
+    const result = await recordClick({
       affiliateId: affiliate.id,
-      referralCode,
-      url,
-      referrer,
-      timestamp,
+      ipAddress: clientIp(req),
+      userAgent: userAgent || req.headers.get('user-agent'),
+      referer: referrer || req.headers.get('referer'),
+      metadata: {
+        source: 'tracker',
+        url,
+        timestamp,
+      },
     });
-
-    // You can optionally create a ReferralClick record or update stats
-    // For now, we'll just log it and return success
 
     return trackJson({
       success: true,
-      message: 'Referral tracked successfully',
+      duplicate: result.duplicate,
+      message: result.duplicate ? 'Referral already counted' : 'Referral tracked successfully',
       affiliate: {
         name: affiliate.user.name,
         code: affiliate.referralCode,

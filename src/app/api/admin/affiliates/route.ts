@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
         },
         _count: {
           select: {
-            referrals: true
+            referrals: true,
+            clicks: true,
           }
         }
       },
@@ -53,8 +54,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      affiliates,
-      currencySymbol, // Add currency symbol to response
+      affiliates: affiliates.map((affiliate) => ({
+        ...affiliate,
+        name: affiliate.user.name,
+        email: affiliate.user.email,
+        status: affiliate.user.status,
+        totalClicks: affiliate._count.clicks,
+        totalLeads: affiliate._count.referrals,
+      })),
+      currencySymbol,
     });
   } catch (error) {
     console.error('Get affiliates API error:', error);

@@ -85,52 +85,23 @@ export async function GET(
     // Generate attribution key
     const attributionKey = `attr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Reuse one pending click placeholder per affiliate so a later purchase
-    // can be merged onto the same lead instead of creating a second row.
-    let referral = await prisma.referral.findFirst({
-      where: {
-        affiliateId: affiliate.id,
-        status: 'PENDING',
-        leadEmail: { endsWith: '@tracking.internal' },
+    const { recordClick } = await import('@/lib/record-click');
+    await recordClick({
+      affiliateId: affiliate.id,
+      ipAddress: cleanIP,
+      userAgent,
+      referer,
+      metadata: {
+        source: 'redirect',
+        attribution_key: attributionKey,
+        target_url: targetUrl,
+        is_deep_link: !!searchParams.get('dest'),
+        fraud_check: {
+          is_suspicious: fraudResult.isSuspicious,
+          risk_score: fraudResult.riskScore,
+          reasons: fraudResult.reasons,
+        },
       },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!referral) {
-      referral = await prisma.referral.create({
-        data: {
-          affiliateId: affiliate.id,
-          leadName: 'Click Visitor',
-          leadEmail: `click-${attributionKey}@tracking.internal`,
-          status: 'PENDING',
-          metadata: {
-            source: 'referral_link',
-            attribution_key: attributionKey,
-            target_url: targetUrl,
-            params: Object.fromEntries(searchParams.entries()),
-          }
-        }
-      });
-    }
-
-    // Track the click in ReferralClick table (always track, even if suspicious)
-    await prisma.referralClick.create({
-      data: {
-        referralId: referral.id,
-        ipAddress: cleanIP,
-        userAgent: userAgent,
-        referer: referer,
-        metadata: {
-          attribution_key: attributionKey,
-          target_url: targetUrl,
-          is_deep_link: !!searchParams.get('dest'),
-          fraud_check: {
-            is_suspicious: fraudResult.isSuspicious,
-            risk_score: fraudResult.riskScore,
-            reasons: fraudResult.reasons,
-          },
-        }
-      }
     });
 
     // Create redirect response with attribution cookie

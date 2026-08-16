@@ -1,5 +1,4 @@
 import { prisma } from './prisma';
-import { isClickPlaceholderEmail } from './money';
 
 export type RecordPurchaseInput = {
   referralCode: string;
@@ -51,7 +50,6 @@ export async function recordPurchase(input: RecordPurchaseInput) {
   const email = typeof input.customerEmail === 'string' ? input.customerEmail.trim().toLowerCase() : '';
   const name = input.customerName?.trim() || 'Unknown Customer';
   const amountCents = Math.max(0, Math.round(input.amountCents || 0));
-  const attrKey = input.attributionKey;
 
   let referral = email
     ? await prisma.referral.findFirst({
@@ -59,25 +57,12 @@ export async function recordPurchase(input: RecordPurchaseInput) {
       })
     : null;
 
-  if (!referral) {
-    referral = await prisma.referral.findFirst({
-      where: {
-        affiliateId: affiliate.id,
-        status: 'PENDING',
-        OR: [
-          { leadEmail: { endsWith: '@tracking.internal' } },
-          ...(attrKey ? [{ metadata: { path: ['attribution_key'], equals: attrKey } }] : []),
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
   const nextMetadata = {
     ...((referral?.metadata as object) || {}),
     ...(input.metadata || {}),
     estimated_value: amountCents / 100,
     orderId: input.orderId || null,
+    attribution_key: input.attributionKey || null,
   };
 
   if (referral) {
@@ -85,7 +70,7 @@ export async function recordPurchase(input: RecordPurchaseInput) {
       where: { id: referral.id },
       data: {
         leadEmail: email || referral.leadEmail,
-        leadName: name !== 'Unknown Customer' || isClickPlaceholderEmail(referral.leadEmail) ? name : referral.leadName,
+        leadName: name !== 'Unknown Customer' ? name : referral.leadName,
         status: 'APPROVED',
         metadata: nextMetadata,
       },

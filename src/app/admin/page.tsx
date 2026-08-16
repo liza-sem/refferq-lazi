@@ -104,7 +104,7 @@ export default function AdminDashboardPage() {
           totalRevenue: statsData.stats.totalRevenue || 0,
           totalEstimatedRevenue: statsData.stats.totalEstimatedRevenue || 0,
           totalEstimatedCommission: statsData.stats.totalEstimatedCommission || 0,
-          totalClicks: 0,
+          totalClicks: statsData.stats.totalClicks || 0,
           totalLeads: statsData.stats.totalReferrals || 0,
           totalReferredCustomers: statsData.stats.approvedReferrals || 0,
           totalAffiliates: statsData.stats.totalAffiliates || 0,

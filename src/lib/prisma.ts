@@ -321,7 +321,8 @@ export class DatabaseService {
 
   // Tracking operations
   async createReferralClick(clickData: {
-    referralId: string;
+    affiliateId: string;
+    referralId?: string;
     ipAddress: string;
     userAgent?: string;
     referer?: string;
@@ -329,6 +330,7 @@ export class DatabaseService {
   }) {
     return await prisma.referralClick.create({
       data: {
+        affiliateId: clickData.affiliateId,
         referralId: clickData.referralId,
         ipAddress: clickData.ipAddress,
         userAgent: clickData.userAgent,
@@ -402,11 +404,7 @@ export class DatabaseService {
 
     const [clicks, conversions, commissions] = await Promise.all([
       prisma.referralClick.count({
-        where: {
-          referral: {
-            affiliateId: affiliate.id
-          }
-        },
+        where: { affiliateId: affiliate.id },
       }),
       prisma.conversion.count({
         where: { affiliateId: affiliate.id },
@@ -617,7 +615,8 @@ export class DatabaseService {
 
       // Create sample clicks
       await this.createReferralClick({
-        referralId: referral1.id, // Use referral ID instead of referral code
+        affiliateId: affiliate1.id,
+        referralId: referral1.id,
         ipAddress: '192.168.1.1',
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         metadata: { attributionKey: `attr_${Date.now()} ` },
