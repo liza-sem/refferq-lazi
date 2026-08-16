@@ -40,7 +40,6 @@ import {
   BarChart3,
   LogOut,
   ChevronsUpDown,
-  Bell,
   KeyRound,
   Activity,
   Ticket,
@@ -48,6 +47,7 @@ import {
   FileText,
   UsersRound,
 } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const mainNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
@@ -275,12 +275,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-                  3
-                </span>
-              </Button>
+              <NotificationBell />
             </div>
           </div>
         </header>

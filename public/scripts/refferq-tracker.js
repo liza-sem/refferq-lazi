@@ -24,7 +24,8 @@
     set: function(name, value, days) {
       const expires = new Date();
       expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-      document.cookie = name + '=' + value + ';expires=' + expires.toUTCString() + ';path=/';
+      const secure = location.protocol === 'https:' ? ';Secure' : '';
+      document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + expires.toUTCString() + ';path=/;SameSite=Lax' + secure;
     },
     get: function(name) {
       const nameEQ = name + '=';
@@ -32,7 +33,13 @@
       for(let i = 0; i < ca.length; i++) {
         let c = ca[i];
         while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+        if (c.indexOf(nameEQ) === 0) {
+          try {
+            return decodeURIComponent(c.substring(nameEQ.length, c.length));
+          } catch (_e) {
+            return c.substring(nameEQ.length, c.length);
+          }
+        }
       }
       return null;
     },
@@ -67,8 +74,6 @@
     .then(data => {
       if (data.success) {
         console.log('[Refferq] Referral tracked successfully');
-        // Store referral code in cookie (30 days default)
-        Cookies.set('refferq_ref', referralCode, 30);
       } else {
         console.error('[Refferq] Failed to track referral:', data.error);
       }
@@ -132,23 +137,45 @@
     });
   }
 
+  function stampCheckoutForms(referralCode) {
+    if (!referralCode) return;
+    document.querySelectorAll('form').forEach(function(form) {
+      const action = (form.getAttribute('action') || '').toLowerCase();
+      if (action.indexOf('/klub/payment') === -1 && action.indexOf('/klub/subscribe') === -1) {
+        return;
+      }
+      let input = form.querySelector('input[name="referral_code"]');
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'referral_code';
+        form.appendChild(input);
+      }
+      input.value = referralCode;
+    });
+  }
+
   // Initialize tracking
   function init() {
     // Check for referral code in URL
     const refCode = getReferralCodeFromURL();
-    
-    if (refCode) {
-      // Validate referral code format before tracking
-      if (/^[A-Za-z0-9\-]{3,32}$/.test(refCode)) {
-        trackReferral(refCode);
-      }
+
+    if (refCode && /^[A-Za-z0-9\-]{3,32}$/.test(refCode)) {
+      // Set the cookie immediately. Checkout metadata depends on it; do not wait
+      // for the click API (that call is analytics, and a slow/failed fetch used
+      // to leave the buyer with no cookie if they checked out right away).
+      Cookies.set('refferq_ref', refCode, 30);
+      stampCheckoutForms(refCode);
+      trackReferral(refCode);
     } else {
-      // Check if we have a stored referral code
-      const storedRef = Cookies.get('refferq_ref');
-      if (storedRef) {
-        // Stored referral code found
-      }
+      stampCheckoutForms(Cookies.get('refferq_ref'));
     }
+
+    document.addEventListener('submit', function(event) {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      stampCheckoutForms(Cookies.get('refferq_ref'));
+    }, true);
   }
 
   // Public API

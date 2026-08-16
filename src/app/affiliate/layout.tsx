@@ -38,8 +38,8 @@ import {
   Settings,
   LogOut,
   ChevronsUpDown,
-  Bell,
 } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface BrandSettings {
   companyName?: string;
@@ -273,9 +273,7 @@ function AffiliateShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-              </Button>
+              <NotificationBell />
             </div>
           </div>
         </header>
