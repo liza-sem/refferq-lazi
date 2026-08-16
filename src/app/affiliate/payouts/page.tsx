@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -20,17 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Clock,
-  CheckCircle2,
-  Ban,
-  Wallet,
-  CreditCard,
-  Download,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react';
+import { Download } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
+import { nextPayoutAmountLabel, nextPayoutHint, payoutScheduleLine } from '@/lib/payout-copy';
 
 interface Payout {
   id: string;
@@ -45,14 +36,12 @@ export default function PayoutsPage() {
   const { user, loading: authLoading } = useAuth();
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [balance, setBalance] = useState(0);
-  const [pendingHold, setPendingHold] = useState(0);
+  const [unpaidBalanceCents, setUnpaidBalanceCents] = useState(0);
+  const [nextPayoutCents, setNextPayoutCents] = useState(0);
+  const [paidSoFarCents, setPaidSoFarCents] = useState(0);
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [schedule, setSchedule] = useState({
-    minimumPayoutCents: 0,
-    payoutTerm: 'NET-15',
     payoutFrequency: 'MONTHLY',
-    commissionHoldDays: 0,
     nextPayoutAt: null as string | null,
   });
 
@@ -67,10 +56,16 @@ export default function PayoutsPage() {
       const payData = await payRes.json();
       if (payData.success) {
         setPayouts(payData.payouts || []);
-        setBalance(payData.unpaidBalanceCents || 0);
-        setPendingHold(payData.pendingHoldCents || 0);
+        setUnpaidBalanceCents(payData.unpaidBalanceCents || 0);
+        setNextPayoutCents(payData.nextPayoutCents || 0);
+        setPaidSoFarCents(payData.paidSoFarCents || 0);
         setCurrencySymbol(payData.currencySymbol || '$');
-        if (payData.schedule) setSchedule(payData.schedule);
+        if (payData.schedule) {
+          setSchedule({
+            payoutFrequency: payData.schedule.payoutFrequency || 'MONTHLY',
+            nextPayoutAt: payData.schedule.nextPayoutAt || null,
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to fetch payouts:', error);
@@ -82,55 +77,17 @@ export default function PayoutsPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const formatCurrency = (cents: number) => formatMoney(cents, currencySymbol);
-
-  const frequencyLabel = (frequency: string) => {
-    const labels: Record<string, string> = {
-      WEEKLY: 'weekly',
-      BIWEEKLY: 'every two weeks',
-      MONTHLY: 'monthly',
-      QUARTERLY: 'quarterly',
-    };
-    return labels[frequency] || frequency.toLowerCase();
-  };
-
-  const scheduleCopy = (() => {
-    const parts: string[] = [];
-    parts.push(`Payouts are processed ${frequencyLabel(schedule.payoutFrequency)}.`);
-    if (schedule.minimumPayoutCents > 0) {
-      parts.push(`Minimum payout threshold is ${formatCurrency(schedule.minimumPayoutCents)}.`);
-    } else {
-      parts.push('There is no minimum payout threshold.');
-    }
-    if (schedule.commissionHoldDays > 0) {
-      parts.push(`Commissions are held for ${schedule.commissionHoldDays} day${schedule.commissionHoldDays === 1 ? '' : 's'} after a sale (refund hold) before they become payable.`);
-    } else {
-      const next = schedule.nextPayoutAt
-        ? ` Next payout ${new Date(schedule.nextPayoutAt).toLocaleDateString()}.`
-        : '';
-      parts.push(`There is no refund hold.${next}`);
-    }
-    return parts.join(' ');
-  })();
-
   const getStatusBadge = (status: string) => {
-    const map: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ElementType }> = {
-      COMPLETED: { variant: 'default', icon: CheckCircle2 },
-      PAID: { variant: 'default', icon: CheckCircle2 },
-      PENDING: { variant: 'secondary', icon: Clock },
-      PROCESSING: { variant: 'secondary', icon: Loader2 },
-      FAILED: { variant: 'destructive', icon: Ban },
+    const map: Record<string, { variant: 'success' | 'pending' | 'destructive' | 'info'; label: string }> = {
+      COMPLETED: { variant: 'success', label: 'Paid' },
+      PAID: { variant: 'success', label: 'Paid' },
+      PENDING: { variant: 'pending', label: 'Queued' },
+      PROCESSING: { variant: 'info', label: 'Sending' },
+      FAILED: { variant: 'destructive', label: 'Failed' },
     };
-    const { variant, icon: Icon } = map[status] || { variant: 'outline' as const, icon: Clock };
-    return (
-      <Badge variant={variant} className="gap-1 text-xs">
-        <Icon className="h-3 w-3" />
-        {status}
-      </Badge>
-    );
+    const { variant, label } = map[status] || { variant: 'pending' as const, label: status };
+    return <Badge variant={variant}>{label}</Badge>;
   };
-
-  const totalPaid = payouts.filter((p) => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
 
   const exportCSV = () => {
     const headers = ['Date', 'Method', 'Status', 'Amount'];
@@ -151,114 +108,78 @@ export default function PayoutsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20" />)}
+      <div className="space-y-12">
+        <Skeleton className="h-8 w-32" />
+        <div className="grid gap-10 sm:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i}>
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="mt-2 h-8 w-28" />
+              <Skeleton className="mt-2 h-3 w-24" />
+            </div>
+          ))}
         </div>
-        <Skeleton className="h-96" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
 
+  const nextValue = nextPayoutAmountLabel(nextPayoutCents, schedule.nextPayoutAt, currencySymbol);
+  const nextHint = nextPayoutHint(nextPayoutCents, schedule.nextPayoutAt);
+
+  const metrics: Array<{ title: string; value: string; hint?: string }> = [
+    {
+      title: 'Unpaid',
+      value: formatMoney(unpaidBalanceCents, currencySymbol),
+    },
+    {
+      title: 'Next payout',
+      value: nextPayoutCents > 0 ? formatMoney(nextPayoutCents, currencySymbol) : nextValue,
+      hint: nextHint,
+    },
+    {
+      title: 'Paid so far',
+      value: formatMoney(paidSoFarCents, currencySymbol),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-12">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Payouts</h1>
-          <p className="text-muted-foreground">Track your earnings and payout history</p>
+          <h1 className="text-2xl tracking-tight">Payouts</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {payoutScheduleLine(schedule.payoutFrequency, schedule.nextPayoutAt)}
+          </p>
         </div>
         {payouts.length > 0 && (
-          <Button variant="outline" onClick={exportCSV} className="gap-1.5">
+          <Button variant="ghost" size="sm" onClick={exportCSV} className="gap-1.5 text-muted-foreground">
             <Download className="h-4 w-4" />
             Export
           </Button>
         )}
       </div>
 
-      {/* Earnings Summary */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                <span className="text-sm font-bold text-emerald-600">{currencySymbol}</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{formatCurrency(balance)}</p>
-                <p className="text-xs text-muted-foreground">Current Balance</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-blue-600">{formatCurrency(totalPaid)}</p>
-                <p className="text-xs text-muted-foreground">Total Paid</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
-                <Clock className="h-4 w-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-amber-600">{formatCurrency(pendingHold)}</p>
-                <p className="text-xs text-muted-foreground">Pending</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10">
-                <CreditCard className="h-4 w-4 text-violet-600" />
-              </div>
-              <div>
-                <p className="text-lg font-bold">{payouts.length}</p>
-                <p className="text-xs text-muted-foreground">Total Payouts</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-10 sm:grid-cols-3">
+        {metrics.map((metric) => (
+          <div key={metric.title}>
+            <p className="text-sm text-muted-foreground">{metric.title}</p>
+            <p className="mt-2 text-3xl font-medium tracking-tight">{metric.value}</p>
+            {metric.hint ? (
+              <p className="mt-1 text-xs text-muted-foreground">{metric.hint}</p>
+            ) : null}
+          </div>
+        ))}
       </div>
 
-      {/* Payout info */}
-      <Card className="border-blue-200 bg-blue-50/50">
-        <CardContent className="flex items-start gap-3 p-4">
-          <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-blue-900">Payout Schedule</p>
-            <p className="text-sm text-blue-700">
-              {scheduleCopy}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Payout History */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Payout History</CardTitle>
-          <CardDescription>{payouts.length} payout{payouts.length !== 1 ? 's' : ''}</CardDescription>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">History</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {payouts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Wallet className="h-12 w-12 text-muted-foreground/40 mb-3" />
-              <p className="font-medium">No payouts yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Start referring customers to earn commissions
-              </p>
+              <p className="text-sm text-muted-foreground">No payouts sent yet</p>
             </div>
           ) : (
             <Table>
@@ -274,9 +195,9 @@ export default function PayoutsPage() {
                 {payouts.map((payout) => (
                   <TableRow key={payout.id}>
                     <TableCell className="text-sm">{formatDate(payout.paidAt || payout.createdAt)}</TableCell>
-                    <TableCell className="text-muted-foreground">{payout.method || 'N/A'}</TableCell>
+                    <TableCell className="text-muted-foreground">{payout.method || 'PayPal'}</TableCell>
                     <TableCell>{getStatusBadge(payout.status)}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(payout.amount)}</TableCell>
+                    <TableCell className="text-right">{formatMoney(payout.amount, currencySymbol)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

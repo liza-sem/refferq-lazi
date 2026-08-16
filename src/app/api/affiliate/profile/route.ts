@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
 import { isValidPaypalEmail } from '@/lib/onboarding';
 import { commissionPercent } from '@/lib/commission-rate';
-import { realLeadWhere } from '@/lib/program-metrics';
+import { approvedCustomerWhere, realLeadWhere } from '@/lib/program-metrics';
 import { toAffiliateLead } from '@/lib/lead-privacy';
 import { backfillReferralPublicIds } from '@/lib/lead-public-id';
 import { nextCalendarPayoutDate, resolvePayoutFrequency } from '@/lib/payout-schedule';
@@ -84,13 +84,24 @@ export async function GET(request: NextRequest) {
 
     const pendingCommissionsList = commissions.filter(c => c.status === 'PENDING');
     const pendingEarningsCents = pendingCommissionsList.reduce((sum, c) => sum + c.amountCents, 0);
+    const unpaidBalanceCents = commissions
+      .filter((c) => c.status === 'PENDING' || c.status === 'APPROVED')
+      .reduce((sum, c) => sum + c.amountCents, 0);
+    const approvedUnpaidCents = commissions
+      .filter((c) => c.status === 'APPROVED')
+      .reduce((sum, c) => sum + c.amountCents, 0);
 
     const totalCommissions = commissions.length;
     const pendingCommissionsCount = pendingCommissionsList.length;
     const totalConversions = conversions.length;
-    const totalClicks = await prisma.referralClick.count({
-      where: { affiliateId: affiliate.id },
-    });
+    const [totalClicks, referredCount] = await Promise.all([
+      prisma.referralClick.count({
+        where: { affiliateId: affiliate.id },
+      }),
+      prisma.referral.count({
+        where: { affiliateId: affiliate.id, ...approvedCustomerWhere },
+      }),
+    ]);
     const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
 
     const settings = await prisma.programSettings.findFirst();
@@ -100,6 +111,7 @@ export async function GET(request: NextRequest) {
       settings?.payoutFrequency,
     );
     const nextPayoutAt = nextCalendarPayoutDate(payoutFrequency);
+    const nextPayoutCents = commissionHoldDays === 0 ? unpaidBalanceCents : approvedUnpaidCents;
     const nextMaturesAt = commissionHoldDays > 0
       ? pendingCommissionsList
           .filter(c => c.maturesAt)
@@ -110,13 +122,16 @@ export async function GET(request: NextRequest) {
       totalEarnings: availableEarnings,
       pendingEarnings: pendingEarningsCents,
       pendingEarningsList: pendingCommissionsList.length,
-      nextMaturesAt,
-      nextPayoutAt,
+      unpaidBalanceCents,
+      nextPayoutCents,
+      nextMaturesAt: nextMaturesAt?.toISOString() || null,
+      nextPayoutAt: nextPayoutAt.toISOString(),
       commissionHoldDays,
       payoutFrequency,
       totalCommissions,
       pendingCommissions: pendingCommissionsCount,
       totalConversions,
+      referredCount,
       totalClicks,
       conversionRate
     };

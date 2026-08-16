@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
-import { nextCalendarPayoutDate, resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { nextCalendarPayoutDate, payoutFrequencyLabel, resolvePayoutFrequency } from '@/lib/payout-schedule';
 import { owedCommissionWhere } from '@/lib/program-metrics';
 import { getCurrencySymbol } from '@/lib/currency';
+import { resolveHoldDays } from '@/lib/commission-hold';
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,10 +77,19 @@ export async function GET(request: NextRequest) {
       user.affiliate.partnerGroup?.payoutFrequency,
       settings?.payoutFrequency,
     );
+    const holdDays = resolveHoldDays(settings?.commissionHoldDays);
     const unpaidBalanceCents = unpaidCommissions.reduce((sum, c) => sum + c.amountCents, 0);
+    const approvedUnpaidCents = unpaidCommissions
+      .filter((c) => c.status === 'APPROVED')
+      .reduce((sum, c) => sum + c.amountCents, 0);
+    const nextPayoutCents = holdDays === 0 ? unpaidBalanceCents : approvedUnpaidCents;
     const pendingHoldCents = unpaidCommissions
       .filter((c) => c.status === 'PENDING')
       .reduce((sum, c) => sum + c.amountCents, 0);
+    const paidSoFarCents = payouts
+      .filter((p) => p.status === 'COMPLETED')
+      .reduce((sum, p) => sum + p.amountCents, 0);
+    const nextPayoutAt = nextCalendarPayoutDate(payoutFrequency).toISOString();
 
     return NextResponse.json({
       success: true,
@@ -92,14 +102,17 @@ export async function GET(request: NextRequest) {
         paidAt: p.processedAt?.toISOString() || null
       })),
       unpaidBalanceCents,
+      nextPayoutCents,
+      paidSoFarCents,
       pendingHoldCents,
       currencySymbol,
       schedule: {
         minimumPayoutCents,
         payoutTerm: settings?.payoutTerm || 'NET-15',
         payoutFrequency,
-        commissionHoldDays: settings?.commissionHoldDays ?? 0,
-        nextPayoutAt: nextCalendarPayoutDate(payoutFrequency).toISOString(),
+        payoutFrequencyLabel: payoutFrequencyLabel(payoutFrequency),
+        commissionHoldDays: holdDays,
+        nextPayoutAt,
       },
     });
   } catch (error) {

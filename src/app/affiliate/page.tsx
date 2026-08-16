@@ -30,21 +30,17 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
+import { nextPayoutAmountLabel, nextPayoutHint } from '@/lib/payout-copy';
 
 interface AffiliateStats {
-  totalEarnings: number;
-  pendingEarnings: number;
+  unpaidBalanceCents: number;
+  nextPayoutCents: number;
+  nextPayoutAt: string | null;
+  referredCount: number;
   totalClicks: number;
-  totalLeads: number;
-  totalReferredCustomers: number;
-  totalConversions: number;
-  conversionRate: number;
   referralLink: string;
   referralCode: string;
   currencySymbol: string;
-  nextMaturesAt: string | null;
-  nextPayoutAt: string | null;
-  commissionHoldDays: number;
   commissionRate: number;
   announcement: string;
 }
@@ -83,19 +79,14 @@ export default function AffiliateDashboard() {
 
       if (data.success) {
         setStats({
-          totalEarnings: data.affiliate?.balanceCents || 0,
-          pendingEarnings: data.stats?.pendingEarnings || 0,
+          unpaidBalanceCents: data.stats?.unpaidBalanceCents ?? 0,
+          nextPayoutCents: data.stats?.nextPayoutCents ?? 0,
+          nextPayoutAt: data.stats?.nextPayoutAt || null,
+          referredCount: data.stats?.referredCount ?? 0,
           totalClicks: data.stats?.totalClicks || 0,
-          totalLeads: data.referrals?.length || 0,
-          totalReferredCustomers: data.referrals?.filter((r: any) => r.status === 'APPROVED').length || 0,
-          totalConversions: data.stats?.totalConversions || 0,
-          conversionRate: data.stats?.conversionRate || 0,
           referralLink: data.referralLink || data.stats?.referralLink || '',
           referralCode: data.affiliate?.referralCode || '',
           currencySymbol: data.currencySymbol || '$',
-          nextMaturesAt: data.stats?.nextMaturesAt || null,
-          nextPayoutAt: data.stats?.nextPayoutAt || null,
-          commissionHoldDays: data.stats?.commissionHoldDays ?? 0,
           commissionRate: data.stats?.commissionRate ?? 20,
           announcement: data.announcement || '',
         });
@@ -137,8 +128,6 @@ export default function AffiliateDashboard() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const formatCurrency = (cents: number) => formatMoney(cents, currencySymbol);
-
   const getStatusBadge = (status: string) => {
     const map: Record<string, { variant: 'success' | 'pending' | 'destructive' | 'warning' | 'info'; label: string }> = {
       APPROVED: { variant: 'success', label: 'Approved' },
@@ -157,40 +146,28 @@ export default function AffiliateDashboard() {
     return <DashboardSkeleton />;
   }
 
-  const nextPayoutHint = stats?.nextPayoutAt
-    ? `Next payout ${new Date(stats.nextPayoutAt).toLocaleDateString()}`
-    : 'Follows your payout schedule';
-  const pendingHint = (stats?.commissionHoldDays ?? 0) > 0
-    ? (stats?.nextMaturesAt
-      ? `Next maturity ${new Date(stats.nextMaturesAt).toLocaleDateString()}`
-      : 'Held for refund period')
-    : 'No refund hold';
+  const unpaid = stats?.unpaidBalanceCents || 0;
+  const nextCents = stats?.nextPayoutCents || 0;
+  const nextAt = stats?.nextPayoutAt || null;
+  const referred = stats?.referredCount || 0;
+  const clicks = stats?.totalClicks || 0;
+  const nextValue = nextPayoutAmountLabel(nextCents, nextAt, currencySymbol);
+  const nextHint = nextPayoutHint(nextCents, nextAt);
 
-  const metrics = [
+  const metrics: Array<{ title: string; value: string; hint?: string }> = [
     {
-      title: 'Available',
-      value: formatCurrency(stats?.totalEarnings || 0),
-      hint: (stats?.commissionHoldDays ?? 0) > 0 ? 'Ready for payout' : nextPayoutHint,
+      title: 'Unpaid',
+      value: formatMoney(unpaid, currencySymbol),
     },
     {
-      title: 'Pending',
-      value: formatCurrency(stats?.pendingEarnings || 0),
-      hint: pendingHint,
+      title: 'Next payout',
+      value: nextCents > 0 ? formatMoney(nextCents, currencySymbol) : nextValue,
+      hint: nextHint,
     },
     {
-      title: 'Clicks',
-      value: String(stats?.totalClicks || 0),
-      hint: 'All time',
-    },
-    {
-      title: 'Leads',
-      value: String(stats?.totalLeads || 0),
-      hint: 'Submitted',
-    },
-    {
-      title: 'Conversion',
-      value: `${stats?.conversionRate?.toFixed(1) || '0.0'}%`,
-      hint: 'Click to paid',
+      title: 'Referred',
+      value: String(referred),
+      hint: clicks > 0 ? `${clicks} click${clicks === 1 ? '' : 's'}` : undefined,
     },
   ];
 
@@ -217,12 +194,14 @@ export default function AffiliateDashboard() {
         </p>
       </div>
 
-      <div className="grid gap-10 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-10 sm:grid-cols-3">
         {metrics.map((metric) => (
           <div key={metric.title}>
             <p className="text-sm text-muted-foreground">{metric.title}</p>
             <p className="mt-2 text-3xl font-medium tracking-tight">{metric.value}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{metric.hint}</p>
+            {metric.hint ? (
+              <p className="mt-1 text-xs text-muted-foreground">{metric.hint}</p>
+            ) : null}
           </div>
         ))}
       </div>
@@ -335,8 +314,8 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-12">
       <Skeleton className="h-20 w-full rounded-lg" />
-      <div className="grid gap-10 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid gap-10 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
           <div key={i}>
             <Skeleton className="h-4 w-20" />
             <Skeleton className="mt-2 h-8 w-28" />

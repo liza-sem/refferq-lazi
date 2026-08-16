@@ -52,6 +52,17 @@ export function payoutFrequencyLabel(frequency: string | null | undefined): stri
   return PAYOUT_FREQUENCY_OPTIONS.find((option) => option.value === normalized)?.label || 'Monthly';
 }
 
+/** UTC calendar day as “Monday 17 Aug”. */
+export function formatPayoutWhen(isoOrDate: string | Date | null | undefined): string {
+  if (!isoOrDate) return '';
+  const date = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (Number.isNaN(date.getTime())) return '';
+  const weekday = date.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
+  const day = date.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'UTC' });
+  const month = date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+  return `${weekday} ${day} ${month}`;
+}
+
 export function payoutFrequencyPeriodMs(frequency: PayoutFrequency): number {
   return PERIOD_MS[frequency];
 }
