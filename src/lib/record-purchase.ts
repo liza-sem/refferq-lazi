@@ -127,6 +127,20 @@ export async function recordPurchase(input: RecordPurchaseInput) {
   }
 
   try {
+    const { emailService } = await import('./email');
+    await emailService.sendSaleEarnedEmail({
+      affiliateEmail: affiliate.user.email,
+      affiliateName: affiliate.user.name || 'Partner',
+      amountCents,
+      commissionCents: commissionAmount,
+      commissionRate: rate,
+      referralCode: affiliate.referralCode,
+    });
+  } catch (error) {
+    console.error('Sale earned email failed:', error);
+  }
+
+  try {
     const { evaluateAffiliateTier } = await import('./partner-tier-automation');
     await evaluateAffiliateTier(affiliate.id);
   } catch (error) {

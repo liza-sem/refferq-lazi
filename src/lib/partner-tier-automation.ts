@@ -131,7 +131,10 @@ function describeMatch(tier: TierRule, stats: AffiliateTierStats): string {
 export async function evaluateAffiliateTier(affiliateId: string): Promise<TierEvaluationResult> {
   const affiliate = await prisma.affiliate.findUnique({
     where: { id: affiliateId },
-    include: { partnerGroup: true },
+    include: {
+      partnerGroup: true,
+      user: { select: { name: true, email: true } },
+    },
   });
 
   if (!affiliate) {
@@ -171,15 +174,22 @@ export async function evaluateAffiliateTier(affiliateId: string): Promise<TierEv
   const current = affiliate.partnerGroup;
   const defaultGroup = await getOrCreateDefaultPartnerGroup();
 
-  let next: { id: string; name: string } = current ?? defaultGroup;
+  let next: { id: string; name: string; sortOrder: number; commissionRate: number } = current ?? defaultGroup;
   let reason = 'unchanged';
 
   if (matching) {
-    if (!current || matching.sortOrder > current.sortOrder) {
-      next = matching;
+    const matchingGroup = tiers.find((tier) => tier.id === matching.id);
+    if (matchingGroup && (!current || matching.sortOrder > current.sortOrder)) {
+      next = matchingGroup;
       reason = describeMatch(matching, stats);
-    } else if (matching.id !== current.id && matching.sortOrder < current.sortOrder && current.demoteIfBelow) {
-      next = matching;
+    } else if (
+      matchingGroup &&
+      current &&
+      matching.id !== current.id &&
+      matching.sortOrder < current.sortOrder &&
+      current.demoteIfBelow
+    ) {
+      next = matchingGroup;
       reason = `auto: demoted to ${matching.name} (${describeMatch(matching, stats)})`;
     } else {
       reason = 'promote_only_keep_current';
@@ -205,6 +215,8 @@ export async function evaluateAffiliateTier(affiliateId: string): Promise<TierEv
     };
   }
 
+  const promoted = fromGroupId != null && next.sortOrder > (current?.sortOrder ?? -1);
+
   await prisma.affiliate.update({
     where: { id: affiliateId },
     data: {
@@ -213,6 +225,22 @@ export async function evaluateAffiliateTier(affiliateId: string): Promise<TierEv
       tierAssignedReason: reason.slice(0, 240),
     },
   });
+
+  if (promoted && affiliate.user?.email) {
+    try {
+      const { emailService } = await import('./email');
+      await emailService.sendTierUpgradedEmail({
+        affiliateEmail: affiliate.user.email,
+        affiliateName: affiliate.user.name || 'Partner',
+        tierName: next.name,
+        previousTier: fromGroupName,
+        commissionRate: next.commissionRate,
+        referralCode: affiliate.referralCode,
+      });
+    } catch (error) {
+      console.error('Tier upgraded email failed:', error);
+    }
+  }
 
   return {
     affiliateId,
@@ -224,6 +252,27 @@ export async function evaluateAffiliateTier(affiliateId: string): Promise<TierEv
     toGroupId: next.id,
     toGroupName: next.name,
   };
+}
+
+export async function maybeSendTierUpgradeEmail(input: {
+  email: string;
+  name: string;
+  referralCode?: string;
+  fromSortOrder: number | null | undefined;
+  fromName?: string | null;
+  toGroup: { name: string; sortOrder: number; commissionRate: number };
+}): Promise<void> {
+  if (input.fromSortOrder == null) return;
+  if (input.toGroup.sortOrder <= input.fromSortOrder) return;
+  const { emailService } = await import('./email');
+  await emailService.sendTierUpgradedEmail({
+    affiliateEmail: input.email,
+    affiliateName: input.name || 'Partner',
+    tierName: input.toGroup.name,
+    previousTier: input.fromName,
+    commissionRate: input.toGroup.commissionRate,
+    referralCode: input.referralCode,
+  });
 }
 
 export async function evaluateAllAffiliateTiers(): Promise<{

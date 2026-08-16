@@ -181,7 +181,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, company, email, country, paymentEmail } = body;
+    const { name, company, email, country, paymentEmail, notifySaleEarned, notifyPayouts, notifyTierUpgraded } = body;
 
     // Update user name and email if provided
     const userUpdateData: any = {};
@@ -229,7 +229,10 @@ export async function PUT(request: NextRequest) {
             ...(country !== undefined ? { country } : {}),
             paymentMethod: 'PayPal',
             ...(paypalEmail ? { paymentEmail: paypalEmail } : {}),
-          }
+          },
+          ...(typeof notifySaleEarned === 'boolean' ? { notifySaleEarned } : {}),
+          ...(typeof notifyPayouts === 'boolean' ? { notifyPayouts } : {}),
+          ...(typeof notifyTierUpgraded === 'boolean' ? { notifyTierUpgraded } : {}),
         }
       });
     }

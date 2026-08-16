@@ -34,8 +34,10 @@ import {
   Key,
   Copy,
   Check,
+  Bell,
 } from 'lucide-react';
 import { COUNTRIES, DEFAULT_COUNTRY } from '@/lib/countries';
+import { Switch } from '@/components/ui/switch';
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -52,6 +54,9 @@ export default function SettingsPage() {
     country: DEFAULT_COUNTRY,
     paymentMethod: 'PayPal',
     paymentEmail: '',
+    notifySaleEarned: true,
+    notifyPayouts: true,
+    notifyTierUpgraded: true,
   });
 
   useEffect(() => {
@@ -73,6 +78,9 @@ export default function SettingsPage() {
           country: pd.country || DEFAULT_COUNTRY,
           paymentMethod: pd.paymentMethod || 'PayPal',
           paymentEmail: pd.paymentEmail || data.user?.email || '',
+          notifySaleEarned: data.affiliate?.notifySaleEarned !== false,
+          notifyPayouts: data.affiliate?.notifyPayouts !== false,
+          notifyTierUpgraded: data.affiliate?.notifyTierUpgraded !== false,
         });
       }
     } catch (error) {
@@ -275,6 +283,47 @@ export default function SettingsPage() {
               Your payment information is encrypted and stored securely. We will never share your details with third parties.
             </AlertDescription>
           </Alert>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Bell className="h-4 w-4" />
+            Email notifications
+          </CardTitle>
+          <CardDescription>Choose which emails we send you. All are on by default.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[
+            {
+              key: 'notifySaleEarned' as const,
+              label: 'Sale earned',
+              hint: 'When a referred purchase is confirmed',
+            },
+            {
+              key: 'notifyPayouts' as const,
+              label: 'Payouts',
+              hint: 'When a payout is sent',
+            },
+            {
+              key: 'notifyTierUpgraded' as const,
+              label: 'Tier upgrades',
+              hint: 'When you are moved to a higher partner tier',
+            },
+          ].map((item) => (
+            <div key={item.key} className="flex items-center justify-between gap-4">
+              <div>
+                <Label htmlFor={item.key}>{item.label}</Label>
+                <p className="text-sm text-muted-foreground">{item.hint}</p>
+              </div>
+              <Switch
+                id={item.key}
+                checked={settingsForm[item.key]}
+                onCheckedChange={(checked) => setSettingsForm({ ...settingsForm, [item.key]: checked })}
+              />
+            </div>
+          ))}
         </CardContent>
       </Card>
 

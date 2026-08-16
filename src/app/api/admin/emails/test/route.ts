@@ -58,18 +58,29 @@ export async function POST(request: Request) {
     let testBody = template.body;
 
     const testVariables: Record<string, string> = {
-      partner_name: 'John Doe',
-      program_name: 'Test Affiliate Program',
-      referral_link: 'https://example.com/ref/ABC123',
+      name: 'Alex',
+      email: recipientEmail,
+      code: '482193',
+      amount: '$128.00',
+      commission: '$25.60',
+      commissionRate: '20%',
+      saleAmount: '$128.00',
+      tierName: 'Gold',
+      previousTier: 'Standard',
+      referralCode: 'LAZI-ALEX',
+      companyName: 'LAZI',
+      dashboardUrl: 'https://referrals.lazi.studio/affiliate',
+      reason: 'Does not meet our criteria',
+      partner_name: 'Alex',
+      program_name: 'LAZI Partner Program',
+      referral_link: 'https://lazi.studio/?ref=LAZI-ALEX',
       referral_name: 'Jane Smith',
       referral_email: 'jane@example.com',
       referral_count: '5',
-      amount: '$250.00',
       payout_method: 'PayPal',
       partner_email: user.email,
-      signup_link: 'https://example.com/signup',
-      dashboard_link: 'https://example.com/dashboard',
-      reason: 'Does not meet our criteria',
+      signup_link: 'https://referrals.lazi.studio/register',
+      dashboard_link: 'https://referrals.lazi.studio/affiliate',
     };
 
     // Replace all variables in subject and body

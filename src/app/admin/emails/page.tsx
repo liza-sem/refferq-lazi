@@ -49,9 +49,9 @@ import {
   MailCheck,
   MailX,
   Code,
-  Variable,
   TestTube,
 } from 'lucide-react';
+import { EMAIL_TEMPLATE_CATALOG, catalogForType, defaultBodies } from '@/lib/email-brand';
 
 interface EmailTemplate {
   id: string;
@@ -67,10 +67,14 @@ interface EmailTemplate {
 }
 
 const AVAILABLE_VARIABLES = [
-  { name: 'name', desc: 'Recipient name' },
-  { name: 'email', desc: 'Recipient email' },
+  { name: 'name', desc: 'Partner name' },
+  { name: 'email', desc: 'Partner email' },
   { name: 'code', desc: 'OTP or referral code' },
-  { name: 'amount', desc: 'Payout amount' },
+  { name: 'amount', desc: 'Sale or payout amount' },
+  { name: 'commission', desc: 'Commission earned' },
+  { name: 'commissionRate', desc: 'Commission rate' },
+  { name: 'tierName', desc: 'New partner tier' },
+  { name: 'previousTier', desc: 'Previous partner tier' },
   { name: 'referralCode', desc: 'Referral code' },
   { name: 'companyName', desc: 'Company name' },
   { name: 'dashboardUrl', desc: 'Dashboard link' },
@@ -82,7 +86,9 @@ const typeColors: Record<string, 'default' | 'secondary' | 'outline' | 'destruct
   OTP: 'secondary',
   APPROVAL: 'default',
   REJECTION: 'destructive',
+  SALE_EARNED: 'default',
   PAYOUT: 'outline',
+  TIER_UPGRADED: 'default',
   NOTIFICATION: 'secondary',
 };
 
@@ -181,7 +187,7 @@ export default function EmailsPage() {
       name: t.name,
       subject: t.subject,
       body: t.body,
-      variables: t.variables.join(', '),
+      variables: Array.isArray(t.variables) ? t.variables.join(', ') : '',
     });
     setDialogOpen(true);
   };
@@ -195,12 +201,29 @@ export default function EmailsPage() {
 
   const insertVariable = (varName: string) => {
     const tag = `{{${varName}}}`;
-    setForm(prev => ({ ...prev, body: prev.body + tag }));
-    // Also add to variables list if not present
     const vars = prev_variables_from(form.variables);
-    if (!vars.includes(varName)) {
-      setForm(prev => ({ ...prev, variables: vars.concat(varName).join(', ') }));
-    }
+    setForm(prev => ({
+      ...prev,
+      body: prev.body + tag,
+      variables: vars.includes(varName) ? prev.variables : vars.concat(varName).join(', '),
+    }));
+  };
+
+  const applyTypeDefaults = (type: string) => {
+    const entry = catalogForType(type);
+    const bodies = defaultBodies();
+    setForm((prev) => {
+      if (editing) return { ...prev, type };
+      const empty = !prev.body.trim() && !prev.subject.trim() && !prev.name.trim();
+      if (!empty) return { ...prev, type };
+      return {
+        type,
+        name: entry?.label || prev.name,
+        subject: entry?.defaultSubject || prev.subject,
+        body: bodies[type] || prev.body,
+        variables: (entry?.variables.map((v) => v.name) || []).join(', '),
+      };
+    });
   };
 
   function prev_variables_from(v: string) {
@@ -264,7 +287,7 @@ export default function EmailsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Emails</h1>
-          <p className="text-muted-foreground">Manage email templates and notifications</p>
+          <p className="text-muted-foreground">Templates for partner emails. Each type maps to one event.</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -273,7 +296,7 @@ export default function EmailsPage() {
               New Template
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editing ? 'Edit Template' : 'New Email Template'}</DialogTitle>
               <DialogDescription>
@@ -283,19 +306,23 @@ export default function EmailsPage() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="type">Type</Label>
-                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                <Select value={form.type} onValueChange={applyTypeDefaults}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="WELCOME">Welcome</SelectItem>
-                    <SelectItem value="OTP">OTP</SelectItem>
-                    <SelectItem value="APPROVAL">Approval</SelectItem>
-                    <SelectItem value="REJECTION">Rejection</SelectItem>
-                    <SelectItem value="PAYOUT">Payout</SelectItem>
-                    <SelectItem value="NOTIFICATION">Notification</SelectItem>
+                    {EMAIL_TEMPLATE_CATALOG.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {form.type && (
+                  <p className="text-xs text-muted-foreground">
+                    {catalogForType(form.type)?.event}
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="name">Name</Label>
@@ -350,7 +377,7 @@ export default function EmailsPage() {
                     value={form.body}
                     onChange={(e) => setForm({ ...form, body: e.target.value })}
                     placeholder="Email body (HTML supported). Use {{variable}} for dynamic content."
-                    rows={8}
+                    rows={12}
                     className="font-mono text-sm"
                   />
                 )}
@@ -410,7 +437,7 @@ export default function EmailsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Email Templates</CardTitle>
-          <CardDescription>Configure automated email notifications</CardDescription>
+          <CardDescription>Each template fires on a specific partner event</CardDescription>
         </CardHeader>
         <CardContent>
           {templates.length === 0 ? (
@@ -424,7 +451,7 @@ export default function EmailsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Sends when</TableHead>
                   <TableHead>Subject</TableHead>
                   <TableHead>Sent</TableHead>
                   <TableHead>Last Sent</TableHead>
@@ -437,7 +464,14 @@ export default function EmailsPage() {
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.name}</TableCell>
                     <TableCell>
-                      <Badge variant={typeColors[t.type] || 'outline'}>{t.type}</Badge>
+                      <div className="space-y-1">
+                        <Badge variant={typeColors[t.type] || typeColors[catalogForType(t.type)?.value || ''] || 'outline'}>
+                          {catalogForType(t.type)?.label || t.type}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground max-w-[220px]">
+                          {catalogForType(t.type)?.event || t.type}
+                        </p>
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-sm">{t.subject}</TableCell>
                     <TableCell className="text-sm">{t.sentCount}</TableCell>
@@ -487,9 +521,11 @@ export default function EmailsPage() {
             <div className="space-y-4">
               <div className="flex flex-wrap gap-1">
                 <span className="text-xs text-muted-foreground">Variables:</span>
-                {previewTemplate.variables.map(v => (
+                {previewTemplate.variables?.length ? previewTemplate.variables.map(v => (
                   <Badge key={v} variant="outline" className="text-xs font-mono">{'{{' + v + '}}'}</Badge>
-                ))}
+                )) : (
+                  <span className="text-xs text-muted-foreground">No variables listed</span>
+                )}
               </div>
               <div className="border rounded-lg p-4 bg-white">
                 <div dangerouslySetInnerHTML={{ __html: previewTemplate.body }} />

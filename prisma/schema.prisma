@@ -39,6 +39,9 @@ model Affiliate {
   partnerGroupLocked   Boolean       @default(false) @map("partner_group_locked")
   tierAssignedAt       DateTime?     @map("tier_assigned_at")
   tierAssignedReason   String?       @map("tier_assigned_reason")
+  notifySaleEarned     Boolean       @default(true) @map("notify_sale_earned")
+  notifyPayouts        Boolean       @default(true) @map("notify_payouts")
+  notifyTierUpgraded   Boolean       @default(true) @map("notify_tier_upgraded")
   user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   commissions    Commission[]
   conversions    Conversion[]
@@ -453,6 +456,14 @@ enum EmailTemplateType {
   COMMISSION_APPROVED
   PAYOUT_GENERATED
   REFERRAL_CONVERTED
+  WELCOME
+  OTP
+  APPROVAL
+  REJECTION
+  PAYOUT
+  NOTIFICATION
+  SALE_EARNED
+  TIER_UPGRADED
 }
 
 enum EmailStatus {

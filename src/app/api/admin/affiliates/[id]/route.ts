@@ -89,6 +89,22 @@ export async function PATCH(
         },
       });
 
+      if (data.partnerGroupId && updated.partnerGroup) {
+        try {
+          const { maybeSendTierUpgradeEmail } = await import('@/lib/partner-tier-automation');
+          await maybeSendTierUpgradeEmail({
+            email: affiliate.user.email,
+            name: affiliate.user.name || 'Partner',
+            referralCode: affiliate.referralCode,
+            fromSortOrder: affiliate.partnerGroup?.sortOrder,
+            fromName: affiliate.partnerGroup?.name,
+            toGroup: updated.partnerGroup,
+          });
+        } catch (error) {
+          console.error('Tier upgraded email failed:', error);
+        }
+      }
+
       if (!status) {
         return NextResponse.json({
           success: true,

@@ -110,6 +110,14 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Partner group not found' }, { status: 404 });
         }
 
+        const affiliates = await prisma.affiliate.findMany({
+          where: { id: { in: affiliateIds } },
+          include: {
+            user: { select: { email: true, name: true } },
+            partnerGroup: { select: { sortOrder: true, name: true } },
+          },
+        });
+
         const lock = body.partnerGroupLocked !== false;
 
         const result = await prisma.affiliate.updateMany({
@@ -123,6 +131,22 @@ export async function POST(request: NextRequest) {
         });
 
         updatedCount = result.count;
+
+        try {
+          const { maybeSendTierUpgradeEmail } = await import('@/lib/partner-tier-automation');
+          for (const affiliate of affiliates) {
+            await maybeSendTierUpgradeEmail({
+              email: affiliate.user.email,
+              name: affiliate.user.name || 'Partner',
+              referralCode: affiliate.referralCode,
+              fromSortOrder: affiliate.partnerGroup?.sortOrder,
+              fromName: affiliate.partnerGroup?.name,
+              toGroup: group,
+            });
+          }
+        } catch (error) {
+          console.error('Batch tier upgraded emails failed:', error);
+        }
 
         await prisma.auditLog.create({
           data: {

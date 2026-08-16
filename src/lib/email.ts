@@ -1,4 +1,6 @@
 import { resend, sendTransactionalEmail } from './plunk';
+import { wrapLaziEmail, lookupTypesFor } from './email-brand';
+import { getProgramBrand } from './default-email-templates';
 
 export { resend };
 
@@ -90,18 +92,24 @@ class EmailService {
   private async getTemplateFromDb(type: string) {
     try {
       const { prisma } = await import('./prisma');
-      return await prisma.emailTemplate.findFirst({
-        where: { type: type as any, isActive: true }
-      });
+      for (const candidate of lookupTypesFor(type)) {
+        const template = await prisma.emailTemplate.findFirst({
+          where: { type: candidate as any, isActive: true },
+        });
+        if (template) return template;
+      }
+      return null;
     } catch (error) {
       console.error(`Failed to fetch email template ${type}:`, error);
       return null;
     }
   }
 
-  private replaceVariables(content: string, variables: Record<string, any>): string {
+  private replaceVariables(content: string, variables: Record<string, any>, asHtml = false): string {
     return content.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      return variables[key] !== undefined ? String(variables[key]) : match;
+      if (variables[key] === undefined || variables[key] === null) return match;
+      const value = String(variables[key]);
+      return asHtml ? this.escapeHtml(value) : value;
     });
   }
 
@@ -120,14 +128,20 @@ class EmailService {
     variables: Record<string, any>;
     generateFallbackHtml: () => Promise<string> | string;
   }): Promise<{ success: boolean; message: string }> {
+    const brand = await getProgramBrand();
+    const variables = {
+      companyName: brand.companyName,
+      dashboardUrl: brand.dashboardUrl,
+      ...params.variables,
+    };
     const dbTemplate = await this.getTemplateFromDb(params.templateType);
 
-    let subject = params.fallbackSubject;
+    let subject = this.replaceVariables(params.fallbackSubject, variables, false);
     let html = '';
 
     if (dbTemplate) {
-      subject = this.replaceVariables(dbTemplate.subject, params.variables);
-      html = this.replaceVariables(dbTemplate.body, params.variables);
+      subject = this.replaceVariables(dbTemplate.subject, variables, false);
+      html = this.replaceVariables(dbTemplate.body, variables, true);
     } else {
       html = await Promise.resolve(params.generateFallbackHtml());
     }
@@ -483,10 +497,37 @@ class EmailService {
   async sendWelcomeEmail(data: WelcomeEmailData): Promise<{ success: boolean; message: string }> {
     return this.sendTemplatedEmail({
       to: data.email,
-      templateType: 'WELCOME_EMAIL',
-      fallbackSubject: `Welcome to Refferq - ${data.role === 'affiliate' ? 'Affiliate' : 'Admin'} Account Created`,
-      variables: data,
+      templateType: 'WELCOME',
+      fallbackSubject: 'Welcome to the {{companyName}} partner program',
+      variables: {
+        name: data.name,
+        email: data.email,
+        referralCode: '',
+      },
       generateFallbackHtml: () => this.generateWelcomeEmailHTML(data),
+    });
+  }
+
+  async sendOtpEmail(to: string, name: string, code: string): Promise<{ success: boolean; message: string }> {
+    const brand = await getProgramBrand();
+    return this.sendTemplatedEmail({
+      to,
+      templateType: 'OTP',
+      fallbackSubject: 'Your login code',
+      variables: { name, email: to, code },
+      generateFallbackHtml: () =>
+        wrapLaziEmail({
+          preheader: 'Your login code.',
+          kicker: 'Sign in',
+          heading: 'Your login code',
+          intro: `Hi ${this.escapeHtml(name)},`,
+          paragraphs: ['Use this code to sign in. It expires in 10 minutes.'],
+          details: [{ label: 'Code', value: this.escapeHtml(code) }],
+          ctaLabel: 'Sign in',
+          ctaUrl: brand.loginUrl,
+          footer: 'If you did not request this code, you can ignore this email.',
+          wordmark: brand.companyName,
+        }),
     });
   }
 
@@ -518,7 +559,7 @@ class EmailService {
     const symbol = await this.getCurrencySymbol();
     return this.sendTemplatedEmail({
       to: affiliateEmail,
-      templateType: data.status === 'approved' ? 'PARTNER_APPROVAL' : 'PARTNER_DECLINED',
+      templateType: data.status === 'approved' ? 'APPROVAL' : 'REJECTION',
       fallbackSubject: `Referral ${statusText} - ${data.leadName}`,
       variables: { ...data, statusText, symbol }, // Pass statusText and symbol for template variables
       generateFallbackHtml: () => this.generateApprovalEmailHTML(data, symbol),
@@ -760,6 +801,21 @@ class EmailService {
     });
   }
 
+  private async partnerAllows(email: string, flag: 'notifySaleEarned' | 'notifyPayouts' | 'notifyTierUpgraded'): Promise<boolean> {
+    try {
+      const { prisma } = await import('./prisma');
+      const affiliate = await prisma.affiliate.findFirst({
+        where: { user: { email: email.toLowerCase() } },
+        select: { notifySaleEarned: true, notifyPayouts: true, notifyTierUpgraded: true },
+      });
+      if (!affiliate) return true;
+      return affiliate[flag] !== false;
+    } catch (error) {
+      console.error('Failed to load partner notification preference:', error);
+      return true;
+    }
+  }
+
   async sendPayoutCompletedEmail(
     affiliateEmail: string,
     data: {
@@ -771,79 +827,130 @@ class EmailService {
       processedAt: string;
     }
   ): Promise<{ success: boolean; message: string }> {
+    if (!(await this.partnerAllows(affiliateEmail, 'notifyPayouts'))) {
+      return { success: true, message: 'Payout email skipped (partner opted out)' };
+    }
+
     const symbol = await this.getCurrencySymbol();
-    const amount = (data.amountCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const date = new Date(data.processedAt).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const brand = await getProgramBrand();
+    const formatted = this.formatAmount(data.amountCents, symbol);
     return this.sendTemplatedEmail({
       to: affiliateEmail,
-      templateType: 'PARTNER_PAID',
-      fallbackSubject: `✅ Payment Completed: ${symbol}${amount} Paid!`,
-      variables: { ...data, amount: this.formatAmount(data.amountCents, symbol), date, symbol },
-      generateFallbackHtml: () => `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Payment Completed!</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-          .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
-          .amount-box { background: white; border: 2px solid #10b981; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0; }
-          .amount { font-size: 36px; font-weight: bold; color: #10b981; }
-          .button { display: inline-block; background: #10b981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-          .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
-          .status-badge { display: inline-block; background: #d1fae5; color: #065f46; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-          .celebration { font-size: 48px; text-align: center; margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>✅ Payment Completed!</h1>
-        </div>
-        <div class="content">
-          <div class="celebration">🎊 🎉 🥳</div>
-          
-          <h2>Congratulations, ${this.escapeHtml(data.affiliateName)}!</h2>
-          <p>Your payout has been successfully processed and the funds have been transferred.</p>
-          
-          <div class="amount-box">
-            <div style="font-size: 14px; color: #666; margin-bottom: 10px;">Amount Paid</div>
-            <div class="amount">${symbol}${amount}</div>
-            <div style="margin-top: 15px;">
-              <span class="status-badge">✓ COMPLETED</span>
-            </div>
-          </div>
-          
-          <div class="details">
-            <h3 style="margin-top: 0;">Payment Details</h3>
-            <p><strong>Commissions Paid:</strong> ${data.commissionCount} commission${data.commissionCount > 1 ? 's' : ''}</p>
-            ${data.method ? `<p><strong>Payment Method:</strong> ${this.escapeHtml(data.method)}</p>` : ''}
-            <p><strong>Payout ID:</strong> <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${this.escapeHtml(data.payoutId)}</code></p>
-          </div>
-          
-          <div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <strong>✓ Payment Confirmed</strong><br>
-            The funds should appear in your account within 1-2 business days, depending on your bank or payment provider.
-          </div>
-          
-          <div style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/affiliate" class="button">View Dashboard</a>
-          </div>
-          
-          <p style="margin-top: 30px; text-align: center; color: #666; font-size: 14px;">
-            Keep up the excellent work! Continue referring customers to earn more commissions.
-          </p>
-          
-          <p>Best regards,<br>The Refferq Team</p>
-        </div>
-      </body>
-      </html>
-      `,
+      templateType: 'PAYOUT',
+      fallbackSubject: 'Your payout is on the way',
+      variables: {
+        name: data.affiliateName,
+        email: affiliateEmail,
+        amount: formatted,
+        referralCode: '',
+      },
+      generateFallbackHtml: () =>
+        wrapLaziEmail({
+          preheader: 'We sent your commission payout.',
+          kicker: 'Payout',
+          heading: 'Your payout is on the way',
+          intro: `Hi ${this.escapeHtml(data.affiliateName)},`,
+          paragraphs: ['We sent your commission payout.'],
+          details: [{ label: 'Amount', value: this.escapeHtml(formatted) }],
+          ctaLabel: 'View dashboard',
+          ctaUrl: brand.dashboardUrl,
+          wordmark: brand.companyName,
+        }),
+    });
+  }
+
+  async sendSaleEarnedEmail(data: {
+    affiliateEmail: string;
+    affiliateName: string;
+    amountCents: number;
+    commissionCents: number;
+    commissionRate: number;
+    referralCode?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    if (!(await this.partnerAllows(data.affiliateEmail, 'notifySaleEarned'))) {
+      return { success: true, message: 'Sale email skipped (partner opted out)' };
+    }
+
+    const symbol = await this.getCurrencySymbol();
+    const brand = await getProgramBrand();
+    const { commissionPercent } = await import('./commission-rate');
+    const amount = this.formatAmount(data.amountCents, symbol);
+    const commission = this.formatAmount(data.commissionCents, symbol);
+    const commissionRate = `${commissionPercent(data.commissionRate)}%`;
+    return this.sendTemplatedEmail({
+      to: data.affiliateEmail,
+      templateType: 'SALE_EARNED',
+      fallbackSubject: 'You earned a sale',
+      variables: {
+        name: data.affiliateName,
+        email: data.affiliateEmail,
+        amount,
+        commission,
+        commissionRate,
+        referralCode: data.referralCode || '',
+      },
+      generateFallbackHtml: () =>
+        wrapLaziEmail({
+          preheader: 'A referred sale just came through.',
+          kicker: 'Sale',
+          heading: 'You earned a sale',
+          intro: `Hi ${this.escapeHtml(data.affiliateName)},`,
+          paragraphs: ['A sale you referred was confirmed.'],
+          details: [
+            { label: 'Sale', value: this.escapeHtml(amount) },
+            { label: 'Your commission', value: this.escapeHtml(commission) },
+          ],
+          ctaLabel: 'View dashboard',
+          ctaUrl: brand.dashboardUrl,
+          wordmark: brand.companyName,
+        }),
+    });
+  }
+
+  async sendTierUpgradedEmail(data: {
+    affiliateEmail: string;
+    affiliateName: string;
+    tierName: string;
+    previousTier?: string | null;
+    commissionRate: number;
+    referralCode?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    if (!(await this.partnerAllows(data.affiliateEmail, 'notifyTierUpgraded'))) {
+      return { success: true, message: 'Tier email skipped (partner opted out)' };
+    }
+
+    const brand = await getProgramBrand();
+    const { commissionPercent } = await import('./commission-rate');
+    const rateLabel = `${commissionPercent(data.commissionRate)}%`;
+    return this.sendTemplatedEmail({
+      to: data.affiliateEmail,
+      templateType: 'TIER_UPGRADED',
+      fallbackSubject: `You've been upgraded to ${data.tierName}`,
+      variables: {
+        name: data.affiliateName,
+        email: data.affiliateEmail,
+        tierName: data.tierName,
+        previousTier: data.previousTier || '',
+        commissionRate: rateLabel,
+        referralCode: data.referralCode || '',
+      },
+      generateFallbackHtml: () =>
+        wrapLaziEmail({
+          preheader: 'You moved up a partner tier.',
+          kicker: 'Tier',
+          heading: "You've been upgraded",
+          intro: `Hi ${this.escapeHtml(data.affiliateName)},`,
+          paragraphs: [
+            'You have been moved to a higher partner tier. New sales use your updated commission rate.',
+          ],
+          details: [
+            { label: 'New tier', value: this.escapeHtml(data.tierName) },
+            { label: 'Commission', value: this.escapeHtml(rateLabel) },
+          ],
+          ctaLabel: 'View dashboard',
+          ctaUrl: brand.dashboardUrl,
+          wordmark: brand.companyName,
+        }),
     });
   }
 

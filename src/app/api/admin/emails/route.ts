@@ -28,6 +28,12 @@ export async function GET(request: Request) {
     }
 
     // Fetch templates from database
+    try {
+      await import('@/lib/default-email-templates').then((m) => m.ensureDefaultEmailTemplates());
+    } catch (error) {
+      console.error('Failed to seed default email templates:', error);
+    }
+
     const templates = await prisma.emailTemplate.findMany({
       include: {
         _count: {
@@ -63,6 +69,7 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json({
+      success: true,
       templates: templatesWithStats,
     });
   } catch (error) {
