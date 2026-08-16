@@ -46,6 +46,12 @@ export default function PayoutsPage() {
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(0);
   const [currencySymbol, setCurrencySymbol] = useState('$');
+  const [schedule, setSchedule] = useState({
+    minimumPayoutCents: 0,
+    payoutTerm: 'NET-15',
+    payoutFrequency: 'MONTHLY',
+    commissionHoldDays: 0,
+  });
 
   useEffect(() => {
     if (!authLoading && user) fetchPayouts();
@@ -60,7 +66,10 @@ export default function PayoutsPage() {
       ]);
       const payData = await payRes.json();
       const profileData = await profileRes.json();
-      if (payData.success) setPayouts(payData.payouts || []);
+      if (payData.success) {
+        setPayouts(payData.payouts || []);
+        if (payData.schedule) setSchedule(payData.schedule);
+      }
       if (profileData.success) {
         setBalance(profileData.affiliate?.balanceCents || 0);
         setCurrencySymbol(profileData.currencySymbol || '$');
@@ -77,6 +86,30 @@ export default function PayoutsPage() {
 
   const formatCurrency = (cents: number) =>
     `${currencySymbol}${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const frequencyLabel = (frequency: string) => {
+    const labels: Record<string, string> = {
+      WEEKLY: 'weekly',
+      BIWEEKLY: 'every two weeks',
+      MONTHLY: 'monthly',
+      QUARTERLY: 'quarterly',
+    };
+    return labels[frequency] || frequency.toLowerCase();
+  };
+
+  const scheduleCopy = (() => {
+    const parts: string[] = [];
+    parts.push(`Payouts are processed ${frequencyLabel(schedule.payoutFrequency)} on ${schedule.payoutTerm} terms.`);
+    if (schedule.minimumPayoutCents > 0) {
+      parts.push(`Minimum payout threshold is ${formatCurrency(schedule.minimumPayoutCents)}.`);
+    } else {
+      parts.push('There is no minimum payout threshold.');
+    }
+    if (schedule.commissionHoldDays > 0) {
+      parts.push(`Commissions are held for ${schedule.commissionHoldDays} day${schedule.commissionHoldDays === 1 ? '' : 's'} before they become payable.`);
+    }
+    return parts.join(' ');
+  })();
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ElementType }> = {
@@ -205,7 +238,7 @@ export default function PayoutsPage() {
           <div>
             <p className="text-sm font-medium text-blue-900">Payout Schedule</p>
             <p className="text-sm text-blue-700">
-              Payouts are processed on the 1st of each month for the previous month&apos;s earnings. Minimum payout threshold is {currencySymbol}1,000.
+              {scheduleCopy}
             </p>
           </div>
         </CardContent>

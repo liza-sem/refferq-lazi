@@ -47,6 +47,18 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    const settings = await prisma.programSettings.findFirst({
+      select: {
+        minimumPayoutThreshold: true,
+        minPayoutCents: true,
+        payoutTerm: true,
+        payoutFrequency: true,
+        commissionHoldDays: true,
+      },
+    });
+
+    const minimumPayoutCents = settings?.minimumPayoutThreshold ?? settings?.minPayoutCents ?? 0;
+
     return NextResponse.json({
       success: true,
       payouts: payouts.map(p => ({
@@ -56,7 +68,13 @@ export async function GET(request: NextRequest) {
         method: p.method,
         createdAt: p.createdAt.toISOString(),
         paidAt: p.processedAt?.toISOString() || null
-      }))
+      })),
+      schedule: {
+        minimumPayoutCents,
+        payoutTerm: settings?.payoutTerm || 'NET-15',
+        payoutFrequency: settings?.payoutFrequency || 'MONTHLY',
+        commissionHoldDays: settings?.commissionHoldDays ?? 0,
+      },
     });
   } catch (error) {
     console.error('Affiliate payouts API error:', error);
