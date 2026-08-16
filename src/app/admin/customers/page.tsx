@@ -46,6 +46,7 @@ import {
 
 interface Referral {
   id: string;
+  publicId?: string | null;
   leadEmail: string;
   leadName: string;
   leadPhone: string | null;
@@ -53,6 +54,7 @@ interface Referral {
   notes: string | null;
   createdAt: string;
   estimatedValue: number;
+  confirmedRevenueCents?: number;
   company: string;
   affiliate: {
     id: string;
@@ -116,10 +118,15 @@ export default function CustomersPage() {
   };
 
   const filtered = referrals.filter((r) => {
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      r.leadName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.leadEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.company?.toLowerCase().includes(searchQuery.toLowerCase());
+      !query ||
+      r.leadName?.toLowerCase().includes(query) ||
+      r.leadEmail?.toLowerCase().includes(query) ||
+      r.company?.toLowerCase().includes(query) ||
+      r.publicId?.toLowerCase().includes(query) ||
+      r.publicId?.toLowerCase().replace(/^ld-/, '').includes(query.replace(/^ld-/, '')) ||
+      r.id.toLowerCase().includes(query);
     const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -204,7 +211,7 @@ export default function CustomersPage() {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search leads..."
+                  placeholder="Search name, email, or LD-A3K9"
                   className="pl-8 w-64"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -235,6 +242,7 @@ export default function CustomersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>ID</TableHead>
                   <TableHead>Lead</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Referred By</TableHead>
@@ -247,6 +255,11 @@ export default function CustomersPage() {
               <TableBody>
                 {filtered.map((referral) => (
                   <TableRow key={referral.id}>
+                    <TableCell>
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {referral.publicId || '—'}
+                      </code>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
@@ -288,7 +301,7 @@ export default function CustomersPage() {
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm font-medium">
                         <DollarSign className="h-3.5 w-3.5" />
-                        {referral.estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {((referral.confirmedRevenueCents ?? Math.round((referral.estimatedValue || 0) * 100)) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </TableCell>
                     <TableCell>

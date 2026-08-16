@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
-
+import { commissionMultiplier, commissionPercent } from '@/lib/commission-rate';
+import { realLeadWhere } from '@/lib/program-metrics';
+import { backfillReferralPublicIds, normalizeLeadPublicId } from '@/lib/lead-public-id';
+import { countryFromMetadata } from '@/lib/lead-privacy';
 
 export async function GET(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
-    
-    // Get user from database
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -29,39 +31,73 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all referrals with affiliate information
+    try {
+      await backfillReferralPublicIds();
+    } catch (error) {
+      console.error('Lead public ID backfill skipped:', error);
+    }
+
+    const q = normalizeLeadPublicId(request.nextUrl.searchParams.get('q') || '');
+
     const referrals = await prisma.referral.findMany({
       where: {
-        NOT: { leadEmail: { endsWith: '@tracking.internal' } },
+        ...realLeadWhere,
+        ...(q
+          ? {
+              OR: [
+                { publicId: { equals: q, mode: 'insensitive' } },
+                { publicId: { contains: q.replace(/^LD-?/, ''), mode: 'insensitive' } },
+                { leadEmail: { contains: q, mode: 'insensitive' } },
+                { leadName: { contains: q, mode: 'insensitive' } },
+                { id: q },
+              ],
+            }
+          : {}),
       },
       include: {
         affiliate: {
           include: {
-            user: true
+            user: true,
+            partnerGroup: { select: { name: true, commissionRate: true } },
           }
-        }
+        },
+        conversions: {
+          select: { amountCents: true, status: true, eventType: true },
+        },
       },
       orderBy: {
         createdAt: 'desc'
       }
     });
-    
-    // Get all partner groups for commission rate lookup
-    const partnerGroups = await prisma.partnerGroup.findMany();
-    const partnerGroupMap = new Map(
-      partnerGroups.map(pg => [pg.id, { name: pg.name, rate: pg.commissionRate }])
-    );
+
+    const conversionIdsByReferral = referrals.map((r) => r.id);
+    const commissions = conversionIdsByReferral.length
+      ? await prisma.commission.findMany({
+          where: { conversion: { referralId: { in: conversionIdsByReferral } } },
+          select: { amountCents: true, conversion: { select: { referralId: true } } },
+        })
+      : [];
+    const commissionByReferral = new Map<string, number>();
+    for (const row of commissions) {
+      const referralId = row.conversion.referralId;
+      if (!referralId) continue;
+      commissionByReferral.set(referralId, (commissionByReferral.get(referralId) || 0) + row.amountCents);
+    }
 
     return NextResponse.json({
       success: true,
       referrals: referrals.map(referral => {
-        const metadata = referral.metadata as any;
-        const affiliate = referral.affiliate as any;
-        const pgId = affiliate.partnerGroupId;
-        const pgData = pgId ? partnerGroupMap.get(pgId) : null;
-        
+        const metadata = referral.metadata as Record<string, unknown> | null;
+        const affiliate = referral.affiliate;
+        const rate = affiliate.partnerGroup?.commissionRate ?? 20;
+        const confirmedCents = referral.conversions
+          .filter((c) => c.status !== 'REJECTED')
+          .reduce((sum, c) => sum + c.amountCents, 0);
+
         return {
           id: referral.id,
+          publicId: referral.publicId,
+          affiliateId: affiliate.id,
           leadEmail: referral.leadEmail,
           leadName: referral.leadName,
           leadPhone: referral.leadPhone,
@@ -69,15 +105,19 @@ export async function GET(request: NextRequest) {
           notes: referral.notes,
           createdAt: referral.createdAt,
           estimatedValue: Number(metadata?.estimated_value) || 0,
-          company: metadata?.company || '',
+          confirmedRevenueCents: confirmedCents,
+          commissionCents: commissionByReferral.get(referral.id) || Math.round(confirmedCents * commissionMultiplier(rate)),
+          company: typeof metadata?.company === 'string' ? metadata.company : '',
+          country: countryFromMetadata(metadata),
           affiliate: {
             id: affiliate.id,
             name: affiliate.user.name,
             email: affiliate.user.email,
             referralCode: affiliate.referralCode,
-            partnerGroup: pgData?.name || 'Default',
-            partnerGroupId: pgId,
-            commissionRate: pgData?.rate || 0.20
+            partnerGroup: affiliate.partnerGroup?.name || 'Default',
+            partnerGroupId: affiliate.partnerGroupId,
+            commissionRate: rate,
+            commissionPercent: commissionPercent(rate),
           }
         };
       })
@@ -95,8 +135,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
-    
-    // Get user from database
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -119,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { referralIds, action } = body; // action: 'approve' | 'reject'
+    const { referralIds, action } = body;
 
     if (!referralIds || !Array.isArray(referralIds) || referralIds.length === 0) {
       return NextResponse.json(
@@ -135,7 +174,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update multiple referrals
     const updatedReferrals = await prisma.referral.updateMany({
       where: {
         id: { in: referralIds },

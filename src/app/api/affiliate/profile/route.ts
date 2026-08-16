@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
 import { isValidPaypalEmail } from '@/lib/onboarding';
+import { commissionPercent } from '@/lib/commission-rate';
+import { realLeadWhere } from '@/lib/program-metrics';
+import { toAffiliateLead } from '@/lib/lead-privacy';
+import { backfillReferralPublicIds } from '@/lib/lead-public-id';
 
 export async function GET(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
 
-    // Get user from database to ensure they still exist and get latest data
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -49,9 +52,17 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get affiliate statistics
+    try {
+      await backfillReferralPublicIds();
+    } catch (error) {
+      console.error('Lead public ID backfill skipped:', error);
+    }
+
     const referrals = await prisma.referral.findMany({
-      where: { affiliateId: affiliate.id },
+      where: { affiliateId: affiliate.id, ...realLeadWhere },
+      include: {
+        conversions: { select: { amountCents: true, status: true } },
+      },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -65,8 +76,6 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     });
 
-    // Calculate stats
-    // Available earnings = COMPLETED (PAID) + APPROVED but not yet paid
     const availableEarnings = commissions
       .filter(c => c.status === 'PAID' || c.status === 'APPROVED')
       .reduce((sum, c) => sum + c.amountCents, 0);
@@ -82,7 +91,6 @@ export async function GET(request: NextRequest) {
     });
     const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
 
-    // Next maturation date for pending commissions
     const nextMaturesAt = pendingCommissionsList
       .filter(c => (c as any).maturesAt)
       .sort((a, b) => ((a as any).maturesAt.getTime() - (b as any).maturesAt.getTime()))[0]?.maturesAt || null;
@@ -99,19 +107,8 @@ export async function GET(request: NextRequest) {
       conversionRate
     };
 
-    // Map referrals to include estimatedValue from metadata
-    const mappedReferrals = referrals
-      .filter((ref) => !String(ref.leadEmail || '').endsWith('@tracking.internal'))
-      .map(ref => {
-      const metadata = ref.metadata as any;
-      return {
-        ...ref,
-        estimatedValue: Number(metadata?.estimated_value) || 0,
-        company: metadata?.company || '',
-      };
-    });
+    const mappedReferrals = referrals.map((ref) => toAffiliateLead(ref));
 
-    // Get currency symbol
     const { getCurrencySymbol } = await import('@/lib/currency');
     const currencySymbol = await getCurrencySymbol();
     const settings = await prisma.programSettings.findFirst();
@@ -119,7 +116,9 @@ export async function GET(request: NextRequest) {
     const referralLink = affiliate.referralCode
       ? publicReferralLink(settings?.websiteUrl, affiliate.referralCode)
       : '';
-    const commissionRate = affiliate.partnerGroup?.commissionRate ?? 20;
+    const commissionRate = commissionPercent(affiliate.partnerGroup?.commissionRate ?? 20);
+
+    const payoutDetails = (affiliate.payoutDetails || {}) as Record<string, unknown>;
 
     return NextResponse.json({
       success: true,
@@ -129,7 +128,21 @@ export async function GET(request: NextRequest) {
         email: user.email,
         role: user.role
       },
-      affiliate: affiliate,
+      affiliate: {
+        id: affiliate.id,
+        referralCode: affiliate.referralCode,
+        balanceCents: affiliate.balanceCents,
+        partnerGroup: affiliate.partnerGroup?.name || 'Standard',
+        notifySaleEarned: affiliate.notifySaleEarned,
+        notifyPayouts: affiliate.notifyPayouts,
+        notifyTierUpgraded: affiliate.notifyTierUpgraded,
+        payoutDetails: {
+          paymentMethod: payoutDetails.paymentMethod || 'PayPal',
+          paymentEmail: payoutDetails.paymentEmail || '',
+          company: payoutDetails.company || '',
+          country: payoutDetails.country || '',
+        },
+      },
       referralLink,
       announcement: settings?.portalAnnouncement || '',
       stats: {
@@ -138,8 +151,22 @@ export async function GET(request: NextRequest) {
         commissionRate,
       },
       referrals: mappedReferrals,
-      conversions,
-      commissions,
+      conversions: conversions.map((c) => ({
+        id: c.id,
+        amountCents: c.amountCents,
+        currency: c.currency,
+        status: c.status,
+        eventType: c.eventType,
+        createdAt: c.createdAt,
+      })),
+      commissions: commissions.map((c) => ({
+        id: c.id,
+        amountCents: c.amountCents,
+        status: c.status,
+        createdAt: c.createdAt,
+        paidAt: c.paidAt,
+        maturesAt: c.maturesAt,
+      })),
       currencySymbol,
     });
   } catch (error) {
@@ -155,7 +182,6 @@ export async function PUT(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
 
-    // Get user from database
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -183,13 +209,11 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { name, company, email, country, paymentEmail, notifySaleEarned, notifyPayouts, notifyTierUpgraded } = body;
 
-    // Update user name and email if provided
     const userUpdateData: any = {};
     if (name && name.trim()) {
       userUpdateData.name = name.trim();
     }
     if (email && email.trim() && email !== user.email) {
-      // Check if email is already taken
       const existingUser = await prisma.user.findUnique({
         where: { email: email.trim().toLowerCase() }
       });

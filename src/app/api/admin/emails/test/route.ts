@@ -67,6 +67,8 @@ export async function POST(request: Request) {
       saleAmount: '$128.00',
       tierName: 'Gold',
       previousTier: 'Standard',
+      leadId: 'LD-A3K9',
+      reference: 'LD-A3K9',
       referralCode: 'LAZI-ALEX',
       companyName: 'LAZI',
       dashboardUrl: 'https://referrals.lazi.studio/affiliate',

@@ -37,10 +37,11 @@ import {
 
 interface Referral {
   id: string;
-  leadName: string;
-  leadEmail: string;
-  company?: string;
-  estimatedValue: number;
+  publicId: string;
+  label: string;
+  maskedEmail: string;
+  country?: string | null;
+  amountCents: number;
   status: string;
   createdAt: string;
 }
@@ -88,10 +89,12 @@ export default function ReferralsPage() {
   };
 
   const filteredReferrals = referrals.filter((r) => {
+    const query = searchQuery.toLowerCase();
     const matchesSearch =
       !searchQuery ||
-      r.leadName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.leadEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      r.publicId?.toLowerCase().includes(query) ||
+      r.label?.toLowerCase().includes(query) ||
+      r.maskedEmail?.toLowerCase().includes(query);
     const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -104,13 +107,12 @@ export default function ReferralsPage() {
   };
 
   const exportCSV = () => {
-    const headers = ['Name', 'Email', 'Company', 'Status', 'Value', 'Date'];
+    const headers = ['Reference', 'Status', 'Amount', 'Country', 'Date'];
     const rows = filteredReferrals.map((r) => [
-      r.leadName,
-      r.leadEmail,
-      r.company || '',
+      r.publicId,
       r.status,
-      (Number(r.estimatedValue) || 0).toFixed(2),
+      ((r.amountCents || 0) / 100).toFixed(2),
+      r.country || '',
       formatDate(r.createdAt),
     ]);
     const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
@@ -177,7 +179,7 @@ export default function ReferralsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name or email..."
+            placeholder="Search by reference..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -218,24 +220,27 @@ export default function ReferralsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Lead Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Company</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Country</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Est. Value</TableHead>
+                  <TableHead className="text-right">Sale</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredReferrals.map((ref) => (
                   <TableRow key={ref.id}>
-                    <TableCell className="font-medium">{ref.leadName}</TableCell>
-                    <TableCell className="text-muted-foreground">{ref.leadEmail}</TableCell>
-                    <TableCell className="text-muted-foreground">{ref.company || '\u2014'}</TableCell>
+                    <TableCell className="font-mono text-sm">{ref.publicId}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {ref.label}
+                      {ref.maskedEmail ? ` · ${ref.maskedEmail}` : ''}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{ref.country || '\u2014'}</TableCell>
                     <TableCell>{getStatusBadge(ref.status)}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(ref.createdAt)}</TableCell>
                     <TableCell className="text-right font-semibold">
-                      {`$${(Number(ref.estimatedValue) || 0).toFixed(2)}`}
+                      {`$${((ref.amountCents || 0) / 100).toFixed(2)}`}
                     </TableCell>
                   </TableRow>
                 ))}

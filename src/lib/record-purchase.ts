@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { commissionMultiplier } from './commission-rate';
+import { allocateLeadPublicId } from './lead-public-id';
 
 export type RecordPurchaseInput = {
   referralCode: string;
@@ -74,16 +75,18 @@ export async function recordPurchase(input: RecordPurchaseInput) {
         leadName: name !== 'Unknown Customer' ? name : referral.leadName,
         status: 'APPROVED',
         metadata: nextMetadata,
+        publicId: referral.publicId || await allocateLeadPublicId(),
       },
     });
-  } else if (email) {
+  } else {
     referral = await prisma.referral.create({
       data: {
-        leadEmail: email,
+        leadEmail: email || `sale-${input.orderId || Date.now()}@unknown.internal`,
         leadName: name,
         affiliateId: affiliate.id,
         status: 'APPROVED',
         metadata: nextMetadata,
+        publicId: await allocateLeadPublicId(),
       },
     });
   }
@@ -135,6 +138,7 @@ export async function recordPurchase(input: RecordPurchaseInput) {
       commissionCents: commissionAmount,
       commissionRate: rate,
       referralCode: affiliate.referralCode,
+      leadId: referral?.publicId || '',
     });
   } catch (error) {
     console.error('Sale earned email failed:', error);

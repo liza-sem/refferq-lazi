@@ -82,6 +82,7 @@ interface Partner {
 
 interface Customer {
   id: string;
+  publicId?: string | null;
   name: string;
   email: string;
   status: string;
@@ -231,13 +232,14 @@ export default function PartnerDetailPage() {
       if (res.ok) {
         const data = await res.json();
         const partnerCustomers = data.referrals
-          ?.filter((r: any) => r.affiliateId === partnerId)
+          ?.filter((r: any) => r.affiliateId === partnerId || r.affiliate?.id === partnerId)
           .map((r: any) => ({
             id: r.id,
+            publicId: r.publicId,
             name: r.leadName,
             email: r.leadEmail,
             status: r.status,
-            totalPaid: r.estimatedValue || 0,
+            totalPaid: (r.confirmedRevenueCents ?? Math.round((r.estimatedValue || 0) * 100)) / 100,
             createdAt: r.createdAt,
           })) || [];
         setCustomers(partnerCustomers);
@@ -664,6 +666,7 @@ export default function PartnerDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Status</TableHead>
@@ -675,6 +678,9 @@ export default function PartnerDetailPage() {
                   <TableBody>
                     {customers.map((customer) => (
                       <TableRow key={customer.id}>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{customer.publicId || '—'}</code>
+                        </TableCell>
                         <TableCell className="font-medium">{customer.name}</TableCell>
                         <TableCell className="text-muted-foreground">{customer.email}</TableCell>
                         <TableCell>{getStatusBadge(customer.status)}</TableCell>
@@ -732,7 +738,7 @@ export default function PartnerDetailPage() {
                         <TableCell className="text-muted-foreground text-sm">{formatDate(comm.createdAt)}</TableCell>
                         <TableCell className="font-medium">{comm.customerName}</TableCell>
                         <TableCell className="text-right font-semibold text-primary">{formatCurrency(comm.amountCents)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{(comm.rate * 100).toFixed(0)}%</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{commissionPercent(comm.rate)}%</TableCell>
                         <TableCell>{getStatusBadge(comm.status)}</TableCell>
                       </TableRow>
                     ))}

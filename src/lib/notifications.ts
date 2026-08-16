@@ -93,33 +93,33 @@ class NotificationService {
   }
 
   // Affiliate notifications
-  async notifyReferralApproved(affiliateId: string, referralData: { leadName: string; commissionAmount: number }): Promise<void> {
+  async notifyReferralApproved(affiliateId: string, referralData: { leadName?: string; publicId?: string; commissionAmount: number }): Promise<void> {
     await this.createNotification({
       type: 'referral_approved',
       title: 'Referral Approved!',
-      message: `Your referral for ${referralData.leadName} has been approved. Commission: $${(referralData.commissionAmount / 100).toFixed(2)}`,
+      message: `Your sale ${referralData.publicId || ''} was approved. Commission: $${(referralData.commissionAmount / 100).toFixed(2)}`.replace(/\s+/g, ' ').trim(),
       userId: affiliateId,
-      metadata: referralData,
+      metadata: { publicId: referralData.publicId, commissionAmount: referralData.commissionAmount },
     });
   }
 
-  async notifyReferralRejected(affiliateId: string, referralData: { leadName: string; reason?: string }): Promise<void> {
+  async notifyReferralRejected(affiliateId: string, referralData: { leadName?: string; publicId?: string; reason?: string }): Promise<void> {
     await this.createNotification({
       type: 'referral_rejected',
       title: 'Referral Update',
-      message: `Your referral for ${referralData.leadName} needs attention${referralData.reason ? `: ${referralData.reason}` : ''}`,
+      message: `Sale ${referralData.publicId || ''} needs attention${referralData.reason ? `: ${referralData.reason}` : ''}`,
       userId: affiliateId,
-      metadata: referralData,
+      metadata: { publicId: referralData.publicId, reason: referralData.reason },
     });
   }
 
-  async notifyCommissionApproved(affiliateId: string, commissionData: { amount: number; referralName: string }): Promise<void> {
+  async notifyCommissionApproved(affiliateId: string, commissionData: { amount: number; referralName?: string; publicId?: string }): Promise<void> {
     await this.createNotification({
       type: 'commission_approved',
       title: 'Commission Approved!',
-      message: `Commission of $${(commissionData.amount / 100).toFixed(2)} for ${commissionData.referralName} has been approved`,
+      message: `Commission of $${(commissionData.amount / 100).toFixed(2)}${commissionData.publicId ? ` for ${commissionData.publicId}` : ''} has been approved`,
       userId: affiliateId,
-      metadata: commissionData,
+      metadata: { amount: commissionData.amount, publicId: commissionData.publicId },
     });
   }
 

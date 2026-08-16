@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       source: 'stripe_webhook',
       stripeSessionId: session.id,
       paymentIntent: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+      country: session.customer_details?.address?.country || null,
     },
   });
 

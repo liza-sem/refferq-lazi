@@ -127,6 +127,7 @@ export class DatabaseService {
     leadEmail: string;
     metadata?: any;
   }) {
+    const { allocateLeadPublicId } = await import('./lead-public-id');
     return await prisma.referral.create({
       data: {
         affiliateId: referralData.affiliateId,
@@ -134,6 +135,7 @@ export class DatabaseService {
         leadEmail: referralData.leadEmail,
         metadata: referralData.metadata || {},
         status: 'PENDING',
+        publicId: await allocateLeadPublicId(),
       },
     });
   }

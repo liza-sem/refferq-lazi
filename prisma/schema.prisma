@@ -60,6 +60,7 @@ model Referral {
   leadEmail      String          @map("lead_email")
   leadPhone      String?         @map("lead_phone")
   subscriptionId String?         @map("subscription_id")
+  publicId       String?         @unique @map("public_id")
   status         ReferralStatus  @default(PENDING)
   notes          String?
   metadata       Json            @default("{}")

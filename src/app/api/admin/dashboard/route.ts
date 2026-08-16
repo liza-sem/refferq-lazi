@@ -3,13 +3,18 @@ import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
 import { getCurrencySymbol } from '@/lib/currency';
 import { commissionMultiplier } from '@/lib/commission-rate';
-
+import {
+  approvedCustomerWhere,
+  confirmedPurchaseWhere,
+  owedCommissionWhere,
+  realLeadWhere,
+} from '@/lib/program-metrics';
+import { backfillReferralPublicIds } from '@/lib/lead-public-id';
 
 export async function GET(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
-    
-    // Get user from database
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,64 +36,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate platform stats
-    const totalAffiliates = await prisma.affiliate.count();
-    const totalUsers = await prisma.user.count();
-    const clickPlaceholder = { leadEmail: { endsWith: '@tracking.internal' } };
-    const totalReferrals = await prisma.referral.count({
-      where: { NOT: clickPlaceholder },
-    });
-    const totalConversions = await prisma.conversion.count();
-    const totalClicks = await prisma.referralClick.count();
-    
-    const pendingReferrals = await prisma.referral.count({
-      where: { status: 'PENDING', NOT: clickPlaceholder },
-    });
-    
-    const approvedReferrals = await prisma.referral.count({
-      where: { status: 'APPROVED', NOT: clickPlaceholder },
-    });
-    
-    // Calculate ACTUAL transaction revenue from conversions
-    const totalRevenue = await prisma.conversion.aggregate({
-      _sum: { amountCents: true }
-    });
-    
-    // Calculate ESTIMATED revenue from referrals (leads)
-    const referrals = await prisma.referral.findMany({
-      where: { NOT: clickPlaceholder },
-      include: {
-        affiliate: true
-      }
-    });
-    
-    // Get all partner groups for commission rate lookup
-    const partnerGroups = await prisma.partnerGroup.findMany();
-    const partnerGroupMap = new Map(
-      partnerGroups.map(pg => [pg.id, pg.commissionRate])
-    );
-    
-    let totalEstimatedRevenue = 0;
-    let totalEstimatedCommission = 0;
-    
-    referrals.forEach((ref) => {
-      const metadata = ref.metadata as any;
-      const estimatedValue = Number(metadata?.estimated_value) || 0;
-      const valueInCents = estimatedValue * 100;
-      
-      // Get commission rate from partner group or default to 20%
-      const affiliate = ref.affiliate as any;
-      const partnerGroupId = affiliate.partnerGroupId;
-      const commissionRate = commissionMultiplier(
-        partnerGroupId ? partnerGroupMap.get(partnerGroupId) : undefined
-      );
-      const commissionInCents = Math.floor(valueInCents * commissionRate);
-      
-      totalEstimatedRevenue += valueInCents;
-      totalEstimatedCommission += commissionInCents;
-    });
+    try {
+      await backfillReferralPublicIds();
+    } catch (error) {
+      console.error('Lead public ID backfill skipped:', error);
+    }
 
-    const stats = {
+    const [
       totalAffiliates,
       totalUsers,
       totalReferrals,
@@ -96,9 +50,64 @@ export async function GET(request: NextRequest) {
       totalClicks,
       pendingReferrals,
       approvedReferrals,
-      totalRevenue: totalRevenue._sum?.amountCents || 0, // Actual transaction revenue
-      totalEstimatedRevenue, // Estimated revenue from all leads
-      totalEstimatedCommission, // Total commission to be paid
+      confirmedRevenue,
+      owedCommission,
+      referrals,
+      partnerGroups,
+    ] = await Promise.all([
+      prisma.affiliate.count(),
+      prisma.user.count(),
+      prisma.referral.count({ where: realLeadWhere }),
+      prisma.conversion.count({ where: confirmedPurchaseWhere }),
+      prisma.referralClick.count(),
+      prisma.referral.count({ where: { status: 'PENDING', ...realLeadWhere } }),
+      prisma.referral.count({ where: approvedCustomerWhere }),
+      prisma.conversion.aggregate({
+        where: confirmedPurchaseWhere,
+        _sum: { amountCents: true },
+      }),
+      prisma.commission.aggregate({
+        where: owedCommissionWhere,
+        _sum: { amountCents: true },
+      }),
+      prisma.referral.findMany({
+        where: realLeadWhere,
+        include: { affiliate: true },
+      }),
+      prisma.partnerGroup.findMany(),
+    ]);
+
+    const partnerGroupMap = new Map(
+      partnerGroups.map(pg => [pg.id, pg.commissionRate])
+    );
+
+    let totalEstimatedRevenue = 0;
+    let totalEstimatedCommission = 0;
+
+    referrals.forEach((ref) => {
+      const metadata = ref.metadata as Record<string, unknown> | null;
+      const estimatedValue = Number(metadata?.estimated_value) || 0;
+      const valueInCents = Math.round(estimatedValue * 100);
+      const affiliate = ref.affiliate as { partnerGroupId?: string | null };
+      const commissionRate = commissionMultiplier(
+        affiliate.partnerGroupId ? partnerGroupMap.get(affiliate.partnerGroupId) : undefined
+      );
+      totalEstimatedRevenue += valueInCents;
+      totalEstimatedCommission += Math.floor(valueInCents * commissionRate);
+    });
+
+    const confirmedCents = confirmedRevenue._sum?.amountCents || 0;
+    const stats = {
+      totalAffiliates,
+      totalUsers,
+      totalReferrals,
+      totalConversions: approvedReferrals,
+      totalClicks,
+      pendingReferrals,
+      approvedReferrals,
+      totalRevenue: confirmedCents,
+      totalEstimatedRevenue: totalEstimatedRevenue || confirmedCents,
+      totalEstimatedCommission: owedCommission._sum?.amountCents || totalEstimatedCommission,
     };
 
     const currencySymbol = await getCurrencySymbol();

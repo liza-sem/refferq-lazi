@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { commissionMultiplier } from '@/lib/commission-rate';
 
 
 export async function PUT(
@@ -68,9 +69,7 @@ export async function PUT(
     // If approved, create conversion and commission
     if (action === 'approve') {
       // Get commission rate from partner group or use default 10%
-      const commissionRate = referral.affiliate.partnerGroup?.commissionRate
-        ? referral.affiliate.partnerGroup.commissionRate / 100
-        : 0.1;
+      const commissionRate = commissionMultiplier(referral.affiliate.partnerGroup?.commissionRate);
 
       const conversion = await prisma.conversion.create({
         data: {
@@ -166,9 +165,7 @@ export async function PATCH(
       if (action === 'approve') {
         const refMetadata = referral.metadata as Record<string, any> || {};
         const estValueCents = Number(refMetadata?.estimated_value) * 100 || 10000;
-        const commissionRate = referral.affiliate.partnerGroup?.commissionRate
-          ? referral.affiliate.partnerGroup.commissionRate / 100
-          : 0.1;
+        const commissionRate = commissionMultiplier(referral.affiliate.partnerGroup?.commissionRate);
 
         const conversion = await prisma.conversion.create({
           data: {

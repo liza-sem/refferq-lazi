@@ -75,6 +75,7 @@ const AVAILABLE_VARIABLES = [
   { name: 'commissionRate', desc: 'Commission rate' },
   { name: 'tierName', desc: 'New partner tier' },
   { name: 'previousTier', desc: 'Previous partner tier' },
+  { name: 'leadId', desc: 'Public lead reference, e.g. LD-A3K9' },
   { name: 'referralCode', desc: 'Referral code' },
   { name: 'companyName', desc: 'Company name' },
   { name: 'dashboardUrl', desc: 'Dashboard link' },

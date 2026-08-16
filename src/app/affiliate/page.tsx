@@ -48,10 +48,11 @@ interface AffiliateStats {
 
 interface Referral {
   id: string;
-  leadName: string;
-  leadEmail: string;
-  company?: string;
-  estimatedValue: number;
+  publicId: string;
+  label: string;
+  maskedEmail: string;
+  country?: string | null;
+  amountCents: number;
   status: string;
   createdAt: string;
 }
@@ -279,22 +280,25 @@ export default function AffiliateDashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Customer</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Value</TableHead>
+                  <TableHead className="text-right">Sale</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {referrals.slice(0, 5).map((ref) => (
                   <TableRow key={ref.id}>
-                    <TableCell className="font-medium">{ref.leadName}</TableCell>
-                    <TableCell className="text-muted-foreground">{ref.leadEmail}</TableCell>
+                    <TableCell className="font-mono text-sm">{ref.publicId}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {ref.label}
+                      {ref.maskedEmail ? ` · ${ref.maskedEmail}` : ''}
+                    </TableCell>
                     <TableCell>{getStatusBadge(ref.status)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(ref.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      {`${currencySymbol}${(Number(ref.estimatedValue) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      {`${currencySymbol}${((ref.amountCents || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </TableCell>
                   </TableRow>
                 ))}

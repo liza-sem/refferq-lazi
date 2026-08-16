@@ -1,6 +1,7 @@
 import { resend, sendTransactionalEmail } from './plunk';
 import { wrapLaziEmail, lookupTypesFor } from './email-brand';
 import { getProgramBrand } from './default-email-templates';
+import { commissionPercent } from './commission-rate';
 
 export { resend };
 
@@ -390,13 +391,11 @@ class EmailService {
       </div>
       <div class="content">
         <h2>Hello ${this.escapeHtml(data.affiliateName)}!</h2>
-        <p>Great news! Your referred lead, <strong>${this.escapeHtml(data.leadName)}</strong>, has successfully converted!</p>
+          <p>Great news! A sale you referred has been confirmed.</p>
         
         <div class="details">
           <h3>Conversion Details:</h3>
-          <p><strong>Lead Name:</strong> ${this.escapeHtml(data.leadName)}</p>
-          <p><strong>Lead Email:</strong> ${this.escapeHtml(data.leadEmail)}</p>
-          ${data.company ? `<p><strong>Company:</strong> ${this.escapeHtml(data.company)}</p>` : ''}
+          <p><strong>Reference:</strong> ${this.escapeHtml((data as ConversionNotificationData & { leadId?: string }).leadId || '—')}</p>
           <p><strong>Converted Amount:</strong> ${this.formatAmount(data.convertedAmountCents, symbol)}</p>
           <p><strong>Your Commission:</strong> ${this.formatAmount(data.commissionCents, symbol)}</p>
         </div>
@@ -420,7 +419,7 @@ class EmailService {
   private generateCommissionNotificationHTML(data: CommissionNotificationData, symbol: string): string {
     const amount = this.formatAmount(data.amountCents, symbol);
     const commission = this.formatAmount(data.commissionCents, symbol);
-    const rate = (data.commissionRate * 100).toFixed(0);
+    const rate = `${commissionPercent(data.commissionRate)}`;
 
     return `
       <!DOCTYPE html>
@@ -456,8 +455,8 @@ class EmailService {
           <div class="details">
             <h3 style="margin-top: 0;">Transaction Details</h3>
             <div class="detail-row">
-              <span>Customer:</span>
-              <strong>${this.escapeHtml(data.customerName)}</strong>
+              <span>Reference:</span>
+              <strong>${this.escapeHtml(data.transactionId)}</strong>
             </div>
             <div class="detail-row">
               <span>Transaction Amount:</span>
@@ -712,12 +711,27 @@ class EmailService {
   ): Promise<{ success: boolean; message: string }> {
     const symbol = await this.getCurrencySymbol();
     const commission = this.formatAmount(data.commissionCents, symbol);
+    const leadId = (data as { leadId?: string }).leadId || data.transactionId;
     return this.sendTemplatedEmail({
       to: affiliateEmail,
-      templateType: 'COMMISSION_EARNED', // Re-use commission earned template
-      fallbackSubject: `💰 New Commission: ${commission} Earned!`,
-      variables: { ...data, symbol },
-      generateFallbackHtml: () => this.generateCommissionNotificationHTML({ ...data, affiliateEmail }, symbol),
+      templateType: 'COMMISSION_EARNED',
+      fallbackSubject: `New commission: ${commission} earned`,
+      variables: {
+        name: data.affiliateName,
+        email: affiliateEmail,
+        amount: this.formatAmount(data.amountCents, symbol),
+        commission,
+        commissionRate: `${commissionPercent(data.commissionRate)}%`,
+        leadId,
+        reference: leadId,
+        symbol,
+      },
+      generateFallbackHtml: () => this.generateCommissionNotificationHTML({
+        ...data,
+        affiliateEmail,
+        customerName: leadId,
+        transactionId: leadId,
+      }, symbol),
     });
   }
 
@@ -866,6 +880,7 @@ class EmailService {
     commissionCents: number;
     commissionRate: number;
     referralCode?: string;
+    leadId?: string;
   }): Promise<{ success: boolean; message: string }> {
     if (!(await this.partnerAllows(data.affiliateEmail, 'notifySaleEarned'))) {
       return { success: true, message: 'Sale email skipped (partner opted out)' };
@@ -877,10 +892,11 @@ class EmailService {
     const amount = this.formatAmount(data.amountCents, symbol);
     const commission = this.formatAmount(data.commissionCents, symbol);
     const commissionRate = `${commissionPercent(data.commissionRate)}%`;
+    const leadId = data.leadId || '';
     return this.sendTemplatedEmail({
       to: data.affiliateEmail,
       templateType: 'SALE_EARNED',
-      fallbackSubject: 'You earned a sale',
+      fallbackSubject: leadId ? `You earned a sale (${leadId})` : 'You earned a sale',
       variables: {
         name: data.affiliateName,
         email: data.affiliateEmail,
@@ -888,6 +904,8 @@ class EmailService {
         commission,
         commissionRate,
         referralCode: data.referralCode || '',
+        leadId,
+        reference: leadId,
       },
       generateFallbackHtml: () =>
         wrapLaziEmail({
@@ -897,6 +915,7 @@ class EmailService {
           intro: `Hi ${this.escapeHtml(data.affiliateName)},`,
           paragraphs: ['A sale you referred was confirmed.'],
           details: [
+            { label: 'Reference', value: this.escapeHtml(leadId || '—') },
             { label: 'Sale', value: this.escapeHtml(amount) },
             { label: 'Your commission', value: this.escapeHtml(commission) },
           ],

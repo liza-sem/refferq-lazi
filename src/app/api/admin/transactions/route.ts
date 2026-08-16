@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { commissionMultiplier } from '@/lib/commission-rate';
 
 
 // GET - Fetch all transactions (Admin only)
@@ -162,14 +163,14 @@ export async function POST(request: NextRequest) {
 
     // Get partner group commission rate
     const affiliate = referral.affiliate as any;
-    let commissionRate = 0.20; // Default 20%
+    let commissionRate = commissionMultiplier(undefined);
 
     if (affiliate.partnerGroupId) {
       const partnerGroup = await prisma.partnerGroup.findUnique({
         where: { id: affiliate.partnerGroupId }
       });
       if (partnerGroup) {
-        commissionRate = partnerGroup.commissionRate;
+        commissionRate = commissionMultiplier(partnerGroup.commissionRate);
       }
     }
 
@@ -224,12 +225,13 @@ export async function POST(request: NextRequest) {
         const { emailService } = await import('@/lib/email');
         await emailService.sendTransactionCreatedEmail(affiliateUser.email, {
           affiliateName: affiliate.name || affiliateUser.name || 'Partner',
-          customerName: referral.leadName,
+          customerName: referral.publicId || referral.id,
           amountCents,
           commissionCents,
           commissionRate,
-          transactionId: transaction.id
-        });
+          transactionId: referral.publicId || transaction.id,
+          leadId: referral.publicId || '',
+        } as any);
       }
     } catch (emailError) {
       console.error('Failed to send transaction email:', emailError);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { realLeadWhere, approvedCustomerWhere, confirmedPurchaseWhere } from '@/lib/program-metrics';
 
 
 export async function GET(request: NextRequest) {
@@ -36,16 +37,10 @@ export async function GET(request: NextRequest) {
       include: {
         user: true,
         referrals: {
-          where: {
-            status: 'APPROVED'
-          }
-        },
-        commissions: {
-          where: {
-            status: 'APPROVED'
-          }
+          where: approvedCustomerWhere,
         },
         conversions: {
+          where: confirmedPurchaseWhere,
           select: { amountCents: true },
         },
       }
@@ -54,13 +49,14 @@ export async function GET(request: NextRequest) {
     // Referral conversion rate
     const totalReferrals = await prisma.referral.count({
       where: {
-        createdAt: { gte: startDate }
+        createdAt: { gte: startDate },
+        ...realLeadWhere,
       }
     });
 
     const approvedReferrals = await prisma.referral.count({
       where: {
-        status: 'APPROVED',
+        ...approvedCustomerWhere,
         createdAt: { gte: startDate }
       }
     });
@@ -122,7 +118,7 @@ export async function GET(request: NextRequest) {
         totalReferrals: affiliate.referrals.length,
         totalEarnings: affiliate.balanceCents,
         totalRevenue: affiliate.conversions.reduce((sum, conversion) => sum + conversion.amountCents, 0),
-        totalCommissions: affiliate.commissions.length
+        totalCommissions: affiliate.referrals.length
       })),
       referralsByStatus: referralsByStatus.map(item => ({
         status: item.status,

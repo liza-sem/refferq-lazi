@@ -186,6 +186,8 @@ export const EMAIL_TEMPLATE_CATALOG: EmailCatalogEntry[] = [
       { name: 'amount', desc: 'Sale amount' },
       { name: 'commission', desc: 'Commission earned' },
       { name: 'commissionRate', desc: 'Commission rate, e.g. 20%' },
+      { name: 'leadId', desc: 'Public lead reference, e.g. LD-A3K9' },
+      { name: 'reference', desc: 'Same as leadId' },
     ],
     defaultSubject: 'You earned a sale',
   },
@@ -301,6 +303,7 @@ export function defaultBodies(): Record<string, string> {
         'A sale you referred was confirmed.',
       ],
       details: [
+        { label: 'Reference', value: '{{leadId}}' },
         { label: 'Sale', value: '{{amount}}' },
         { label: 'Your commission', value: '{{commission}}' },
       ],

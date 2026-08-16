@@ -37,6 +37,7 @@ interface TopAffiliate {
 
 interface RecentCustomer {
   id: string;
+  publicId?: string | null;
   leadName: string;
   leadEmail: string;
   affiliateName: string;
@@ -96,10 +97,11 @@ export default function AdminDashboardPage() {
       if (referralsData.success) {
         const recent = referralsData.referrals.slice(0, 10).map((ref: any) => ({
           id: ref.id,
+          publicId: ref.publicId,
           leadName: ref.leadName,
           leadEmail: ref.leadEmail,
           affiliateName: ref.affiliate.name,
-          amountPaid: 0,
+          amountPaid: ref.confirmedRevenueCents || 0,
           status: ref.status,
           createdAt: ref.createdAt,
         }));
@@ -256,7 +258,9 @@ export default function AdminDashboardPage() {
                     </p>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm">{customer.leadEmail}</p>
-                      <p className="text-xs text-muted-foreground">via {customer.affiliateName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {customer.publicId ? `${customer.publicId} · ` : ''}via {customer.affiliateName}
+                      </p>
                     </div>
                     <StatusBadge status={customer.status} />
                   </div>

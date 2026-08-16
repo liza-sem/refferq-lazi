@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { commissionPercent } from '@/lib/commission-rate';
+import {
+  approvedCustomerWhere,
+  confirmedPurchaseWhere,
+  earnedCommissionWhere,
+  realLeadWhere,
+} from '@/lib/program-metrics';
 
 export async function GET(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
 
-    // Get user from database
-
-    // Get user from database
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -23,7 +27,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all affiliates with their user info and counts
     const affiliates = await prisma.affiliate.findMany({
       include: {
         user: {
@@ -45,7 +48,6 @@ export async function GET(request: NextRequest) {
         },
         _count: {
           select: {
-            referrals: true,
             clicks: true,
           }
         }
@@ -55,7 +57,37 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Get currency symbol
+    const affiliateIds = affiliates.map((a) => a.id);
+    const [leadCounts, customerCounts, revenues, earnings] = affiliateIds.length
+      ? await Promise.all([
+          prisma.referral.groupBy({
+            by: ['affiliateId'],
+            where: { affiliateId: { in: affiliateIds }, ...realLeadWhere },
+            _count: { _all: true },
+          }),
+          prisma.referral.groupBy({
+            by: ['affiliateId'],
+            where: { affiliateId: { in: affiliateIds }, ...approvedCustomerWhere },
+            _count: { _all: true },
+          }),
+          prisma.conversion.groupBy({
+            by: ['affiliateId'],
+            where: { affiliateId: { in: affiliateIds }, ...confirmedPurchaseWhere },
+            _sum: { amountCents: true },
+          }),
+          prisma.commission.groupBy({
+            by: ['affiliateId'],
+            where: { affiliateId: { in: affiliateIds }, ...earnedCommissionWhere },
+            _sum: { amountCents: true },
+          }),
+        ])
+      : [[], [], [], []];
+
+    const leadMap = new Map(leadCounts.map((row) => [row.affiliateId, row._count._all]));
+    const customerMap = new Map(customerCounts.map((row) => [row.affiliateId, row._count._all]));
+    const revenueMap = new Map(revenues.map((row) => [row.affiliateId, row._sum.amountCents || 0]));
+    const earningsMap = new Map(earnings.map((row) => [row.affiliateId, row._sum.amountCents || 0]));
+
     const { getCurrencySymbol } = await import('@/lib/currency');
     const currencySymbol = await getCurrencySymbol();
 
@@ -67,11 +99,15 @@ export async function GET(request: NextRequest) {
         email: affiliate.user.email,
         status: affiliate.user.status,
         totalClicks: affiliate._count.clicks,
-        totalLeads: affiliate._count.referrals,
+        totalLeads: leadMap.get(affiliate.id) || 0,
+        totalCustomers: customerMap.get(affiliate.id) || 0,
+        totalRevenue: revenueMap.get(affiliate.id) || 0,
+        totalEarnings: earningsMap.get(affiliate.id) || 0,
         partnerGroup: affiliate.partnerGroup?.name || 'Standard',
         partnerGroupId: affiliate.partnerGroupId,
         partnerGroupLocked: affiliate.partnerGroupLocked,
         commissionRate: affiliate.partnerGroup?.commissionRate ?? 20,
+        commissionPercent: commissionPercent(affiliate.partnerGroup?.commissionRate ?? 20),
         tierAssignedAt: affiliate.tierAssignedAt,
         tierAssignedReason: affiliate.tierAssignedReason,
       })),
@@ -90,9 +126,6 @@ export async function POST(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
 
-    // Get user from database
-
-    // Get user from database
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -109,7 +142,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Validate with Zod
     const { success, data, error: validationError } = await import('@/lib/validations').then(m => m.affiliateCreateSchema.safeParse(body));
 
     if (!success) {
@@ -122,7 +154,6 @@ export async function POST(request: NextRequest) {
     const { name, email, password, paypalEmail, company } = data;
     const requestedGroupId = typeof body.partnerGroupId === 'string' ? body.partnerGroupId : null;
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email }
     });
@@ -134,14 +165,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate password if not provided
     const crypto = await import('crypto');
     const userPassword = password || `AF${crypto.randomBytes(12).toString('base64url')}`;
 
-    // Hash password with bcrypt
     const hashedPassword = await (await import('bcryptjs')).hash(userPassword, 12);
 
-    // Create new user
     const newUser = await prisma.user.create({
       data: {
         name,
@@ -152,7 +180,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Create affiliate profile
     const { getOrCreateDefaultPartnerGroup } = await import('@/lib/default-partner-group');
     const defaultGroup = await getOrCreateDefaultPartnerGroup();
     let partnerGroupId = defaultGroup.id;
@@ -186,8 +213,6 @@ export async function POST(request: NextRequest) {
         balanceCents: affiliate.balanceCents,
         createdAt: affiliate.createdAt
       },
-      // Note: Password is sent to admin once and should be communicated
-      // securely to the affiliate. It is not stored in logs.
       temporaryPassword: userPassword
     });
   } catch (error) {

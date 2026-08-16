@@ -46,9 +46,11 @@ import {
   Shield,
   Loader2,
 } from 'lucide-react';
+import { commissionMultiplier, commissionPercent } from '@/lib/commission-rate';
 
 interface Referral {
   id: string;
+  publicId?: string | null;
   leadEmail: string;
   leadName: string;
   leadPhone: string | null;
@@ -56,7 +58,10 @@ interface Referral {
   notes: string | null;
   createdAt: string;
   estimatedValue: number;
+  confirmedRevenueCents?: number;
+  commissionCents?: number;
   company: string;
+  country?: string | null;
   affiliate: {
     id: string;
     name: string;
@@ -65,6 +70,7 @@ interface Referral {
     partnerGroup: string;
     partnerGroupId: string | null;
     commissionRate: number;
+    commissionPercent?: number;
   };
 }
 
@@ -204,7 +210,13 @@ export default function CustomerDetailPage() {
 
   const cfg = statusConfig[referral.status] || statusConfig.PENDING;
   const StatusIcon = cfg.icon;
-  const estimatedCommission = Math.round(referral.estimatedValue * referral.affiliate.commissionRate);
+  const ratePercent = referral.affiliate.commissionPercent ?? commissionPercent(referral.affiliate.commissionRate);
+  const saleAmount = referral.confirmedRevenueCents
+    ? referral.confirmedRevenueCents / 100
+    : referral.estimatedValue;
+  const estimatedCommission = referral.commissionCents != null
+    ? referral.commissionCents / 100
+    : Math.round(saleAmount * commissionMultiplier(referral.affiliate.commissionRate) * 100) / 100;
 
   return (
     <div className="space-y-6">
@@ -223,6 +235,9 @@ export default function CustomerDetailPage() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight">{referral.leadName}</h1>
               <p className="text-sm text-muted-foreground">{referral.leadEmail}</p>
+              {referral.publicId && (
+                <p className="mt-1 font-mono text-xs text-muted-foreground">ID {referral.publicId}</p>
+              )}
             </div>
           </div>
           <Badge variant={cfg.variant} className="ml-2">
@@ -397,15 +412,17 @@ export default function CustomerDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Estimated Value</span>
+                <span className="text-sm text-muted-foreground">
+                  {referral.confirmedRevenueCents ? 'Confirmed sale' : 'Estimated Value'}
+                </span>
                 <span className="flex items-center gap-1 font-semibold">
                   <DollarSign className="h-3.5 w-3.5" />
-                  {referral.estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {saleAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Commission Rate</span>
-                <span className="font-semibold">{(referral.affiliate.commissionRate * 100).toFixed(0)}%</span>
+                <span className="font-semibold">{ratePercent}%</span>
               </div>
               <Separator />
               <div className="flex items-center justify-between">

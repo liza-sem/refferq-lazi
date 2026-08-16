@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { realLeadWhere } from '@/lib/program-metrics';
+import { toAffiliateLead } from '@/lib/lead-privacy';
+import { backfillReferralPublicIds } from '@/lib/lead-public-id';
 
 export async function POST(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
 
-    // Get user from database
-
-    // Get user from database
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -59,9 +59,6 @@ export async function GET(request: NextRequest) {
   try {
     const userId = await getRequestUserId(request);
 
-    // Get user from database
-
-    // Get user from database
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -93,27 +90,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    try {
+      await backfillReferralPublicIds();
+    } catch (error) {
+      console.error('Lead public ID backfill skipped:', error);
+    }
+
     const referrals = await prisma.referral.findMany({
       where: {
         affiliateId: user.affiliate.id,
-        NOT: { leadEmail: { endsWith: '@tracking.internal' } },
+        ...realLeadWhere,
+      },
+      include: {
+        conversions: { select: { amountCents: true, status: true } },
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    // Map referrals to include estimatedValue from metadata
-    const mappedReferrals = referrals.map((ref: any) => {
-      const metadata = ref.metadata as any;
-      return {
-        ...ref,
-        estimatedValue: Number(metadata?.estimated_value) || 0,
-        company: metadata?.company || '',
-      };
-    });
-
     return NextResponse.json({
       success: true,
-      referrals: mappedReferrals,
+      referrals: referrals.map((ref) => toAffiliateLead(ref)),
     });
   } catch (error) {
     console.error('Get referrals API error:', error);

@@ -16,9 +16,27 @@ export async function ensureDefaultEmailTemplates(): Promise<{ created: string[]
       where: {
         OR: [{ type: type as any }, ...entry.aliases.map((alias) => ({ type: alias as any }))],
       },
-      select: { id: true },
     });
-    if (existing) continue;
+    if (existing) {
+      if (type === 'SALE_EARNED') {
+        const vars = Array.isArray(existing.variables) ? (existing.variables as string[]) : [];
+        const nextVars = Array.from(new Set([...vars, 'leadId', 'reference']));
+        const shouldRefreshBody =
+          existing.body.includes('A sale you referred was confirmed') &&
+          !existing.body.includes('{{leadId}}') &&
+          !existing.body.includes('{{reference}}');
+        if (shouldRefreshBody || nextVars.length !== vars.length) {
+          await prisma.emailTemplate.update({
+            where: { id: existing.id },
+            data: {
+              ...(shouldRefreshBody ? { body } : {}),
+              variables: nextVars,
+            },
+          });
+        }
+      }
+      continue;
+    }
 
     await prisma.emailTemplate.create({
       data: {
