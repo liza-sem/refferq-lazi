@@ -239,7 +239,7 @@ model ProgramSettings {
   payoutFrequency           String   @default("MONTHLY") @map("payout_frequency")
   payoutWeekday             Int      @default(1) @map("payout_weekday")
   payoutDayOfMonth          Int      @default(1) @map("payout_day_of_month")
-  commissionHoldDays        Int      @default(0) @map("commission_hold_days")
+  commissionHoldDays        Int      @default(30) @map("commission_hold_days")
   minPayoutCents            Int      @default(100000) @map("min_payout_cents")
   companyName               String?  @map("company_name")
   portalAnnouncement        String?  @map("portal_announcement")

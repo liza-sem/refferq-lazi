@@ -1,7 +1,7 @@
 import { prisma } from './prisma';
 import { commissionMultiplier } from './commission-rate';
 import { allocateLeadPublicId } from './lead-public-id';
-import { createSaleCommission } from './commission-hold';
+import { createSaleCommission, resolveHoldDays } from './commission-hold';
 
 export type RecordPurchaseInput = {
   referralCode: string;
@@ -118,7 +118,7 @@ export async function recordPurchase(input: RecordPurchaseInput) {
     userId: affiliate.userId,
     amountCents: commissionAmount,
     rate,
-    holdDays: settings?.commissionHoldDays ?? 0,
+    holdDays: resolveHoldDays(settings?.commissionHoldDays),
   });
 
   try {

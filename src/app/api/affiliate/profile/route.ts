@@ -12,7 +12,7 @@ import {
   parseOptionalWeekday,
   resolvePayoutSchedule,
 } from '@/lib/payout-schedule';
-import { resolveHoldDays } from '@/lib/commission-hold';
+import { isCommissionMatured, resolveHoldDays } from '@/lib/commission-hold';
 
 export async function GET(request: NextRequest) {
   try {
@@ -89,6 +89,10 @@ export async function GET(request: NextRequest) {
 
     const pendingCommissionsList = commissions.filter(c => c.status === 'PENDING');
     const pendingEarningsCents = pendingCommissionsList.reduce((sum, c) => sum + c.amountCents, 0);
+    const pendingHoldCents = pendingEarningsCents;
+    const availableCents = commissions
+      .filter((c) => !c.payoutId && isCommissionMatured(c))
+      .reduce((sum, c) => sum + c.amountCents, 0);
     const unpaidBalanceCents = commissions
       .filter((c) => (c.status === 'PENDING' || c.status === 'APPROVED') && !c.payoutId)
       .reduce((sum, c) => sum + c.amountCents, 0);
@@ -119,7 +123,7 @@ export async function GET(request: NextRequest) {
       affiliate.partnerGroup,
       settings,
     );
-    const approvedUnpaid = commissions.filter((c) => c.status === 'APPROVED' && !c.payoutId);
+    const approvedUnpaid = commissions.filter((c) => !c.payoutId && isCommissionMatured(c));
     const nextPayout = nextPayoutFromCommissions(
       approvedUnpaid,
       payoutFrequency,
@@ -139,6 +143,8 @@ export async function GET(request: NextRequest) {
       totalEarnings: availableEarnings,
       pendingEarnings: pendingEarningsCents,
       pendingEarningsList: pendingCommissionsList.length,
+      pendingHoldCents,
+      availableCents,
       unpaidBalanceCents,
       inPayoutCents,
       paidOutCents,

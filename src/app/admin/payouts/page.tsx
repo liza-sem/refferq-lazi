@@ -96,7 +96,7 @@ export default function PayoutsPage() {
           lastAutoPayoutAt: data.config.lastAutoPayoutAt,
           paypalConfigured: data.config.paypalConfigured,
           paypalMode: data.config.paypalMode === 'live' ? 'live' : 'sandbox',
-          refundHoldDays: data.config.refundHoldDays ?? data.config.commissionHoldDays ?? 0,
+          refundHoldDays: data.config.refundHoldDays ?? data.config.commissionHoldDays ?? 30,
           payoutFrequencyLabel: data.config.payoutFrequencyLabel || 'Monthly',
           paydayLabel: data.config.paydayLabel,
           minPayoutCents: data.config.minPayoutCents,

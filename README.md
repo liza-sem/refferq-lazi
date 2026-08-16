@@ -300,7 +300,7 @@ For detailed deployment instructions, see [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 
 ### Automatic PayPal payouts
 
-After `commissionHoldDays`, a cron matures PENDING commissions and pays affiliates via the PayPal Payouts API on each partner’s payday (program/tier default, or the day they picked in Settings). Each run pays at most a few affiliates (drip size, default 2) so a mass pay does not hit your PayPal balance.
+New commissions stay PENDING for `commissionHoldDays` (default 30) so Stripe chargebacks can claw back. A cron then matures due rows and pays only APPROVED commissions (`maturesAt` ≤ now) via the PayPal Payouts API on each partner’s monthly payday (program/tier default, or the day they picked in Settings). Partners can also use Pay me now after a sale has matured. Each cron run pays at most a few affiliates (drip size, default 2) so a mass pay does not hit your PayPal balance.
 
 Start in **sandbox**: set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` from a Sandbox REST app, `PAYPAL_MODE=sandbox` (the default if unset), and `CRON_SECRET`. Enable Payouts on the app in the [PayPal Developer dashboard](https://developer.paypal.com/dashboard/applications) (Sandbox tab). Switch to live later by replacing those keys with Live credentials and setting `PAYPAL_MODE=live`.
 

@@ -30,14 +30,17 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
-import { nextPayoutAmountLabel, nextPayoutHint, inPayoutHint } from '@/lib/payout-copy';
+import { formatHoldUntil, nextPayoutHint, inPayoutHint } from '@/lib/payout-copy';
 
 interface AffiliateStats {
   unpaidBalanceCents: number;
+  pendingHoldCents: number;
+  availableCents: number;
   inPayoutCents: number;
   paidOutCents: number;
   nextPayoutCents: number;
   nextPayoutAt: string | null;
+  nextMaturesAt: string | null;
   referredCount: number;
   totalClicks: number;
   referralLink: string;
@@ -82,10 +85,13 @@ export default function AffiliateDashboard() {
       if (data.success) {
         setStats({
           unpaidBalanceCents: data.stats?.unpaidBalanceCents ?? 0,
+          pendingHoldCents: data.stats?.pendingHoldCents ?? data.stats?.pendingEarnings ?? 0,
+          availableCents: data.stats?.availableCents ?? 0,
           inPayoutCents: data.stats?.inPayoutCents ?? 0,
           paidOutCents: data.stats?.paidOutCents ?? 0,
           nextPayoutCents: data.stats?.nextPayoutCents ?? 0,
           nextPayoutAt: data.stats?.nextPayoutAt || null,
+          nextMaturesAt: data.stats?.nextMaturesAt || null,
           referredCount: data.stats?.referredCount ?? 0,
           totalClicks: data.stats?.totalClicks || 0,
           referralLink: data.referralLink || data.stats?.referralLink || '',
@@ -150,32 +156,34 @@ export default function AffiliateDashboard() {
     return <DashboardSkeleton />;
   }
 
-  const unpaid = stats?.unpaidBalanceCents || 0;
+  const pending = stats?.pendingHoldCents || 0;
+  const available = stats?.availableCents || 0;
   const inPayout = stats?.inPayoutCents || 0;
   const paidOut = stats?.paidOutCents || 0;
   const nextCents = stats?.nextPayoutCents || 0;
   const nextAt = stats?.nextPayoutAt || null;
   const referred = stats?.referredCount || 0;
   const clicks = stats?.totalClicks || 0;
-  const nextValue = nextPayoutAmountLabel(nextCents, nextAt, currencySymbol);
+  const holdHint = formatHoldUntil(stats?.nextMaturesAt || null);
   const nextHint = nextPayoutHint(nextCents, nextAt);
   const sentHint = inPayoutHint(inPayout, currencySymbol);
 
   const metrics: Array<{ title: string; value: string; hint?: string }> = [
     {
-      title: 'Unpaid',
-      value: formatMoney(unpaid, currencySymbol),
+      title: 'Pending',
+      value: formatMoney(pending, currencySymbol),
+      hint: pending > 0 ? holdHint || 'Chargeback hold' : undefined,
     },
     inPayout > 0
       ? {
           title: 'In payout',
           value: formatMoney(inPayout, currencySymbol),
-          hint: nextCents > 0 ? nextHint : sentHint,
+          hint: sentHint,
         }
       : {
-          title: 'Next payout',
-          value: nextCents > 0 ? formatMoney(nextCents, currencySymbol) : nextValue,
-          hint: nextHint,
+          title: 'Available',
+          value: formatMoney(available, currencySymbol),
+          hint: available > 0 ? nextHint : undefined,
         },
     {
       title: 'Paid out',

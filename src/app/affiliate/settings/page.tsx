@@ -305,7 +305,7 @@ export default function SettingsPage() {
             Pay me on
           </CardTitle>
           <CardDescription>
-            Pick your payday. Default is the program day. The next cron uses whatever you save here.
+            Monthly payouts use this day of the month. Default is the program day. The next cron uses whatever you save here.
           </CardDescription>
         </CardHeader>
         <CardContent>

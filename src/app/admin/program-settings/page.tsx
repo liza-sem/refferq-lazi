@@ -191,7 +191,7 @@ export default function ProgramSettingsPage() {
           payoutWeekday: data.settings.payoutWeekday ?? 1,
           payoutDayOfMonth: data.settings.payoutDayOfMonth ?? 1,
           cookieDuration: data.settings.cookieDuration ?? 30,
-          commissionHoldDays: data.settings.commissionHoldDays ?? 0,
+          commissionHoldDays: data.settings.commissionHoldDays ?? 30,
         });
       }
     } catch (error) {
@@ -471,7 +471,7 @@ export default function ProgramSettingsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="commissionHoldDays">Refund hold (days)</Label>
+              <Label htmlFor="commissionHoldDays">Chargeback hold (days)</Label>
               <div className="relative">
                 <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -482,13 +482,13 @@ export default function ProgramSettingsPage() {
                   onChange={(e) =>
                     setSettings({ ...settings, commissionHoldDays: parseInt(e.target.value) || 0 })
                   }
-                  placeholder="0"
+                  placeholder="30"
                 />
               </div>
               <p className="text-[10px] text-muted-foreground">
                 {settings.commissionHoldDays > 0
-                  ? 'Days after a sale before commission can pay, so refunds can claw back. This is not the referral cookie and not the payout term.'
-                  : '0 means no refund hold — each commission pays after its term from the approval date. Cookie duration (attribution) is separate.'}
+                  ? 'Days after a sale before commission can pay, so Stripe chargebacks and refunds can claw back. This is not the referral cookie and not the payout term.'
+                  : '0 means no chargeback hold — each commission pays after its term from the approval date. Cookie duration (attribution) is separate.'}
               </p>
             </div>
           </div>
@@ -512,7 +512,7 @@ export default function ProgramSettingsPage() {
             )}
           </CardTitle>
           <CardDescription>
-            Cron pays commissions once each sale’s term has elapsed (7 / 14 days or 1 / 3 months after approval), a few affiliates per run, so a mass pay does not hit your PayPal balance.
+            Cron pays only matured commissions (past the chargeback hold) on each partner’s payday. Monthly uses the day of month. A few affiliates per run, so a mass pay does not hit your PayPal balance.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
@@ -564,13 +564,13 @@ export default function ProgramSettingsPage() {
             <div className="grid gap-2">
               <Label>
                 {settings.commissionHoldDays > 0
-                  ? 'Refund hold still applies to automatic payouts'
-                  : 'No refund hold — payouts wait the term after each approval'}
+                  ? 'Chargeback hold still applies to automatic payouts'
+                  : 'No chargeback hold — payouts wait the term after each approval'}
               </Label>
               <p className="text-sm text-muted-foreground">
                 {settings.commissionHoldDays > 0
-                  ? `Commissions stay PENDING for ${settings.commissionHoldDays} day${settings.commissionHoldDays === 1 ? '' : 's'} after a sale so refunds can claw back. Cookie duration is separate (tracking). After approval, weekly waits 7 days, bi-weekly 14, monthly 1 month. Use Create payout on a partner to skip hold and the term wait for a sandbox test.`
-                  : 'Refund hold is 0 days. Each commission pays 7 days / 14 days / 1 month / 3 months after it was approved, depending on the partner’s term. Cookie duration is separate (tracking). Use Create payout on a partner to send now instead of waiting out the term.'}
+                  ? `Commissions stay PENDING for ${settings.commissionHoldDays} day${settings.commissionHoldDays === 1 ? '' : 's'} after a sale so Stripe chargebacks can claw back. Cookie duration is separate (tracking). After approval, monthly pays on the partner’s day. Partners can Pay me now only after a sale has matured. Use Create payout on a partner to skip hold for a sandbox test.`
+                  : 'Chargeback hold is 0 days. Each commission pays on the partner’s payday after it was approved. Cookie duration is separate (tracking). Use Create payout on a partner to send now instead of waiting out the term.'}
               </p>
             </div>
           </div>

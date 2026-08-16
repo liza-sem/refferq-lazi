@@ -36,3 +36,18 @@ export function payoutScheduleLine(
 ): string {
   return payoutTermExplanation(frequency, payday);
 }
+
+/** Chargeback hold date, e.g. “Held until 15 Sep”. Not the payout term. */
+export function formatHoldUntil(isoOrDate: string | Date | null | undefined): string {
+  if (!isoOrDate) return '';
+  const date = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (Number.isNaN(date.getTime())) return '';
+  const day = date.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'UTC' });
+  const month = date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+  return `Held until ${day} ${month}`;
+}
+
+export function payMeNowCopy(holdDays = 30): string {
+  const days = holdDays > 0 ? holdDays : 30;
+  return `Available after ${days} days. Monthly payout on your day, or Pay me now once a sale has matured.`;
+}

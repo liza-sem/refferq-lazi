@@ -897,7 +897,7 @@ export default function PartnerDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{comm.customerName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(comm.createdAt)} · {comm.status === 'PENDING' ? (payoutPreview?.refundHoldDays ? 'in refund hold' : 'pending') : 'approved'}
+                      {formatDate(comm.createdAt)} · {comm.status === 'PENDING' ? (payoutPreview?.refundHoldDays ? 'in chargeback hold' : 'pending') : 'approved'}
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-primary shrink-0">

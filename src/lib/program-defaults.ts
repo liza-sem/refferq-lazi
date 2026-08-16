@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { resolveHoldDays } from '@/lib/commission-hold';
 import {
   normalizeDayOfMonth,
   normalizePayoutFrequency,
@@ -43,7 +44,7 @@ export async function getProgramDefaults(): Promise<{
       1,
     ),
     cookieDuration: settings?.cookieDuration ?? fallbackProgram?.cookieDuration ?? 30,
-    commissionHoldDays: settings?.commissionHoldDays ?? 0,
+    commissionHoldDays: resolveHoldDays(settings?.commissionHoldDays),
     minPayoutCents: Math.max(0, minFromSettings ?? fallbackProgram?.minPayoutCents ?? 0),
     currency: settings?.currency || fallbackProgram?.currency || 'USD',
   };

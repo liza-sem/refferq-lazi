@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
           brandTextColor: '#ffffff',
           minimumPayoutThreshold: 0,
           payoutTerm: 'NET-15',
-          commissionHoldDays: 0,
+          payoutFrequency: 'MONTHLY',
+          commissionHoldDays: 30,
           autoPayoutEnabled: true,
           autoPayoutDripSize: 2,
         }
@@ -164,9 +165,13 @@ export async function PUT(request: NextRequest) {
       data: sanitizedData
     });
 
-    if (typeof sanitizedData.commissionHoldDays === 'number' && sanitizedData.commissionHoldDays <= 0) {
-      const { releaseHeldCommissions } = await import('@/lib/commission-hold');
-      await releaseHeldCommissions(user.id);
+    if (typeof sanitizedData.commissionHoldDays === 'number') {
+      const { reholdImmatureApprovals, releaseHeldCommissions } = await import('@/lib/commission-hold');
+      if (sanitizedData.commissionHoldDays <= 0) {
+        await releaseHeldCommissions(user.id);
+      } else {
+        await reholdImmatureApprovals(sanitizedData.commissionHoldDays);
+      }
     }
 
     if (

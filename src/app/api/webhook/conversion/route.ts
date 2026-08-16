@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { commissionMultiplier } from '@/lib/commission-rate';
-import { createSaleCommission } from '@/lib/commission-hold';
+import { createSaleCommission, resolveHoldDays } from '@/lib/commission-hold';
 
 // ─── Webhook Signature Verification ────────────────────────────
 function verifyWebhookSignature(payload: string, signature: string | null, secret: string): boolean {
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       commissionAmount = Math.round(commissionRate);
     }
 
-    // Hold 0 → APPROVED now. Hold > 0 stays PENDING until maturesAt / cron.
+    // Default 30-day chargeback hold → PENDING until maturesAt / cron. Hold 0 → APPROVED now.
     const settings = await prisma.programSettings.findFirst();
     const commission = await createSaleCommission({
       conversionId: conversion.id,
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       userId: affiliate.userId,
       amountCents: commissionAmount,
       rate: commissionRate,
-      holdDays: settings?.commissionHoldDays ?? 0,
+      holdDays: resolveHoldDays(settings?.commissionHoldDays),
     });
 
     // Log audit event
