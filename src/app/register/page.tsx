@@ -28,13 +28,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Target, User, Mail, ShieldCheck, ArrowLeft, Loader2, CheckCircle2, Building2, Globe } from 'lucide-react';
+import { User, Mail, ShieldCheck, ArrowLeft, Loader2, CheckCircle2, Building2, Globe } from 'lucide-react';
+import { AuthBrandHeader, useAuthBrand } from '@/components/auth/AuthBrandHeader';
 import { COUNTRIES, DEFAULT_COUNTRY } from '@/lib/countries';
 
 type Step = 'details' | 'otp' | 'success';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { brand, title, subtitle, buttonColor } = useAuthBrand();
   const [step, setStep] = useState<Step>('details');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -155,18 +157,12 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div
+      className="min-h-screen flex items-center justify-center bg-[#fafafa] p-4"
+      style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" }}
+    >
       <div className="w-full max-w-md space-y-6">
-        {/* Logo */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary">
-            <Target className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-medium tracking-tight">LAZI</h1>
-          <p className="text-sm text-muted-foreground">
-            Partner Portal
-          </p>
-        </div>
+        <AuthBrandHeader title={title} subtitle={subtitle} logo={brand.companyLogo} />
 
         {/* Card */}
         <Card>
@@ -253,9 +249,10 @@ export default function RegisterPage() {
                 <CardFooter className="flex-col gap-4">
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full hover:opacity-90"
                     size="lg"
                     disabled={loading || !name || !email || !country}
+                    style={{ backgroundColor: buttonColor, color: '#fff' }}
                   >
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -313,9 +310,10 @@ export default function RegisterPage() {
                 <CardFooter className="flex-col gap-3">
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full hover:opacity-90"
                     size="lg"
                     disabled={loading || otp.length < 6}
+                    style={{ backgroundColor: buttonColor, color: '#fff' }}
                   >
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

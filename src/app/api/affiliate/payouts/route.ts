@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
 import { resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { owedCommissionWhere } from '@/lib/program-metrics';
+import { getCurrencySymbol } from '@/lib/currency';
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,21 +54,32 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const settings = await prisma.programSettings.findFirst({
-      select: {
-        minimumPayoutThreshold: true,
-        minPayoutCents: true,
-        payoutTerm: true,
-        payoutFrequency: true,
-        commissionHoldDays: true,
-      },
-    });
+    const [settings, unpaidCommissions, currencySymbol] = await Promise.all([
+      prisma.programSettings.findFirst({
+        select: {
+          minimumPayoutThreshold: true,
+          minPayoutCents: true,
+          payoutTerm: true,
+          payoutFrequency: true,
+          commissionHoldDays: true,
+        },
+      }),
+      prisma.commission.findMany({
+        where: { affiliateId: user.affiliate.id, ...owedCommissionWhere },
+        select: { amountCents: true, status: true },
+      }),
+      getCurrencySymbol(),
+    ]);
 
     const minimumPayoutCents = settings?.minimumPayoutThreshold ?? settings?.minPayoutCents ?? 0;
     const payoutFrequency = resolvePayoutFrequency(
       user.affiliate.partnerGroup?.payoutFrequency,
       settings?.payoutFrequency,
     );
+    const unpaidBalanceCents = unpaidCommissions.reduce((sum, c) => sum + c.amountCents, 0);
+    const pendingHoldCents = unpaidCommissions
+      .filter((c) => c.status === 'PENDING')
+      .reduce((sum, c) => sum + c.amountCents, 0);
 
     return NextResponse.json({
       success: true,
@@ -78,6 +91,9 @@ export async function GET(request: NextRequest) {
         createdAt: p.createdAt.toISOString(),
         paidAt: p.processedAt?.toISOString() || null
       })),
+      unpaidBalanceCents,
+      pendingHoldCents,
+      currencySymbol,
       schedule: {
         minimumPayoutCents,
         payoutTerm: settings?.payoutTerm || 'NET-15',

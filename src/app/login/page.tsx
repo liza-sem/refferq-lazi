@@ -21,12 +21,14 @@ import {
   InputOTPSeparator,
 } from '@/components/ui/input-otp';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Target, Mail, ShieldCheck, ArrowLeft, Loader2 } from 'lucide-react';
+import { Mail, ShieldCheck, ArrowLeft, Loader2 } from 'lucide-react';
+import { AuthBrandHeader, useAuthBrand } from '@/components/auth/AuthBrandHeader';
 
 type Step = 'email' | 'otp';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { brand, title, subtitle, buttonColor } = useAuthBrand();
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -124,18 +126,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div
+      className="min-h-screen flex items-center justify-center bg-[#fafafa] p-4"
+      style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" }}
+    >
       <div className="w-full max-w-md space-y-6">
-        {/* Logo & Branding */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary">
-            <Target className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-medium tracking-tight">LAZI</h1>
-          <p className="text-sm text-muted-foreground">
-            Partner Portal
-          </p>
-        </div>
+        <AuthBrandHeader title={title} subtitle={subtitle} logo={brand.companyLogo} />
 
         {/* Login Card */}
         <Card>
@@ -173,7 +169,7 @@ export default function LoginPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="flex-col gap-4">
-                  <Button type="submit" className="w-full" size="lg" disabled={loading || !email}>
+                  <Button type="submit" className="w-full hover:opacity-90" size="lg" disabled={loading || !email} style={{ backgroundColor: buttonColor, color: '#fff' }}>
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
@@ -230,9 +226,10 @@ export default function LoginPage() {
                 <CardFooter className="flex-col gap-3">
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full hover:opacity-90"
                     size="lg"
                     disabled={loading || otp.length < 6}
+                    style={{ backgroundColor: buttonColor, color: '#fff' }}
                   >
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

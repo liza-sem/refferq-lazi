@@ -34,6 +34,7 @@ import {
   Filter,
   Download,
 } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface Referral {
   id: string;
@@ -240,7 +241,7 @@ export default function ReferralsPage() {
                     <TableCell>{getStatusBadge(ref.status)}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(ref.createdAt)}</TableCell>
                     <TableCell className="text-right font-semibold">
-                      {`$${((ref.amountCents || 0) / 100).toFixed(2)}`}
+                      {formatMoney(ref.amountCents)}
                     </TableCell>
                   </TableRow>
                 ))}

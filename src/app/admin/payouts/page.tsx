@@ -36,6 +36,7 @@ import {
   Ban,
   Download,
 } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface Payout {
   id: string;
@@ -195,7 +196,7 @@ export default function PayoutsPage() {
               {autoStatus.eligibleAffiliates} waiting
               {autoStatus.payableThisRun > 0 ? ` · ${autoStatus.payableThisRun} payable this run` : ''}
               {' · '}
-              min {currencySymbol}{(autoStatus.minPayoutCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              min {formatMoney(autoStatus.minPayoutCents, currencySymbol)}
             </p>
             {autoStatus.refundHoldDays > 0 && (
               <p>
@@ -248,7 +249,7 @@ export default function PayoutsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {currencySymbol}{(stats.totalPaid / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              {formatMoney(stats.totalPaid, currencySymbol)}
             </div>
           </CardContent>
         </Card>
@@ -314,7 +315,7 @@ export default function PayoutsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="font-semibold">
-                          {currencySymbol}{(payout.amountCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {formatMoney(payout.amountCents, currencySymbol)}
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">{payout.commissionCount}</TableCell>

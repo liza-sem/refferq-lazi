@@ -33,7 +33,6 @@ import {
   Mail,
   Phone,
   Building2,
-  DollarSign,
   User,
   Calendar,
   CheckCircle2,
@@ -47,6 +46,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { commissionMultiplier, commissionPercent } from '@/lib/commission-rate';
+import { formatMoney } from '@/lib/money';
 
 interface Referral {
   id: string;
@@ -211,12 +211,11 @@ export default function CustomerDetailPage() {
   const cfg = statusConfig[referral.status] || statusConfig.PENDING;
   const StatusIcon = cfg.icon;
   const ratePercent = referral.affiliate.commissionPercent ?? commissionPercent(referral.affiliate.commissionRate);
-  const saleAmount = referral.confirmedRevenueCents
-    ? referral.confirmedRevenueCents / 100
-    : referral.estimatedValue;
-  const estimatedCommission = referral.commissionCents != null
-    ? referral.commissionCents / 100
-    : Math.round(saleAmount * commissionMultiplier(referral.affiliate.commissionRate) * 100) / 100;
+  const saleCents = referral.confirmedRevenueCents
+    ?? Math.round((referral.estimatedValue || 0) * 100);
+  const commissionCents = referral.commissionCents != null
+    ? referral.commissionCents
+    : Math.round(saleCents * commissionMultiplier(referral.affiliate.commissionRate));
 
   return (
     <div className="space-y-6">
@@ -415,10 +414,7 @@ export default function CustomerDetailPage() {
                 <span className="text-sm text-muted-foreground">
                   {referral.confirmedRevenueCents ? 'Confirmed sale' : 'Estimated Value'}
                 </span>
-                <span className="flex items-center gap-1 font-semibold">
-                  <DollarSign className="h-3.5 w-3.5" />
-                  {saleAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <span className="font-semibold">{formatMoney(saleCents)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Commission Rate</span>
@@ -427,10 +423,7 @@ export default function CustomerDetailPage() {
               <Separator />
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Est. Commission</span>
-                <span className="flex items-center gap-1 text-lg font-bold text-primary">
-                  <DollarSign className="h-4 w-4" />
-                  {estimatedCommission.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <span className="text-lg font-bold text-primary">{formatMoney(commissionCents)}</span>
               </div>
             </CardContent>
           </Card>

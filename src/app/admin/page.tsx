@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Users, UserCheck } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -125,17 +126,17 @@ export default function AdminDashboardPage() {
   const metrics = [
     {
       title: 'Estimated revenue',
-      value: `${currencySymbol}${stats ? (stats.totalEstimatedRevenue / 100).toFixed(2) : '0.00'}`,
+      value: formatMoney(stats?.totalEstimatedRevenue, currencySymbol),
       hint: 'Projected value',
     },
     {
       title: 'Confirmed revenue',
-      value: `${currencySymbol}${stats ? (stats.totalRevenue / 100).toFixed(2) : '0.00'}`,
+      value: formatMoney(stats?.totalRevenue, currencySymbol),
       hint: 'Approved transactions',
     },
     {
       title: 'Commission owed',
-      value: `${currencySymbol}${stats ? (stats.totalEstimatedCommission / 100).toFixed(2) : '0.00'}`,
+      value: formatMoney(stats?.totalEstimatedCommission, currencySymbol),
       hint: 'Pending payouts',
     },
     {
@@ -222,7 +223,7 @@ export default function AdminDashboardPage() {
                       <p className="font-mono text-xs text-muted-foreground">{affiliate.referralCode}</p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm">{currencySymbol}{(affiliate.totalRevenue / 100).toFixed(2)}</p>
+                      <p className="text-sm">{formatMoney(affiliate.totalRevenue, currencySymbol)}</p>
                       <p className="text-xs text-muted-foreground">{affiliate.totalReferrals} referrals</p>
                     </div>
                   </button>

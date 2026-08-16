@@ -62,6 +62,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { commissionPercent } from '@/lib/commission-rate';
+import { formatMoney } from '@/lib/money';
 
 interface Partner {
   id: string;
@@ -86,7 +87,7 @@ interface Customer {
   name: string;
   email: string;
   status: string;
-  totalPaid: number;
+  totalPaidCents: number;
   createdAt: string;
 }
 
@@ -239,7 +240,7 @@ export default function PartnerDetailPage() {
             name: r.leadName,
             email: r.leadEmail,
             status: r.status,
-            totalPaid: (r.confirmedRevenueCents ?? Math.round((r.estimatedValue || 0) * 100)) / 100,
+            totalPaidCents: r.confirmedRevenueCents ?? Math.round((r.estimatedValue || 0) * 100),
             createdAt: r.createdAt,
           })) || [];
         setCustomers(partnerCustomers);
@@ -380,9 +381,6 @@ export default function PartnerDetailPage() {
     );
   };
 
-  const formatCurrency = (cents: number) =>
-    `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -510,7 +508,7 @@ export default function PartnerDetailPage() {
                 <Clock className="h-4 w-4 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{formatCurrency(pendingAmount)}</p>
+                <p className="text-2xl font-bold text-amber-600">{formatMoney(pendingAmount)}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </div>
             </div>
@@ -523,7 +521,7 @@ export default function PartnerDetailPage() {
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-emerald-600">{formatCurrency(paidAmount)}</p>
+                <p className="text-2xl font-bold text-emerald-600">{formatMoney(paidAmount)}</p>
                 <p className="text-xs text-muted-foreground">Paid Out</p>
               </div>
             </div>
@@ -629,7 +627,7 @@ export default function PartnerDetailPage() {
                       <TrendingUp className="h-4 w-4 text-emerald-600" />
                     </div>
                     <p className="mt-2 text-xl font-bold text-emerald-600">
-                      {formatCurrency(partner.totalRevenue * 100)}
+                      {formatMoney(partner.totalRevenue)}
                     </p>
                     <p className="text-xs text-muted-foreground">Revenue</p>
                   </div>
@@ -642,11 +640,11 @@ export default function PartnerDetailPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Pending Amount</span>
-                    <span className="text-sm font-bold text-amber-600">{formatCurrency(pendingAmount)}</span>
+                    <span className="text-sm font-bold text-amber-600">{formatMoney(pendingAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Paid Amount</span>
-                    <span className="text-sm font-bold text-emerald-600">{formatCurrency(paidAmount)}</span>
+                    <span className="text-sm font-bold text-emerald-600">{formatMoney(paidAmount)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -684,7 +682,7 @@ export default function PartnerDetailPage() {
                         <TableCell className="font-medium">{customer.name}</TableCell>
                         <TableCell className="text-muted-foreground">{customer.email}</TableCell>
                         <TableCell>{getStatusBadge(customer.status)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(customer.totalPaid * 100)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatMoney(customer.totalPaidCents)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{formatDate(customer.createdAt)}</TableCell>
                         <TableCell>
                           <Button variant="ghost" size="sm" onClick={() => router.push(`/admin/customers/${customer.id}`)}>
@@ -712,7 +710,7 @@ export default function PartnerDetailPage() {
               <div>
                 <CardTitle className="text-base">Commission History</CardTitle>
                 <CardDescription>
-                  Pending: {formatCurrency(pendingAmount)} · Paid: {formatCurrency(paidAmount)}
+                  Pending: {formatMoney(pendingAmount)} · Paid: {formatMoney(paidAmount)}
                 </CardDescription>
               </div>
               <Button size="sm" onClick={() => setShowPayoutModal(true)}>
@@ -737,7 +735,7 @@ export default function PartnerDetailPage() {
                       <TableRow key={comm.id}>
                         <TableCell className="text-muted-foreground text-sm">{formatDate(comm.createdAt)}</TableCell>
                         <TableCell className="font-medium">{comm.customerName}</TableCell>
-                        <TableCell className="text-right font-semibold text-primary">{formatCurrency(comm.amountCents)}</TableCell>
+                        <TableCell className="text-right font-semibold text-primary">{formatMoney(comm.amountCents)}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{commissionPercent(comm.rate)}%</TableCell>
                         <TableCell>{getStatusBadge(comm.status)}</TableCell>
                       </TableRow>
@@ -785,7 +783,7 @@ export default function PartnerDetailPage() {
                     {payouts.map((payout) => (
                       <TableRow key={payout.id}>
                         <TableCell className="text-muted-foreground text-sm">{formatDate(payout.createdAt)}</TableCell>
-                        <TableCell className="text-right font-semibold text-emerald-600">{formatCurrency(payout.amountCents)}</TableCell>
+                        <TableCell className="text-right font-semibold text-emerald-600">{formatMoney(payout.amountCents)}</TableCell>
                         <TableCell className="text-right">{payout.commissionCount}</TableCell>
                         <TableCell>{getStatusBadge(payout.status)}</TableCell>
                         <TableCell className="text-muted-foreground">{payout.method || '\u2014'}</TableCell>
@@ -851,7 +849,7 @@ export default function PartnerDetailPage() {
           <div className="rounded-lg bg-muted/50 p-4">
             <p className="text-sm text-muted-foreground">Selected total</p>
             <p className="text-2xl font-bold text-primary">
-              {formatCurrency(
+              {formatMoney(
                 selectedCommissions.reduce((sum, id) => {
                   const comm = pendingCommissions.find((c) => c.id === id);
                   return sum + (comm?.amountCents || 0);
@@ -888,7 +886,7 @@ export default function PartnerDetailPage() {
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-primary shrink-0">
-                    {formatCurrency(comm.amountCents)}
+                    {formatMoney(comm.amountCents)}
                   </span>
                 </div>
               ))}
@@ -945,7 +943,7 @@ export default function PartnerDetailPage() {
             <>
               <div className="rounded-lg bg-muted/50 p-4">
                 <p className="text-sm text-muted-foreground">Payout Amount</p>
-                <p className="text-2xl font-bold text-emerald-600">{formatCurrency(editingPayout.amountCents)}</p>
+                <p className="text-2xl font-bold text-emerald-600">{formatMoney(editingPayout.amountCents)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {editingPayout.commissionCount} commissions · Created {formatDate(editingPayout.createdAt)}
                 </p>

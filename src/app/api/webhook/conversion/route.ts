@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { commissionMultiplier } from '@/lib/commission-rate';
 
 // ─── Webhook Signature Verification ────────────────────────────
 function verifyWebhookSignature(payload: string, signature: string | null, secret: string): boolean {
@@ -130,9 +131,9 @@ export async function POST(request: NextRequest) {
     let commissionAmount = 0;
 
     if (applicableRule?.type === 'PERCENTAGE' && amount_cents) {
-      commissionAmount = Math.floor((amount_cents * commissionRate) / 100);
+      commissionAmount = Math.round(amount_cents * commissionMultiplier(commissionRate));
     } else if (applicableRule?.type === 'FIXED') {
-      commissionAmount = commissionRate;
+      commissionAmount = Math.round(commissionRate);
     }
 
     // ─── Commission Hold Period ─────────────────────────────────

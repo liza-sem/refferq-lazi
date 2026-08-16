@@ -35,6 +35,7 @@ import {
   Download,
   Calendar,
 } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface ReportStats {
   totalEarnings: number;
@@ -134,8 +135,7 @@ export default function ReportsPage() {
     }
   };
 
-  const formatCurrency = (cents: number) =>
-    `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (cents: number) => formatMoney(cents);
 
   const exportCSV = () => {
     const headers = ['Month', 'Referrals', 'Conversions', 'Earnings ($)'];

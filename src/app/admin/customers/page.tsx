@@ -43,6 +43,7 @@ import {
   DollarSign,
   Eye,
 } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface Referral {
   id: string;
@@ -301,7 +302,7 @@ export default function CustomersPage() {
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm font-medium">
                         <DollarSign className="h-3.5 w-3.5" />
-                        {((referral.confirmedRevenueCents ?? Math.round((referral.estimatedValue || 0) * 100)) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatMoney(referral.confirmedRevenueCents ?? Math.round((referral.estimatedValue || 0) * 100))}
                       </div>
                     </TableCell>
                     <TableCell>

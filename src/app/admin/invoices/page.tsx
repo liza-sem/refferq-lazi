@@ -21,6 +21,7 @@ import {
 import {
   FileText, Plus, Eye, DollarSign, CheckCircle2, Clock, AlertCircle, Trash2,
 } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface Invoice {
   id: string;
@@ -118,8 +119,7 @@ export default function InvoicesPage() {
     }
   };
 
-  const formatCurrency = (cents: number) =>
-    `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (cents: number) => formatMoney(cents);
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 

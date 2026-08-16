@@ -1,4 +1,12 @@
 /** Kirby and the public tracker send `amount` in cents (e.g. 3400 = $34). */
+export function formatMoney(cents: number | null | undefined, symbol = '$'): string {
+  const n = typeof cents === 'number' && Number.isFinite(cents) ? cents : 0;
+  return `${symbol}${(n / 100).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export function toAmountCents(amount?: unknown, amountCents?: unknown): number {
   if (typeof amountCents === 'number' && Number.isFinite(amountCents) && amountCents >= 0) {
     return Math.round(amountCents);

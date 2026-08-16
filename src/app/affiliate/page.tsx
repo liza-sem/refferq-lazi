@@ -29,6 +29,7 @@ import {
   AlertCircle,
   CheckCircle2,
 } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface AffiliateStats {
   totalEarnings: number;
@@ -132,8 +133,7 @@ export default function AffiliateDashboard() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const formatCurrency = (cents: number) =>
-    `${currencySymbol}${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (cents: number) => formatMoney(cents, currencySymbol);
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, { variant: 'success' | 'pending' | 'destructive' | 'warning' | 'info'; label: string }> = {
@@ -298,7 +298,7 @@ export default function AffiliateDashboard() {
                     <TableCell>{getStatusBadge(ref.status)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(ref.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      {`${currencySymbol}${((ref.amountCents || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      {formatMoney(ref.amountCents, currencySymbol)}
                     </TableCell>
                   </TableRow>
                 ))}

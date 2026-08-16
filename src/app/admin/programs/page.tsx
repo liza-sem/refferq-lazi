@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PartnerTiersPanel } from './tiers-panel';
+import { formatMoney } from '@/lib/money';
+import { symbolForCurrency } from '@/lib/currency';
 
 interface Program {
   id: string;
@@ -160,10 +162,8 @@ export default function ProgramsPage() {
     } catch (error) { console.error('Failed to delete program:', error); }
   };
 
-  const formatCurrency = (cents: number, currency: string = 'USD') => {
-    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '\u20AC' : currency === 'GBP' ? '\u00A3' : currency === 'INR' ? '\u20B9' : '$';
-    return `${symbol}${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
-  };
+  const formatCurrency = (cents: number, currency: string = 'USD') =>
+    formatMoney(cents, symbolForCurrency(currency));
 
   const stats = {
     total: programs.length,

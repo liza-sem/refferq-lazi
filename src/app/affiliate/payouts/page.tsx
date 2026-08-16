@@ -30,6 +30,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface Payout {
   id: string;
@@ -45,6 +46,7 @@ export default function PayoutsPage() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState(0);
+  const [pendingHold, setPendingHold] = useState(0);
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [schedule, setSchedule] = useState({
     minimumPayoutCents: 0,
@@ -60,19 +62,14 @@ export default function PayoutsPage() {
   const fetchPayouts = async () => {
     try {
       setLoading(true);
-      const [payRes, profileRes] = await Promise.all([
-        fetch('/api/affiliate/payouts'),
-        fetch('/api/affiliate/profile'),
-      ]);
+      const payRes = await fetch('/api/affiliate/payouts');
       const payData = await payRes.json();
-      const profileData = await profileRes.json();
       if (payData.success) {
         setPayouts(payData.payouts || []);
+        setBalance(payData.unpaidBalanceCents || 0);
+        setPendingHold(payData.pendingHoldCents || 0);
+        setCurrencySymbol(payData.currencySymbol || '$');
         if (payData.schedule) setSchedule(payData.schedule);
-      }
-      if (profileData.success) {
-        setBalance(profileData.affiliate?.balanceCents || 0);
-        setCurrencySymbol(profileData.currencySymbol || '$');
       }
     } catch (error) {
       console.error('Failed to fetch payouts:', error);
@@ -84,8 +81,7 @@ export default function PayoutsPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const formatCurrency = (cents: number) =>
-    `${currencySymbol}${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (cents: number) => formatMoney(cents, currencySymbol);
 
   const frequencyLabel = (frequency: string) => {
     const labels: Record<string, string> = {
@@ -129,7 +125,6 @@ export default function PayoutsPage() {
   };
 
   const totalPaid = payouts.filter((p) => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
-  const pendingPayout = payouts.filter((p) => p.status === 'PENDING').reduce((sum, p) => sum + p.amount, 0);
 
   const exportCSV = () => {
     const headers = ['Date', 'Method', 'Status', 'Amount'];
@@ -210,7 +205,7 @@ export default function PayoutsPage() {
                 <Clock className="h-4 w-4 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{formatCurrency(pendingPayout)}</p>
+                <p className="text-2xl font-bold text-amber-600">{formatCurrency(pendingHold)}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </div>
             </div>

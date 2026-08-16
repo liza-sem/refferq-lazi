@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { getOrCreateDefaultPartnerGroup } from './default-partner-group';
+import { formatMoney } from './money';
 
 export type TierRule = {
   id: string;
@@ -42,10 +43,7 @@ export function tierHasRules(tier: Pick<TierRule, 'minRevenueCents' | 'minConver
 }
 
 export function formatMoneyCents(cents: number): string {
-  const dollars = cents / 100;
-  return dollars % 1 === 0
-    ? `$${dollars.toLocaleString('en-US')}`
-    : `$${dollars.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(cents);
 }
 
 export function formatTierRuleLabel(tier: {

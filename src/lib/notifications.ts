@@ -1,3 +1,5 @@
+import { formatMoney } from './money';
+
 // Real-time notification system for the affiliate platform
 export interface NotificationData {
   id: string;
@@ -97,7 +99,7 @@ class NotificationService {
     await this.createNotification({
       type: 'referral_approved',
       title: 'Referral Approved!',
-      message: `Your sale ${referralData.publicId || ''} was approved. Commission: $${(referralData.commissionAmount / 100).toFixed(2)}`.replace(/\s+/g, ' ').trim(),
+      message: `Your sale ${referralData.publicId || ''} was approved. Commission: ${formatMoney(referralData.commissionAmount)}`.replace(/\s+/g, ' ').trim(),
       userId: affiliateId,
       metadata: { publicId: referralData.publicId, commissionAmount: referralData.commissionAmount },
     });
@@ -117,7 +119,7 @@ class NotificationService {
     await this.createNotification({
       type: 'commission_approved',
       title: 'Commission Approved!',
-      message: `Commission of $${(commissionData.amount / 100).toFixed(2)}${commissionData.publicId ? ` for ${commissionData.publicId}` : ''} has been approved`,
+      message: `Commission of ${formatMoney(commissionData.amount)}${commissionData.publicId ? ` for ${commissionData.publicId}` : ''} has been approved`,
       userId: affiliateId,
       metadata: { amount: commissionData.amount, publicId: commissionData.publicId },
     });
@@ -127,7 +129,7 @@ class NotificationService {
     await this.createNotification({
       type: 'payout_processed',
       title: 'Payout Processed',
-      message: `Your payout of $${(payoutData.amount / 100).toFixed(2)} via ${payoutData.method} has been processed`,
+      message: `Your payout of ${formatMoney(payoutData.amount)} via ${payoutData.method} has been processed`,
       userId: affiliateId,
       metadata: payoutData,
     });

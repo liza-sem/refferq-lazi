@@ -1,3 +1,4 @@
+import { formatMoney } from './money';
 import { prisma } from './prisma';
 
 export const DEFAULT_CURRENCY = 'USD';
@@ -29,11 +30,7 @@ export async function getCurrencySymbol(): Promise<string> {
 }
 
 export function formatCurrency(cents: number, symbol: string = DEFAULT_CURRENCY_SYMBOL): string {
-    const amount = cents / 100;
-    return `${symbol}${amount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    })}`;
+    return formatMoney(cents, symbol);
 }
 
 export async function formatAmount(cents: number): Promise<string> {

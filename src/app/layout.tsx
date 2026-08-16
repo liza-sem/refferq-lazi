@@ -6,14 +6,14 @@ import './globals.css';
 export async function generateMetadata() {
   try {
     const settings = await db.getPlatformSettings();
-    const name = settings?.companyName || settings?.programName || 'LAZI';
+    const name = settings?.programName?.trim() || 'LAZI Partner program';
     return {
-      title: `${name} Partner Portal`,
-      description: settings?.programName || 'Partner portal',
+      title: name,
+      description: 'Partner program',
       icons: settings?.favicon ? { icon: settings.favicon } : undefined,
     };
   } catch {
-    return { title: 'LAZI Partner Portal' };
+    return { title: 'LAZI Partner program' };
   }
 }
 
