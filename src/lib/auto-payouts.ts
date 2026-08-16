@@ -768,7 +768,7 @@ export async function getAutoPayoutStatus() {
       autoPayoutEnabled: settings?.autoPayoutEnabled !== false,
       autoPayoutDripSize: dripSize,
       minPayoutCents,
-      commissionHoldDays: settings?.commissionHoldDays ?? 30,
+      commissionHoldDays: settings?.commissionHoldDays ?? 0,
       refundHoldDays: programDefaults.commissionHoldDays,
       cookieDuration: programDefaults.cookieDuration,
       payoutFrequency: programDefaults.payoutFrequency,

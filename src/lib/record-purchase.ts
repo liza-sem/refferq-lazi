@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { commissionMultiplier } from './commission-rate';
 import { allocateLeadPublicId } from './lead-public-id';
+import { createSaleCommission } from './commission-hold';
 
 export type RecordPurchaseInput = {
   referralCode: string;
@@ -111,23 +112,14 @@ export async function recordPurchase(input: RecordPurchaseInput) {
   const commissionAmount = Math.round(amountCents * rate);
 
   const settings = await prisma.programSettings.findFirst();
-  const holdDays = settings?.commissionHoldDays ?? 30;
-  const maturesAt = new Date();
-  maturesAt.setDate(maturesAt.getDate() + holdDays);
-
-  if (commissionAmount > 0) {
-    await prisma.commission.create({
-      data: {
-        conversionId: conversion.id,
-        affiliateId: affiliate.id,
-        userId: affiliate.userId,
-        amountCents: commissionAmount,
-        rate,
-        status: 'PENDING',
-        maturesAt,
-      },
-    });
-  }
+  await createSaleCommission({
+    conversionId: conversion.id,
+    affiliateId: affiliate.id,
+    userId: affiliate.userId,
+    amountCents: commissionAmount,
+    rate,
+    holdDays: settings?.commissionHoldDays ?? 0,
+  });
 
   try {
     const { emailService } = await import('./email');

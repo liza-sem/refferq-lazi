@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { commissionMultiplier } from '@/lib/commission-rate';
+import { createSaleCommission } from '@/lib/commission-hold';
 
 // ─── Webhook Signature Verification ────────────────────────────
 function verifyWebhookSignature(payload: string, signature: string | null, secret: string): boolean {
@@ -136,29 +137,16 @@ export async function POST(request: NextRequest) {
       commissionAmount = Math.round(commissionRate);
     }
 
-    // ─── Commission Hold Period ─────────────────────────────────
-    // Fetch hold days from ProgramSettings (default 30)
+    // Hold 0 → APPROVED now. Hold > 0 stays PENDING until maturesAt / cron.
     const settings = await prisma.programSettings.findFirst();
-    const holdDays = (settings as any)?.commissionHoldDays ?? 30;
-    const maturesAt = new Date();
-    maturesAt.setDate(maturesAt.getDate() + holdDays);
-
-    // Create commission record with maturesAt (status stays PENDING until maturation)
-    const commission = await prisma.commission.create({
-      data: {
-        conversionId: conversion.id,
-        affiliateId: affiliate.id,
-        userId: affiliate.userId,
-        amountCents: commissionAmount,
-        rate: commissionRate,
-        status: 'PENDING',
-        maturesAt,
-      },
+    const commission = await createSaleCommission({
+      conversionId: conversion.id,
+      affiliateId: affiliate.id,
+      userId: affiliate.userId,
+      amountCents: commissionAmount,
+      rate: commissionRate,
+      holdDays: settings?.commissionHoldDays ?? 0,
     });
-
-    // NOTE: We do NOT update balanceCents here anymore.
-    // Balance is only updated when the commission matures (PENDING → APPROVED).
-    // This protects against refunds during the hold period.
 
     // Log audit event
     await db.createAuditLog({

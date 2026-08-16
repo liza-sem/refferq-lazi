@@ -186,6 +186,7 @@ export default function ProgramSettingsPage() {
           lastAutoPayoutAt: data.settings.lastAutoPayoutAt ?? null,
           payoutFrequency: data.settings.payoutFrequency || 'MONTHLY',
           cookieDuration: data.settings.cookieDuration ?? 30,
+          commissionHoldDays: data.settings.commissionHoldDays ?? 0,
         });
       }
     } catch (error) {
@@ -466,7 +467,11 @@ export default function ProgramSettingsPage() {
                   placeholder="0"
                 />
               </div>
-              <p className="text-[10px] text-muted-foreground">Days after a sale before commission can pay, so refunds can claw back. This is not the referral cookie and not the payout term.</p>
+              <p className="text-[10px] text-muted-foreground">
+                {settings.commissionHoldDays > 0
+                  ? 'Days after a sale before commission can pay, so refunds can claw back. This is not the referral cookie and not the payout term.'
+                  : '0 means no refund hold — commissions follow the tier payout schedule. Cookie duration (attribution) is separate.'}
+              </p>
             </div>
           </div>
           <div className="rounded-md bg-muted p-3">
@@ -539,9 +544,15 @@ export default function ProgramSettingsPage() {
               </p>
             </div>
             <div className="grid gap-2">
-              <Label>Refund hold still applies to automatic payouts</Label>
+              <Label>
+                {settings.commissionHoldDays > 0
+                  ? 'Refund hold still applies to automatic payouts'
+                  : 'No refund hold — payouts follow the tier schedule'}
+              </Label>
               <p className="text-sm text-muted-foreground">
-                Commissions stay PENDING for {settings.commissionHoldDays} day{settings.commissionHoldDays === 1 ? '' : 's'} after a sale so refunds can claw back. Cookie duration is separate (tracking). Payout term is weekly / bi-weekly / monthly. Use Create payout on a partner to skip hold and schedule for a sandbox test.
+                {settings.commissionHoldDays > 0
+                  ? `Commissions stay PENDING for ${settings.commissionHoldDays} day${settings.commissionHoldDays === 1 ? '' : 's'} after a sale so refunds can claw back. Cookie duration is separate (tracking). Payout term is weekly / bi-weekly / monthly. Use Create payout on a partner to skip hold and schedule for a sandbox test.`
+                  : 'Refund hold is 0 days. New commissions are payable on the tier schedule (weekly / bi-weekly / monthly). Cookie duration is separate (tracking). Use Create payout on a partner to send now instead of waiting for the next pay day.'}
               </p>
             </div>
           </div>

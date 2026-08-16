@@ -834,7 +834,12 @@ export default function PartnerDetailPage() {
           {payoutPreview && (
             <div className="space-y-1 rounded-md border px-3 py-2 text-xs text-muted-foreground">
               <p>PayPal: {payoutPreview.paypalEmail || 'not set'} · {payoutPreview.paypalConfigured ? 'keys connected' : 'keys missing'} · {payoutPreview.paypalMode}</p>
-              <p>Tier payout term: {payoutPreview.payoutFrequencyLabel}. Refund hold: {payoutPreview.refundHoldDays} day{payoutPreview.refundHoldDays === 1 ? '' : 's'}.</p>
+              <p>
+                Tier payout term: {payoutPreview.payoutFrequencyLabel}.{' '}
+                {payoutPreview.refundHoldDays > 0
+                  ? `Refund hold: ${payoutPreview.refundHoldDays} day${payoutPreview.refundHoldDays === 1 ? '' : 's'}.`
+                  : 'No refund hold.'}
+              </p>
             </div>
           )}
 
@@ -882,7 +887,7 @@ export default function PartnerDetailPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{comm.customerName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(comm.createdAt)} · {comm.status === 'PENDING' ? 'in refund hold' : 'approved'}
+                      {formatDate(comm.createdAt)} · {comm.status === 'PENDING' ? (payoutPreview?.refundHoldDays ? 'in refund hold' : 'pending') : 'approved'}
                     </p>
                   </div>
                   <span className="text-sm font-semibold text-primary shrink-0">
@@ -901,7 +906,7 @@ export default function PartnerDetailPage() {
                 id="skip-hold"
               />
               <Label htmlFor="skip-hold" className="text-sm font-normal leading-snug">
-                Pay now, skip refund hold and payout schedule
+                Pay now, skip the payout schedule
                 {payoutPreview.paypalMode === 'live' ? ' (live PayPal)' : ' — sandbox'}
               </Label>
             </div>

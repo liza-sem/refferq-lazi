@@ -43,6 +43,8 @@ interface AffiliateStats {
   referralCode: string;
   currencySymbol: string;
   nextMaturesAt: string | null;
+  nextPayoutAt: string | null;
+  commissionHoldDays: number;
   commissionRate: number;
   announcement: string;
 }
@@ -92,6 +94,8 @@ export default function AffiliateDashboard() {
           referralCode: data.affiliate?.referralCode || '',
           currencySymbol: data.currencySymbol || '$',
           nextMaturesAt: data.stats?.nextMaturesAt || null,
+          nextPayoutAt: data.stats?.nextPayoutAt || null,
+          commissionHoldDays: data.stats?.commissionHoldDays ?? 0,
           commissionRate: data.stats?.commissionRate ?? 20,
           announcement: data.announcement || '',
         });
@@ -153,18 +157,25 @@ export default function AffiliateDashboard() {
     return <DashboardSkeleton />;
   }
 
+  const nextPayoutHint = stats?.nextPayoutAt
+    ? `Next payout ${new Date(stats.nextPayoutAt).toLocaleDateString()}`
+    : 'Follows your payout schedule';
+  const pendingHint = (stats?.commissionHoldDays ?? 0) > 0
+    ? (stats?.nextMaturesAt
+      ? `Next maturity ${new Date(stats.nextMaturesAt).toLocaleDateString()}`
+      : 'Held for refund period')
+    : 'No refund hold';
+
   const metrics = [
     {
       title: 'Available',
       value: formatCurrency(stats?.totalEarnings || 0),
-      hint: 'Ready for payout',
+      hint: (stats?.commissionHoldDays ?? 0) > 0 ? 'Ready for payout' : nextPayoutHint,
     },
     {
       title: 'Pending',
       value: formatCurrency(stats?.pendingEarnings || 0),
-      hint: stats?.nextMaturesAt
-        ? `Next maturity ${new Date(stats.nextMaturesAt).toLocaleDateString()}`
-        : 'Held for refund period',
+      hint: pendingHint,
     },
     {
       title: 'Clicks',

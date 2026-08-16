@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
           brandTextColor: '#ffffff',
           minimumPayoutThreshold: 0,
           payoutTerm: 'NET-15',
-          commissionHoldDays: 30,
+          commissionHoldDays: 0,
           autoPayoutEnabled: true,
           autoPayoutDripSize: 2,
         }
@@ -154,6 +154,11 @@ export async function PUT(request: NextRequest) {
       where: { id: programSettings.id },
       data: sanitizedData
     });
+
+    if (typeof sanitizedData.commissionHoldDays === 'number' && sanitizedData.commissionHoldDays <= 0) {
+      const { releaseHeldCommissions } = await import('@/lib/commission-hold');
+      await releaseHeldCommissions(user.id);
+    }
 
     if (sanitizedData.payoutFrequency || sanitizedData.cookieDuration) {
       await prisma.program.updateMany({

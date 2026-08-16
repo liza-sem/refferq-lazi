@@ -232,7 +232,7 @@ model ProgramSettings {
   autoPayoutDripSize        Int      @default(2) @map("auto_payout_drip_size")
   lastAutoPayoutAt          DateTime? @map("last_auto_payout_at")
   payoutFrequency           String   @default("MONTHLY") @map("payout_frequency")
-  commissionHoldDays        Int      @default(30) @map("commission_hold_days")
+  commissionHoldDays        Int      @default(0) @map("commission_hold_days")
   minPayoutCents            Int      @default(100000) @map("min_payout_cents")
   companyName               String?  @map("company_name")
   portalAnnouncement        String?  @map("portal_announcement")

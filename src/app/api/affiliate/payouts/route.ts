@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
-import { resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { nextCalendarPayoutDate, resolvePayoutFrequency } from '@/lib/payout-schedule';
 import { owedCommissionWhere } from '@/lib/program-metrics';
 import { getCurrencySymbol } from '@/lib/currency';
 
@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
         payoutTerm: settings?.payoutTerm || 'NET-15',
         payoutFrequency,
         commissionHoldDays: settings?.commissionHoldDays ?? 0,
+        nextPayoutAt: nextCalendarPayoutDate(payoutFrequency).toISOString(),
       },
     });
   } catch (error) {

@@ -60,6 +60,16 @@ export function payoutFrequencyPeriodMs(frequency: PayoutFrequency): number {
  * Calendar pay days, aligned with the existing scheduled-report cadence:
  * weekly = Monday, monthly = 1st, bi-weekly = 1st and 15th, quarterly = 1st of Jan/Apr/Jul/Oct.
  */
+/** Next calendar pay day (UTC date). If today is a pay day, returns today. */
+export function nextCalendarPayoutDate(frequency: PayoutFrequency, now = new Date()): Date {
+  const cursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  for (let i = 0; i < 120; i++) {
+    if (isCalendarPayoutDay(frequency, cursor)) return cursor;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return cursor;
+}
+
 export function isCalendarPayoutDay(frequency: PayoutFrequency, now = new Date()): boolean {
   const day = now.getUTCDay();
   const date = now.getUTCDate();

@@ -6,6 +6,8 @@ import { commissionPercent } from '@/lib/commission-rate';
 import { realLeadWhere } from '@/lib/program-metrics';
 import { toAffiliateLead } from '@/lib/lead-privacy';
 import { backfillReferralPublicIds } from '@/lib/lead-public-id';
+import { nextCalendarPayoutDate, resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { resolveHoldDays } from '@/lib/commission-hold';
 
 export async function GET(request: NextRequest) {
   try {
@@ -91,15 +93,27 @@ export async function GET(request: NextRequest) {
     });
     const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
 
-    const nextMaturesAt = pendingCommissionsList
-      .filter(c => (c as any).maturesAt)
-      .sort((a, b) => ((a as any).maturesAt.getTime() - (b as any).maturesAt.getTime()))[0]?.maturesAt || null;
+    const settings = await prisma.programSettings.findFirst();
+    const commissionHoldDays = resolveHoldDays(settings?.commissionHoldDays);
+    const payoutFrequency = resolvePayoutFrequency(
+      affiliate.partnerGroup?.payoutFrequency,
+      settings?.payoutFrequency,
+    );
+    const nextPayoutAt = nextCalendarPayoutDate(payoutFrequency);
+    const nextMaturesAt = commissionHoldDays > 0
+      ? pendingCommissionsList
+          .filter(c => c.maturesAt)
+          .sort((a, b) => ((a.maturesAt?.getTime() || 0) - (b.maturesAt?.getTime() || 0)))[0]?.maturesAt || null
+      : null;
 
     const stats = {
       totalEarnings: availableEarnings,
       pendingEarnings: pendingEarningsCents,
       pendingEarningsList: pendingCommissionsList.length,
       nextMaturesAt,
+      nextPayoutAt,
+      commissionHoldDays,
+      payoutFrequency,
       totalCommissions,
       pendingCommissions: pendingCommissionsCount,
       totalConversions,
@@ -111,7 +125,6 @@ export async function GET(request: NextRequest) {
 
     const { getCurrencySymbol } = await import('@/lib/currency');
     const currencySymbol = await getCurrencySymbol();
-    const settings = await prisma.programSettings.findFirst();
     const { publicReferralLink } = await import('@/lib/referral-link');
     const referralLink = affiliate.referralCode
       ? publicReferralLink(settings?.websiteUrl, affiliate.referralCode)

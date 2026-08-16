@@ -8,6 +8,9 @@ node node_modules/prisma/build/index.js db execute --file=./docker/clear-legacy-
 # can start; the backfill below fills unique lead IDs afterwards.
 node node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss --schema=./prisma/schema.prisma
 
+echo "Zeroing refund hold and releasing held commissions..."
+node node_modules/prisma/build/index.js db execute --file=./docker/zero-refund-hold.sql --schema=./prisma/schema.prisma
+
 echo "Backfilling lead public IDs..."
 node docker/backfill-lead-ids.cjs
 

@@ -53,6 +53,7 @@ export default function PayoutsPage() {
     payoutTerm: 'NET-15',
     payoutFrequency: 'MONTHLY',
     commissionHoldDays: 0,
+    nextPayoutAt: null as string | null,
   });
 
   useEffect(() => {
@@ -103,6 +104,11 @@ export default function PayoutsPage() {
     }
     if (schedule.commissionHoldDays > 0) {
       parts.push(`Commissions are held for ${schedule.commissionHoldDays} day${schedule.commissionHoldDays === 1 ? '' : 's'} after a sale (refund hold) before they become payable.`);
+    } else {
+      const next = schedule.nextPayoutAt
+        ? ` Next payout ${new Date(schedule.nextPayoutAt).toLocaleDateString()}.`
+        : '';
+      parts.push(`There is no refund hold.${next}`);
     }
     return parts.join(' ');
   })();
