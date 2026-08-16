@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { resolvePayoutFrequency } from '@/lib/payout-schedule';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +14,12 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        affiliate: true
-      }
+        affiliate: {
+          include: {
+            partnerGroup: { select: { payoutFrequency: true } },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -58,6 +63,10 @@ export async function GET(request: NextRequest) {
     });
 
     const minimumPayoutCents = settings?.minimumPayoutThreshold ?? settings?.minPayoutCents ?? 0;
+    const payoutFrequency = resolvePayoutFrequency(
+      user.affiliate.partnerGroup?.payoutFrequency,
+      settings?.payoutFrequency,
+    );
 
     return NextResponse.json({
       success: true,
@@ -72,7 +81,7 @@ export async function GET(request: NextRequest) {
       schedule: {
         minimumPayoutCents,
         payoutTerm: settings?.payoutTerm || 'NET-15',
-        payoutFrequency: settings?.payoutFrequency || 'MONTHLY',
+        payoutFrequency,
         commissionHoldDays: settings?.commissionHoldDays ?? 0,
       },
     });

@@ -120,9 +120,9 @@ export async function GET(
 
     const response = NextResponse.redirect(redirectUrl.toString());
 
-    // Set attribution cookie (expires in 30 days)
+    const cookieDays = Math.max(1, settings?.cookieDuration || 30);
     const cookieExpiry = new Date();
-    cookieExpiry.setDate(cookieExpiry.getDate() + 30);
+    cookieExpiry.setDate(cookieExpiry.getDate() + cookieDays);
 
     response.cookies.set('affiliate_attribution', JSON.stringify({
       referral_code: referralCode,

@@ -251,7 +251,7 @@ export default function ProgramsPage() {
                   <TableHead>Commission</TableHead>
                   <TableHead>Cookie</TableHead>
                   <TableHead>Min Payout</TableHead>
-                  <TableHead>Frequency</TableHead>
+                  <TableHead>Payout term</TableHead>
                   <TableHead>Auto-Approve</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -361,8 +361,9 @@ export default function ProgramsPage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label>Cookie Duration (days)</Label>
+                <Label>Cookie duration (days)</Label>
                 <Input type="number" value={form.cookieDuration} onChange={e => setForm({...form, cookieDuration: e.target.value})} />
+                <p className="text-xs text-muted-foreground">Attribution window — how long a ?ref= click still counts. Not when you pay.</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
@@ -383,7 +384,7 @@ export default function ProgramsPage() {
                 <Input type="number" value={form.minPayoutCents} onChange={e => setForm({...form, minPayoutCents: e.target.value})} />
               </div>
               <div className="grid gap-2">
-                <Label>Payout Frequency</Label>
+                <Label>Payout term</Label>
                 <Select value={form.payoutFrequency} onValueChange={v => setForm({...form, payoutFrequency: v})}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -393,6 +394,7 @@ export default function ProgramsPage() {
                     <SelectItem value="QUARTERLY">Quarterly</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">Default pay cadence for tiers that do not override.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

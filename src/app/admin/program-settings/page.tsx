@@ -76,6 +76,8 @@ interface ProgramSettings {
   portalSubdomain: string;
   minimumPayoutThreshold: number;
   payoutTerm: string;
+  payoutFrequency: string;
+  cookieDuration: number;
   commissionHoldDays: number;
   autoPayoutEnabled: boolean;
   autoPayoutDripSize: number;
@@ -125,7 +127,7 @@ export default function ProgramSettingsPage() {
   } | null>(null);
 
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const trackingSnippet = `<script src="${appUrl}/scripts/refferq-tracker.js" data-api-url="${appUrl}"${publicKey ? ` data-api-key="${publicKey}"` : ''}></script>`;
+  const trackingSnippet = `<script src="${appUrl}/scripts/refferq-tracker.js" data-api-url="${appUrl}"${publicKey ? ` data-api-key="${publicKey}"` : ''} data-cookie-days="${settings?.cookieDuration || 30}"></script>`;
 
   const handleCopySnippet = async (id: string, text: string) => {
     await navigator.clipboard.writeText(text);
@@ -182,6 +184,8 @@ export default function ProgramSettingsPage() {
           autoPayoutEnabled: data.settings.autoPayoutEnabled !== false,
           autoPayoutDripSize: data.settings.autoPayoutDripSize ?? 2,
           lastAutoPayoutAt: data.settings.lastAutoPayoutAt ?? null,
+          payoutFrequency: data.settings.payoutFrequency || 'MONTHLY',
+          cookieDuration: data.settings.cookieDuration ?? 30,
         });
       }
     } catch (error) {
@@ -207,6 +211,8 @@ export default function ProgramSettingsPage() {
           portalSubdomain: settings.portalSubdomain,
           minimumPayoutThreshold: settings.minimumPayoutThreshold,
           payoutTerm: settings.payoutTerm,
+          payoutFrequency: settings.payoutFrequency,
+          cookieDuration: settings.cookieDuration,
           commissionHoldDays: settings.commissionHoldDays,
           autoPayoutEnabled: settings.autoPayoutEnabled !== false,
           autoPayoutDripSize: settings.autoPayoutDripSize || 2,
@@ -380,7 +386,7 @@ export default function ProgramSettingsPage() {
             </div>
           </div>
           <Separator />
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="currency">Currency</Label>
               <Select
@@ -410,7 +416,7 @@ export default function ProgramSettingsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="payoutTerm">Payout Term</Label>
+              <Label htmlFor="payoutTerm">Invoice terms</Label>
               <Select
                 value={settings.payoutTerm}
                 onValueChange={(v) => setSettings({ ...settings, payoutTerm: v })}
@@ -425,9 +431,28 @@ export default function ProgramSettingsPage() {
                   <SelectItem value="NET-90">NET-90</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-[10px] text-muted-foreground">Accounting terms on invoices — not how often PayPal is sent.</p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="commissionHoldDays">Commission Hold Period (Days)</Label>
+              <Label htmlFor="payoutFrequency">Payout term</Label>
+              <Select
+                value={settings.payoutFrequency || 'MONTHLY'}
+                onValueChange={(v) => setSettings({ ...settings, payoutFrequency: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WEEKLY">Weekly</SelectItem>
+                  <SelectItem value="BIWEEKLY">Bi-weekly</SelectItem>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">Default pay cadence. Tiers can override this.</p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="commissionHoldDays">Refund hold (days)</Label>
               <div className="relative">
                 <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -438,10 +463,10 @@ export default function ProgramSettingsPage() {
                   onChange={(e) =>
                     setSettings({ ...settings, commissionHoldDays: parseInt(e.target.value) || 0 })
                   }
-                  placeholder="30"
+                  placeholder="0"
                 />
               </div>
-              <p className="text-[10px] text-muted-foreground">Number of days to hold commissions for refund protection</p>
+              <p className="text-[10px] text-muted-foreground">Days after a sale before commission can pay, so refunds can claw back. This is not the referral cookie and not the payout term.</p>
             </div>
           </div>
           <div className="rounded-md bg-muted p-3">
@@ -464,7 +489,7 @@ export default function ProgramSettingsPage() {
             )}
           </CardTitle>
           <CardDescription>
-            After the hold period, cron pays matured commissions one affiliate at a time so a mass pay does not hit your PayPal balance.
+            Cron pays matured commissions on each tier’s payout schedule, a few affiliates per run, so a mass pay does not hit your PayPal balance.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
@@ -514,9 +539,9 @@ export default function ProgramSettingsPage() {
               </p>
             </div>
             <div className="grid gap-2">
-              <Label>Hold days still apply</Label>
+              <Label>Refund hold still applies to automatic payouts</Label>
               <p className="text-sm text-muted-foreground">
-                Commissions stay PENDING for {settings.commissionHoldDays} day{settings.commissionHoldDays === 1 ? '' : 's'} so refunds can claw back before PayPal is sent. Shorten the hold above if you want faster payouts.
+                Commissions stay PENDING for {settings.commissionHoldDays} day{settings.commissionHoldDays === 1 ? '' : 's'} after a sale so refunds can claw back. Cookie duration is separate (tracking). Payout term is weekly / bi-weekly / monthly. Use Create payout on a partner to skip hold and schedule for a sandbox test.
               </p>
             </div>
           </div>
@@ -788,7 +813,8 @@ export default function ProgramSettingsPage() {
                   <span className="text-blue-600">&lt;script</span>
                   {' '}<span className="text-purple-600">src</span>=<span className="text-green-600">&quot;{appUrl}/scripts/refferq-tracker.js&quot;</span><br />
                   {'  '}<span className="text-purple-600">data-api-url</span>=<span className="text-green-600">&quot;{appUrl}&quot;</span><br />
-                  {'  '}<span className="text-purple-600">data-api-key</span>=<span className="text-green-600">&quot;{publicKey || 'generating…'}&quot;</span>
+                  {'  '}<span className="text-purple-600">data-api-key</span>=<span className="text-green-600">&quot;{publicKey || 'generating…'}&quot;</span><br />
+                  {'  '}<span className="text-purple-600">data-cookie-days</span>=<span className="text-green-600">&quot;{settings.cookieDuration || 30}&quot;</span>
                   <span className="text-blue-600">&gt;&lt;/script&gt;</span>
                 </div>
                 {publicKey && (
@@ -803,11 +829,26 @@ export default function ProgramSettingsPage() {
 
               <Separator />
 
+              <div className="grid gap-2">
+                <Label htmlFor="cookieDuration">Cookie duration (days)</Label>
+                <Input
+                  id="cookieDuration"
+                  type="number"
+                  min={1}
+                  value={settings.cookieDuration || 30}
+                  onChange={(e) =>
+                    setSettings({ ...settings, cookieDuration: parseInt(e.target.value) || 30 })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Attribution window — how long a ?ref= click still counts toward a sale. This is not when you pay partners.
+                </p>
+              </div>
               <div className="rounded-md border p-4 space-y-3">
                 <h4 className="text-sm font-medium flex items-center gap-2"><Zap className="h-4 w-4" />How it works</h4>
                 <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                   <li>A visitor arrives on <strong>{settings.websiteUrl || 'your site'}</strong> via a referral link (e.g. <code className="rounded bg-muted px-1 py-0.5 text-xs">?ref=CODE</code>)</li>
-                  <li>The script automatically detects the <code className="rounded bg-muted px-1 py-0.5 text-xs">ref</code> parameter and stores a 30-day cookie</li>
+                  <li>The script stores a {settings.cookieDuration || 30}-day attribution cookie</li>
                   <li>When the visitor converts (signup, purchase, etc.), you call <code className="rounded bg-muted px-1 py-0.5 text-xs">Refferq.trackConversion()</code></li>
                   <li>The referral and commission are recorded in your dashboard automatically</li>
                 </ol>

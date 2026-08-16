@@ -145,11 +145,25 @@ export async function PUT(request: NextRequest) {
     if (typeof sanitizedData.autoPayoutDripSize === 'number') {
       sanitizedData.autoPayoutDripSize = Math.min(10, Math.max(1, Math.floor(sanitizedData.autoPayoutDripSize)));
     }
+    if (typeof sanitizedData.payoutFrequency === 'string') {
+      const { normalizePayoutFrequency } = await import('@/lib/payout-schedule');
+      sanitizedData.payoutFrequency = normalizePayoutFrequency(sanitizedData.payoutFrequency);
+    }
 
     const updatedSettings = await prisma.programSettings.update({
       where: { id: programSettings.id },
       data: sanitizedData
     });
+
+    if (sanitizedData.payoutFrequency || sanitizedData.cookieDuration) {
+      await prisma.program.updateMany({
+        where: { isDefault: true },
+        data: {
+          ...(typeof sanitizedData.payoutFrequency === 'string' ? { payoutFrequency: sanitizedData.payoutFrequency } : {}),
+          ...(typeof sanitizedData.cookieDuration === 'number' ? { cookieDuration: sanitizedData.cookieDuration } : {}),
+        },
+      });
+    }
 
     // Log the action
     await logAuditAction({

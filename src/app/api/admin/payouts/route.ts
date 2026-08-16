@@ -72,11 +72,12 @@ export async function GET(request: NextRequest) {
     const payouts = await (prisma as any).payout.findMany({
       where,
       include: {
+        user: {
+          select: { name: true, email: true },
+        },
         affiliate: {
           select: {
             id: true,
-            name: true,
-            email: true,
             referralCode: true,
           },
         },
@@ -90,8 +91,8 @@ export async function GET(request: NextRequest) {
     const formattedPayouts = payouts.map((payout: any) => ({
       id: payout.id,
       affiliateId: payout.affiliateId,
-      affiliateName: payout.affiliate.name,
-      affiliateEmail: payout.affiliate.email,
+      affiliateName: payout.user?.name || payout.affiliate?.user?.name || 'Partner',
+      affiliateEmail: payout.user?.email || payout.affiliate?.user?.email || '',
       amountCents: payout.amountCents,
       commissionCount: payout.commissionCount || 0,
       status: payout.status,

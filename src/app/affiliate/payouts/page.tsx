@@ -99,14 +99,14 @@ export default function PayoutsPage() {
 
   const scheduleCopy = (() => {
     const parts: string[] = [];
-    parts.push(`Payouts are processed ${frequencyLabel(schedule.payoutFrequency)} on ${schedule.payoutTerm} terms.`);
+    parts.push(`Payouts are processed ${frequencyLabel(schedule.payoutFrequency)}.`);
     if (schedule.minimumPayoutCents > 0) {
       parts.push(`Minimum payout threshold is ${formatCurrency(schedule.minimumPayoutCents)}.`);
     } else {
       parts.push('There is no minimum payout threshold.');
     }
     if (schedule.commissionHoldDays > 0) {
-      parts.push(`Commissions are held for ${schedule.commissionHoldDays} day${schedule.commissionHoldDays === 1 ? '' : 's'} before they become payable.`);
+      parts.push(`Commissions are held for ${schedule.commissionHoldDays} day${schedule.commissionHoldDays === 1 ? '' : 's'} after a sale (refund hold) before they become payable.`);
     }
     return parts.join(' ');
   })();

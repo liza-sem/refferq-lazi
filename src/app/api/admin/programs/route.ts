@@ -70,6 +70,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    if (program.isDefault) {
+      const settings = await prisma.programSettings.findFirst();
+      if (settings) {
+        await prisma.programSettings.update({
+          where: { id: settings.id },
+          data: {
+            payoutFrequency: program.payoutFrequency,
+            cookieDuration: program.cookieDuration,
+          },
+        });
+      }
+    }
+
     return NextResponse.json({ success: true, program });
   } catch (error) {
     console.error('Admin programs POST error:', error);
@@ -133,6 +146,19 @@ export async function PUT(request: NextRequest) {
         data: updates,
       });
     });
+
+    if (program.isDefault && (program.payoutFrequency || program.cookieDuration)) {
+      const settings = await prisma.programSettings.findFirst();
+      if (settings) {
+        await prisma.programSettings.update({
+          where: { id: settings.id },
+          data: {
+            payoutFrequency: program.payoutFrequency,
+            cookieDuration: program.cookieDuration,
+          },
+        });
+      }
+    }
 
     return NextResponse.json({ success: true, program });
   } catch (error) {

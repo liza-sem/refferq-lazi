@@ -253,6 +253,7 @@ model PartnerGroup {
   minConversions              Int?        @map("min_conversions")
   minApprovedCommissionCents  Int?        @map("min_approved_commission_cents")
   demoteIfBelow               Boolean     @default(false) @map("demote_if_below")
+  payoutFrequency             String?     @map("payout_frequency")
   createdAt                   DateTime    @default(now()) @map("created_at")
   updatedAt                   DateTime    @updatedAt @map("updated_at")
   affiliates                  Affiliate[]

@@ -4,6 +4,7 @@ import { getRequestUserId } from '@/lib/request-user';
 import { getOrCreateDefaultPartnerGroup } from '@/lib/default-partner-group';
 import { parseCommissionPercent } from '@/lib/commission-rate';
 import { formatTierRuleLabel } from '@/lib/partner-tier-automation';
+import { parseTierPayoutFrequency } from '@/lib/payout-schedule';
 import { logAuditAction } from '@/lib/audit';
 
 async function verifyAdmin(request: NextRequest) {
@@ -34,6 +35,7 @@ function serializeGroup(pg: {
   minConversions: number | null;
   minApprovedCommissionCents: number | null;
   demoteIfBelow: boolean;
+  payoutFrequency: string | null;
   createdAt: Date;
   updatedAt: Date;
 }, memberCount: number) {
@@ -49,6 +51,7 @@ function serializeGroup(pg: {
     minConversions: pg.minConversions,
     minApprovedCommissionCents: pg.minApprovedCommissionCents,
     demoteIfBelow: pg.demoteIfBelow,
+    payoutFrequency: pg.payoutFrequency,
     memberCount,
     autoRuleLabel: formatTierRuleLabel(pg),
     createdAt: pg.createdAt,
@@ -102,6 +105,7 @@ export async function POST(request: NextRequest) {
       minConversions,
       minApprovedCommissionCents,
       demoteIfBelow,
+      payoutFrequency,
     } = body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
@@ -135,6 +139,7 @@ export async function POST(request: NextRequest) {
         minConversions: optionalInt(minConversions) ?? null,
         minApprovedCommissionCents: optionalInt(minApprovedCommissionCents) ?? null,
         demoteIfBelow: Boolean(demoteIfBelow),
+        payoutFrequency: parseTierPayoutFrequency(payoutFrequency) ?? null,
       },
     });
 
@@ -197,6 +202,9 @@ export async function PUT(request: NextRequest) {
       data.minApprovedCommissionCents = optionalInt(body.minApprovedCommissionCents);
     }
     if (body.demoteIfBelow !== undefined) data.demoteIfBelow = Boolean(body.demoteIfBelow);
+    if (body.payoutFrequency !== undefined) {
+      data.payoutFrequency = parseTierPayoutFrequency(body.payoutFrequency) ?? null;
+    }
 
     if (body.isDefault === true) {
       await prisma.partnerGroup.updateMany({

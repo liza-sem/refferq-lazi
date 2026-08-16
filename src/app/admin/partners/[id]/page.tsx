@@ -95,9 +95,24 @@ interface Commission {
   customerName: string;
   amountCents: number;
   rate: number;
-  status: 'PENDING' | 'PAID' | 'COMPLETED' | 'REFUNDED';
+  status: 'PENDING' | 'APPROVED' | 'PAID' | 'COMPLETED' | 'REFUNDED';
   createdAt: string;
+  maturesAt?: string | null;
   paidAt?: string;
+}
+
+interface PayoutPreview {
+  paypalEmail: string | null;
+  paypalConfigured: boolean;
+  paypalMode: 'sandbox' | 'live';
+  payoutFrequencyLabel: string;
+  refundHoldDays: number;
+  amountCents: number;
+  pendingCount: number;
+  approvedCount: number;
+  canPay: boolean;
+  canSkipHold: boolean;
+  blockers: string[];
 }
 
 interface Payout {
@@ -124,6 +139,9 @@ export default function PartnerDetailPage() {
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [selectedCommissions, setSelectedCommissions] = useState<string[]>([]);
   const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutPreview, setPayoutPreview] = useState<PayoutPreview | null>(null);
+  const [skipHold, setSkipHold] = useState(true);
+  const [payoutMessage, setPayoutMessage] = useState<string | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [editingPayout, setEditingPayout] = useState<Payout | null>(null);
   const [newStatus, setNewStatus] = useState<'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'>('PENDING');
@@ -231,20 +249,40 @@ export default function PartnerDetailPage() {
 
   const fetchCommissions = async () => {
     try {
-      const res = await fetch(`/api/admin/transactions?affiliateId=${partnerId}`);
+      const res = await fetch(`/api/admin/payouts/manual?affiliateId=${partnerId}`);
       if (res.ok) {
         const data = await res.json();
-        const comms = data.transactions?.map((txn: any) => ({
-          id: txn.id,
-          transactionId: txn.id,
-          customerName: txn.customerName,
-          amountCents: txn.commissionCents,
-          rate: txn.commissionRate,
-          status: txn.status === 'COMPLETED' ? 'PENDING' : txn.status,
-          createdAt: txn.createdAt,
-          paidAt: txn.paidAt,
-        })) || [];
-        setCommissions(comms);
+        const preview = data.preview;
+        if (preview) {
+          setPayoutPreview({
+            paypalEmail: preview.paypalEmail,
+            paypalConfigured: preview.paypalConfigured,
+            paypalMode: preview.paypalMode === 'live' ? 'live' : 'sandbox',
+            payoutFrequencyLabel: preview.payoutFrequencyLabel || 'Monthly',
+            refundHoldDays: preview.refundHoldDays ?? 0,
+            amountCents: preview.amountCents || 0,
+            pendingCount: preview.pendingCount || 0,
+            approvedCount: preview.approvedCount || 0,
+            canPay: Boolean(preview.canPay),
+            canSkipHold: Boolean(preview.canSkipHold),
+            blockers: preview.blockers || [],
+          });
+          setSkipHold(preview.paypalMode !== 'live');
+          const history = (preview.history || preview.commissions || []).map((c: Commission & { id: string }) => ({
+            id: c.id,
+            transactionId: c.id,
+            customerName: c.customerName,
+            amountCents: c.amountCents,
+            rate: c.rate,
+            status: c.status,
+            createdAt: c.createdAt,
+            maturesAt: c.maturesAt,
+            paidAt: c.paidAt,
+          }));
+          setCommissions(history);
+          const unpaidIds = (preview.commissions || []).map((c: { id: string }) => c.id);
+          setSelectedCommissions(unpaidIds);
+        }
       }
     } catch (error) {
       console.error('Error fetching commissions:', error);
@@ -265,29 +303,38 @@ export default function PartnerDetailPage() {
 
   const handleCreatePayout = async () => {
     if (selectedCommissions.length === 0) {
-      alert('Please select at least one commission to create a payout');
+      setPayoutMessage('Select at least one unpaid commission.');
       return;
     }
     setPayoutLoading(true);
+    setPayoutMessage(null);
     try {
-      const res = await fetch('/api/admin/payouts', {
+      const res = await fetch('/api/admin/payouts/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ affiliateId: partnerId, commissionIds: selectedCommissions }),
+        body: JSON.stringify({
+          affiliateId: partnerId,
+          commissionIds: selectedCommissions,
+          skipHold,
+        }),
       });
-      if (res.ok) {
-        alert('Payout created successfully!');
+      const data = await res.json();
+      if (data.success) {
+        setPayoutMessage(data.message || 'Payout sent.');
         setShowPayoutModal(false);
         setSelectedCommissions([]);
         fetchCommissions();
         fetchPayouts();
+        alert(data.message || 'Payout sent.');
       } else {
-        const error = await res.json();
-        alert(`Error: ${error.error || 'Failed to create payout'}`);
+        const reasons = Array.isArray(data.blockers) && data.blockers.length
+          ? data.blockers.join(' ')
+          : (data.error || 'Failed to create payout');
+        setPayoutMessage(reasons);
       }
     } catch (error) {
       console.error('Error creating payout:', error);
-      alert('Failed to create payout');
+      setPayoutMessage('Failed to create payout');
     } finally {
       setPayoutLoading(false);
     }
@@ -337,10 +384,11 @@ export default function PartnerDetailPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const pendingCommissions = commissions.filter((c) => c.status === 'PENDING');
+  const pendingCommissions = commissions.filter((c) => c.status === 'PENDING' || c.status === 'APPROVED');
   const pendingAmount = pendingCommissions.reduce((sum, c) => sum + c.amountCents, 0);
   const paidCommissions = commissions.filter((c) => c.status === 'PAID');
   const paidAmount = paidCommissions.reduce((sum, c) => sum + c.amountCents, 0);
+  const payoutBlockers = payoutPreview?.blockers || [];
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ElementType }> = {
@@ -424,14 +472,18 @@ export default function PartnerDetailPage() {
             </div>
           </div>
         </div>
-        <Button
-          onClick={() => setShowPayoutModal(true)}
-          disabled={pendingCommissions.length === 0}
-          className="gap-1.5"
-        >
-          <Plus className="h-4 w-4" />
-          Create Payout
-        </Button>
+        <div className="text-right">
+          <Button
+            onClick={() => setShowPayoutModal(true)}
+            className="gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            Create Payout
+          </Button>
+          {payoutBlockers.length > 0 && (
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">{payoutBlockers[0]}</p>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -657,12 +709,10 @@ export default function PartnerDetailPage() {
                   Pending: {formatCurrency(pendingAmount)} · Paid: {formatCurrency(paidAmount)}
                 </CardDescription>
               </div>
-              {pendingCommissions.length > 0 && (
-                <Button size="sm" onClick={() => setShowPayoutModal(true)}>
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Create Payout
-                </Button>
-              )}
+              <Button size="sm" onClick={() => setShowPayoutModal(true)}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Create Payout
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               {commissions.length > 0 ? (
@@ -706,12 +756,10 @@ export default function PartnerDetailPage() {
                 <CardTitle className="text-base">Payout History</CardTitle>
                 <CardDescription>{payouts.length} payout{payouts.length !== 1 ? 's' : ''}</CardDescription>
               </div>
-              {pendingCommissions.length > 0 && (
-                <Button size="sm" onClick={() => setShowPayoutModal(true)}>
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Create Payout
-                </Button>
-              )}
+              <Button size="sm" onClick={() => setShowPayoutModal(true)}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Create Payout
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               {payouts.length > 0 ? (
@@ -751,7 +799,7 @@ export default function PartnerDetailPage() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Wallet className="h-10 w-10 text-muted-foreground/40 mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">No payouts yet</p>
-                  {pendingCommissions.length > 0 && (
+                  {payouts.length === 0 && (
                     <Button variant="outline" size="sm" className="mt-3" onClick={() => setShowPayoutModal(true)}>
                       Create First Payout
                     </Button>
@@ -766,13 +814,33 @@ export default function PartnerDetailPage() {
       {/* Create Payout Dialog */}
       <Dialog open={showPayoutModal} onOpenChange={(open) => {
         setShowPayoutModal(open);
-        if (!open) setSelectedCommissions([]);
+        if (!open) {
+          setPayoutMessage(null);
+        }
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create Payout</DialogTitle>
-            <DialogDescription>Select commissions to include in this payout</DialogDescription>
+            <DialogTitle>Create payout</DialogTitle>
+            <DialogDescription>
+              Sends PayPal now and skips the automatic {payoutPreview?.payoutFrequencyLabel?.toLowerCase() || 'monthly'} schedule.
+              {payoutPreview?.paypalMode === 'live' ? ' Live mode sends real money.' : ' Sandbox does not send real money.'}
+            </DialogDescription>
           </DialogHeader>
+
+          {payoutPreview && (
+            <div className="space-y-1 rounded-md border px-3 py-2 text-xs text-muted-foreground">
+              <p>PayPal: {payoutPreview.paypalEmail || 'not set'} · {payoutPreview.paypalConfigured ? 'keys connected' : 'keys missing'} · {payoutPreview.paypalMode}</p>
+              <p>Tier payout term: {payoutPreview.payoutFrequencyLabel}. Refund hold: {payoutPreview.refundHoldDays} day{payoutPreview.refundHoldDays === 1 ? '' : 's'}.</p>
+            </div>
+          )}
+
+          {payoutBlockers.length > 0 && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+              {payoutBlockers.map((reason) => (
+                <p key={reason}>{reason}</p>
+              ))}
+            </div>
+          )}
 
           <div className="rounded-lg bg-muted/50 p-4">
             <p className="text-sm text-muted-foreground">Selected total</p>
@@ -785,45 +853,72 @@ export default function PartnerDetailPage() {
               )}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {selectedCommissions.length} of {pendingCommissions.length} commissions
+              {selectedCommissions.length} of {pendingCommissions.length} unpaid commissions
             </p>
           </div>
 
-          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-            {pendingCommissions.map((comm) => (
-              <div
-                key={comm.id}
-                className={`flex items-center gap-3 rounded-lg border p-3 transition-colors cursor-pointer ${
-                  selectedCommissions.includes(comm.id)
-                    ? 'border-primary/50 bg-primary/5'
-                    : 'hover:bg-muted/50'
-                }`}
-                onClick={() => toggleCommissionSelection(comm.id)}
-              >
-                <Checkbox
-                  checked={selectedCommissions.includes(comm.id)}
-                  onCheckedChange={() => toggleCommissionSelection(comm.id)}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{comm.customerName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(comm.createdAt)} · {(comm.rate * 100).toFixed(0)}%
-                  </p>
+          {pendingCommissions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No unpaid commissions on this partner.</p>
+          ) : (
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {pendingCommissions.map((comm) => (
+                <div
+                  key={comm.id}
+                  className={`flex items-center gap-3 rounded-lg border p-3 transition-colors cursor-pointer ${
+                    selectedCommissions.includes(comm.id)
+                      ? 'border-primary/50 bg-primary/5'
+                      : 'hover:bg-muted/50'
+                  }`}
+                  onClick={() => toggleCommissionSelection(comm.id)}
+                >
+                  <Checkbox
+                    checked={selectedCommissions.includes(comm.id)}
+                    onCheckedChange={() => toggleCommissionSelection(comm.id)}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{comm.customerName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(comm.createdAt)} · {comm.status === 'PENDING' ? 'in refund hold' : 'approved'}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-primary shrink-0">
+                    {formatCurrency(comm.amountCents)}
+                  </span>
                 </div>
-                <span className="text-sm font-semibold text-primary shrink-0">
-                  {formatCurrency(comm.amountCents)}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {payoutPreview?.canSkipHold && (
+            <div className="flex items-start gap-2">
+              <Checkbox
+                checked={skipHold}
+                onCheckedChange={(checked) => setSkipHold(Boolean(checked))}
+                id="skip-hold"
+              />
+              <Label htmlFor="skip-hold" className="text-sm font-normal leading-snug">
+                Pay now, skip refund hold and payout schedule
+                {payoutPreview.paypalMode === 'live' ? ' (live PayPal)' : ' — sandbox'}
+              </Label>
+            </div>
+          )}
+
+          {payoutMessage && <p className="text-sm text-destructive">{payoutMessage}</p>}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowPayoutModal(false); setSelectedCommissions([]); }}>
+            <Button variant="outline" onClick={() => { setShowPayoutModal(false); setPayoutMessage(null); }}>
               Cancel
             </Button>
-            <Button onClick={handleCreatePayout} disabled={payoutLoading || selectedCommissions.length === 0}>
+            <Button
+              onClick={handleCreatePayout}
+              disabled={payoutLoading || selectedCommissions.length === 0 || payoutBlockers.length > 0}
+            >
               {payoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Payout ({selectedCommissions.length})
+              {selectedCommissions.length === 0
+                ? 'Pay now'
+                : payoutBlockers.length > 0
+                  ? 'Cannot pay yet'
+                  : `Pay now (${selectedCommissions.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>

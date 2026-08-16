@@ -23,6 +23,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Layers, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { commissionPercent } from '@/lib/commission-rate';
+import { PAYOUT_FREQUENCY_OPTIONS, payoutFrequencyLabel } from '@/lib/payout-schedule';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 export interface PartnerTier {
   id: string;
@@ -35,6 +39,7 @@ export interface PartnerTier {
   minConversions: number | null;
   minApprovedCommissionCents: number | null;
   demoteIfBelow: boolean;
+  payoutFrequency: string | null;
   memberCount: number;
   autoRuleLabel: string | null;
 }
@@ -45,6 +50,7 @@ const emptyForm = {
   commissionRate: '20',
   sortOrder: '0',
   isDefault: false,
+  payoutFrequency: 'INHERIT',
   minRevenue: '',
   minConversions: '',
   minApprovedCommission: '',
@@ -103,6 +109,7 @@ export function PartnerTiersPanel() {
       commissionRate: String(commissionPercent(tier.commissionRate)),
       sortOrder: String(tier.sortOrder),
       isDefault: tier.isDefault,
+      payoutFrequency: tier.payoutFrequency || 'INHERIT',
       minRevenue: centsToDollars(tier.minRevenueCents),
       minConversions: tier.minConversions != null ? String(tier.minConversions) : '',
       minApprovedCommission: centsToDollars(tier.minApprovedCommissionCents),
@@ -117,6 +124,7 @@ export function PartnerTiersPanel() {
     commissionRate: parseFloat(form.commissionRate),
     sortOrder: parseInt(form.sortOrder, 10) || 0,
     isDefault: form.isDefault,
+    payoutFrequency: form.payoutFrequency === 'INHERIT' ? null : form.payoutFrequency,
     minRevenueCents: dollarsToCents(form.minRevenue),
     minConversions: form.minConversions.trim() === '' ? null : parseInt(form.minConversions, 10),
     minApprovedCommissionCents: dollarsToCents(form.minApprovedCommission),
@@ -264,6 +272,7 @@ export function PartnerTiersPanel() {
                 <TableRow>
                   <TableHead>Tier</TableHead>
                   <TableHead>Commission</TableHead>
+                  <TableHead>Payout term</TableHead>
                   <TableHead>Rank</TableHead>
                   <TableHead>Partners</TableHead>
                   <TableHead>Auto-assignment</TableHead>
@@ -283,6 +292,11 @@ export function PartnerTiersPanel() {
                       )}
                     </TableCell>
                     <TableCell>{commissionPercent(tier.commissionRate)}%</TableCell>
+                    <TableCell>
+                      {tier.payoutFrequency
+                        ? payoutFrequencyLabel(tier.payoutFrequency)
+                        : <span className="text-xs text-muted-foreground">Program default</span>}
+                    </TableCell>
                     <TableCell className="tabular-nums">{tier.sortOrder}</TableCell>
                     <TableCell className="tabular-nums">{tier.memberCount}</TableCell>
                     <TableCell>
@@ -345,10 +359,23 @@ export function PartnerTiersPanel() {
                 <Input type="number" min="0" max="100" step="0.1" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} />
               </div>
               <div className="grid gap-2">
-                <Label>Rank</Label>
-                <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
-                <p className="text-xs text-muted-foreground">Higher rank wins (Gold 100, Silver 50, Standard 0)</p>
+                <Label>Payout term</Label>
+                <Select value={form.payoutFrequency} onValueChange={(v) => setForm({ ...form, payoutFrequency: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INHERIT">Program default</SelectItem>
+                    {PAYOUT_FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">How often matured commissions can be sent. Blank uses the program default.</p>
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Rank</Label>
+              <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
+              <p className="text-xs text-muted-foreground">Higher rank wins (Gold 100, Silver 50, Standard 0)</p>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={form.isDefault} onCheckedChange={(v) => setForm({ ...form, isDefault: v })} />

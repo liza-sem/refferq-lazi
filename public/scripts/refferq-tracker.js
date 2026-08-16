@@ -13,6 +13,7 @@
   const script = document.currentScript;
   const apiKey = script.getAttribute('data-api-key');
   const apiUrl = script.getAttribute('data-api-url') || window.location.origin;
+  const cookieDays = parseInt(script.getAttribute('data-cookie-days') || '30', 10) || 30;
   
   if (!apiKey) {
     console.error('[Refferq] API key is required. Add data-api-key attribute to script tag.');
@@ -164,7 +165,7 @@
       // Set the cookie immediately. Checkout metadata depends on it; do not wait
       // for the click API (that call is analytics, and a slow/failed fetch used
       // to leave the buyer with no cookie if they checked out right away).
-      Cookies.set('refferq_ref', refCode, 30);
+      Cookies.set('refferq_ref', refCode, cookieDays);
       stampCheckoutForms(refCode);
       trackReferral(refCode);
     } else {

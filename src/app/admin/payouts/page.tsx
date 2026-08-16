@@ -69,9 +69,11 @@ export default function PayoutsPage() {
     lastAutoPayoutAt: string | null;
     paypalConfigured: boolean;
     paypalMode: 'sandbox' | 'live';
-    commissionHoldDays: number;
+    refundHoldDays: number;
+    payoutFrequencyLabel: string;
     minPayoutCents: number;
     eligibleAffiliates: number;
+    payableThisRun: number;
   } | null>(null);
 
   useEffect(() => {
@@ -90,9 +92,11 @@ export default function PayoutsPage() {
           lastAutoPayoutAt: data.config.lastAutoPayoutAt,
           paypalConfigured: data.config.paypalConfigured,
           paypalMode: data.config.paypalMode === 'live' ? 'live' : 'sandbox',
-          commissionHoldDays: data.config.commissionHoldDays,
+          refundHoldDays: data.config.refundHoldDays ?? data.config.commissionHoldDays ?? 0,
+          payoutFrequencyLabel: data.config.payoutFrequencyLabel || 'Monthly',
           minPayoutCents: data.config.minPayoutCents,
           eligibleAffiliates: data.stats?.eligibleAffiliates || 0,
+          payableThisRun: data.stats?.payableThisRun || 0,
         });
       }
     } catch (error) {
@@ -175,7 +179,7 @@ export default function PayoutsPage() {
             </div>
             <CardDescription>
               {autoStatus.autoPayoutEnabled
-                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run after a ${autoStatus.commissionHoldDays}-day hold.`
+                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run on each tier’s payout schedule (weekly / bi-weekly / monthly). Default is ${autoStatus.payoutFrequencyLabel.toLowerCase()}.`
                 : 'Off — turn this on in Program Settings.'}
             </CardDescription>
           </CardHeader>
@@ -189,9 +193,15 @@ export default function PayoutsPage() {
               PayPal {autoStatus.paypalConfigured ? 'connected' : 'keys missing'}
               {' · '}
               {autoStatus.eligibleAffiliates} waiting
+              {autoStatus.payableThisRun > 0 ? ` · ${autoStatus.payableThisRun} payable this run` : ''}
               {' · '}
               min {currencySymbol}{(autoStatus.minPayoutCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </p>
+            {autoStatus.refundHoldDays > 0 && (
+              <p>
+                Refund hold is {autoStatus.refundHoldDays} day{autoStatus.refundHoldDays === 1 ? '' : 's'} after a sale (not the cookie, not the payout term). Test a partner from their profile with Create payout — that skips the schedule.
+              </p>
+            )}
             {autoStatus.paypalMode !== 'live' ? (
               <p>
                 Sandbox is on. Test payouts go to PayPal’s sandbox, not real money. Keep it this way until you paste Live keys and set <span className="font-mono">PAYPAL_MODE=live</span>.
