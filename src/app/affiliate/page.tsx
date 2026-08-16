@@ -95,7 +95,7 @@ export default function AffiliateDashboard() {
           totalReferredCustomers: data.referrals?.filter((r: any) => r.status === 'APPROVED').length || 0,
           totalConversions: data.stats?.totalConversions || 0,
           conversionRate: data.stats?.conversionRate || 0,
-          referralLink: `${window.location.origin}/r/${data.affiliate?.referralCode}`,
+          referralLink: data.referralLink || data.stats?.referralLink || '',
           referralCode: data.affiliate?.referralCode || '',
           currencySymbol: data.currencySymbol || '$',
           nextMaturesAt: data.stats?.nextMaturesAt || null,

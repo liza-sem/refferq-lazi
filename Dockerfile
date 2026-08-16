@@ -37,6 +37,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/docker/bootstrap-admin.cjs ./docker/bootstrap-admin.cjs
+COPY --from=builder /app/docker/clear-legacy-clicks.sql ./docker/clear-legacy-clicks.sql
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Full node_modules so `prisma db push` and admin bootstrap have their deps

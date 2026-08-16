@@ -105,6 +105,11 @@ export async function GET(request: NextRequest) {
     // Get currency symbol
     const { getCurrencySymbol } = await import('@/lib/currency');
     const currencySymbol = await getCurrencySymbol();
+    const settings = await prisma.programSettings.findFirst();
+    const { publicReferralLink } = await import('@/lib/referral-link');
+    const referralLink = affiliate.referralCode
+      ? publicReferralLink(settings?.websiteUrl, affiliate.referralCode)
+      : '';
 
     return NextResponse.json({
       success: true,
@@ -115,7 +120,11 @@ export async function GET(request: NextRequest) {
         role: user.role
       },
       affiliate: affiliate,
-      stats,
+      referralLink,
+      stats: {
+        ...stats,
+        referralLink,
+      },
       referrals: mappedReferrals,
       conversions,
       commissions,
