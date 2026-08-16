@@ -12,7 +12,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -22,14 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   MousePointerClick,
@@ -38,7 +29,6 @@ import {
   Copy,
   Check,
   Link,
-  Plus,
   Loader2,
   Clock,
   CheckCircle2,
@@ -83,15 +73,6 @@ export default function AffiliateDashboard() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [copied, setCopied] = useState<'link' | 'code' | null>(null);
 
-  // Referral form state
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [submitForm, setSubmitForm] = useState({
-    leadName: '',
-    leadEmail: '',
-    estimatedValue: '0',
-  });
-
   useEffect(() => {
     if (!authLoading && user) {
       loadDashboardData();
@@ -125,38 +106,6 @@ export default function AffiliateDashboard() {
       console.error('Failed to load dashboard data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSubmitLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitLoading(true);
-
-    try {
-      const response = await fetch('/api/affiliate/referrals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lead_name: submitForm.leadName,
-          lead_email: submitForm.leadEmail,
-          estimated_value: submitForm.estimatedValue,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        showNotification('success', 'Lead submitted successfully! Waiting for admin approval.');
-        setShowSubmitModal(false);
-        setSubmitForm({ leadName: '', leadEmail: '', estimatedValue: '0' });
-        loadDashboardData();
-      } else {
-        showNotification('error', data.error || 'Failed to submit lead');
-      }
-    } catch (_e) {
-      showNotification('error', 'An error occurred while submitting lead');
-    } finally {
-      setSubmitLoading(false);
     }
   };
 
@@ -246,10 +195,9 @@ export default function AffiliateDashboard() {
                 <p className="text-xl font-bold mt-1 tracking-tight">Start referring today and grow your wealth!</p>
               </div>
             </div>
-            <Button variant="secondary" onClick={() => setShowSubmitModal(true)} className="gap-2 hidden sm:flex bg-white text-emerald-700 hover:bg-emerald-50 border-0 shadow-md transform transition hover:scale-105 active:scale-95">
-              <Plus className="h-4 w-4" />
-              Submit Lead
-            </Button>
+            <p className="text-sm text-white/80 max-w-xs text-right hidden sm:block">
+              Sales are confirmed by Stripe. Email hello@lazi.studio if something looks wrong.
+            </p>
           </CardContent>
         </Card>
       </motion.div>
@@ -447,61 +395,6 @@ export default function AffiliateDashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Submit Lead Modal */}
-      <Dialog open={showSubmitModal} onOpenChange={setShowSubmitModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Submit Lead</DialogTitle>
-            <DialogDescription>
-              Enter the details below to submit a lead. Ensure all information is accurate for proper tracking.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSubmitLead} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Lead&apos;s Name *</Label>
-              <Input
-                required
-                value={submitForm.leadName}
-                onChange={(e) => setSubmitForm({ ...submitForm, leadName: e.target.value })}
-                placeholder="Full name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Contact Email *</Label>
-              <Input
-                type="email"
-                required
-                value={submitForm.leadEmail}
-                onChange={(e) => setSubmitForm({ ...submitForm, leadEmail: e.target.value })}
-                placeholder="email@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Estimated Deal Size ({currencySymbol}) *</Label>
-              <Input
-                type="number"
-                required
-                value={submitForm.estimatedValue}
-                onChange={(e) => setSubmitForm({ ...submitForm, estimatedValue: e.target.value })}
-                placeholder="0"
-              />
-              <p className="text-xs text-muted-foreground">Type 0 if unsure</p>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowSubmitModal(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitLoading}>
-                {submitLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Lead
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

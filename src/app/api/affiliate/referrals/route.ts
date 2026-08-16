@@ -40,41 +40,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-
-    // Validate with Zod
-    const { success, data, error: validationError } = await import('@/lib/validations').then(m => m.referralSchema.safeParse(body));
-
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: validationError.issues },
-        { status: 400 }
-      );
-    }
-
-    const { leadName, leadEmail, company, notes, estimatedValue } = data;
-
-    // Create the referral
-    const referral = await prisma.referral.create({
-      data: {
-        affiliateId: user.affiliate.id,
-        leadName: leadName.trim(),
-        leadEmail: leadEmail.toLowerCase().trim(),
-        status: 'PENDING',
-        metadata: {
-          company: company || '',
-          notes: notes || '',
-          source: 'manual',
-          estimated_value: estimatedValue || 0,
-        },
-      }
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Referral submitted successfully',
-      referral,
-    });
+    return NextResponse.json(
+      {
+        error: 'Manual lead submission is disabled. Email hello@lazi.studio if a sale looks wrong.',
+      },
+      { status: 403 }
+    );
   } catch (error) {
     console.error('Submit referral API error:', error);
     return NextResponse.json(

@@ -5,14 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -23,28 +19,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Users,
-  Plus,
-  Loader2,
   Clock,
   CheckCircle2,
-  AlertCircle,
   Ban,
   Search,
   Filter,
@@ -65,16 +49,8 @@ export default function ReferralsPage() {
   const { user, loading: authLoading } = useAuth();
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [submitForm, setSubmitForm] = useState({
-    leadName: '',
-    leadEmail: '',
-    estimatedValue: '0',
-  });
 
   useEffect(() => {
     if (!authLoading && user) fetchReferrals();
@@ -91,40 +67,6 @@ export default function ReferralsPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmitLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitLoading(true);
-    try {
-      const res = await fetch('/api/affiliate/referrals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lead_name: submitForm.leadName,
-          lead_email: submitForm.leadEmail,
-          estimated_value: submitForm.estimatedValue,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('success', 'Lead submitted successfully!');
-        setShowSubmitModal(false);
-        setSubmitForm({ leadName: '', leadEmail: '', estimatedValue: '0' });
-        fetchReferrals();
-      } else {
-        showNotification('error', data.error || 'Failed to submit lead');
-      }
-    } catch (_e) {
-      showNotification('error', 'An error occurred while submitting lead');
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
-
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 5000);
   };
 
   const formatDate = (date: string) =>
@@ -194,23 +136,12 @@ export default function ReferralsPage() {
 
   return (
     <div className="space-y-6">
-      {notification && (
-        <Alert variant={notification.type === 'error' ? 'destructive' : 'default'}>
-          {notification.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-          <AlertDescription>{notification.message}</AlertDescription>
-        </Alert>
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Referrals</h1>
-          <p className="text-muted-foreground">Track and manage your referral submissions</p>
+          <p className="text-muted-foreground">Sales from your links, confirmed by Stripe</p>
         </div>
-        <Button onClick={() => setShowSubmitModal(true)} className="gap-1.5">
-          <Plus className="h-4 w-4" />
-          Submit Lead
-        </Button>
       </div>
 
       {/* Stats */}
@@ -278,11 +209,10 @@ export default function ReferralsPage() {
               <Users className="h-12 w-12 text-muted-foreground/40 mb-3" />
               <p className="font-medium">No referrals found</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {referrals.length === 0 ? 'Start submitting leads to earn commissions' : 'Try adjusting your filters'}
+                {referrals.length === 0
+                  ? 'Share your link. Sales show up here after Stripe confirms them. Email hello@lazi.studio if something looks wrong.'
+                  : 'Try adjusting your filters'}
               </p>
-              {referrals.length === 0 && (
-                <Button className="mt-4" onClick={() => setShowSubmitModal(true)}>Submit your first lead</Button>
-              )}
             </div>
           ) : (
             <Table>
@@ -314,57 +244,6 @@ export default function ReferralsPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Submit Lead Modal */}
-      <Dialog open={showSubmitModal} onOpenChange={setShowSubmitModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Submit Lead</DialogTitle>
-            <DialogDescription>
-              Enter the details below to submit a lead.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmitLead} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Lead&apos;s Name *</Label>
-              <Input
-                required
-                value={submitForm.leadName}
-                onChange={(e) => setSubmitForm({ ...submitForm, leadName: e.target.value })}
-                placeholder="Full name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Contact Email *</Label>
-              <Input
-                type="email"
-                required
-                value={submitForm.leadEmail}
-                onChange={(e) => setSubmitForm({ ...submitForm, leadEmail: e.target.value })}
-                placeholder="email@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Estimated Deal Size ($) *</Label>
-              <Input
-                type="number"
-                required
-                value={submitForm.estimatedValue}
-                onChange={(e) => setSubmitForm({ ...submitForm, estimatedValue: e.target.value })}
-                placeholder="0"
-              />
-              <p className="text-xs text-muted-foreground">Type 0 if unsure</p>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowSubmitModal(false)}>Cancel</Button>
-              <Button type="submit" disabled={submitLoading}>
-                {submitLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Lead
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
