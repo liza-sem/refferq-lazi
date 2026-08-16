@@ -149,7 +149,7 @@ export default function PayoutsPage() {
         <div>
           <h1 className="text-2xl tracking-tight">Payouts</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {payoutScheduleLine(schedule.payoutFrequency, schedule.nextPayoutAt)}
+            {payoutScheduleLine(schedule.payoutFrequency)}
           </p>
         </div>
         {payouts.length > 0 && (

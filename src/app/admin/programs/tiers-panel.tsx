@@ -369,7 +369,7 @@ export function PartnerTiersPanel() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">How often matured commissions can be sent. Blank uses the program default.</p>
+                <p className="text-xs text-muted-foreground">Wait after each approved sale before PayPal: 7 days, 14 days, 1 month, or 3 months. Blank uses the program default.</p>
               </div>
             </div>
             <div className="grid gap-2">

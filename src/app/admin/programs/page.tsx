@@ -394,7 +394,7 @@ export default function ProgramsPage() {
                     <SelectItem value="QUARTERLY">Quarterly</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Default pay cadence for tiers that do not override.</p>
+                <p className="text-xs text-muted-foreground">Wait after each approved sale for tiers that do not override: 7 days, 14 days, 1 month, or 3 months.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

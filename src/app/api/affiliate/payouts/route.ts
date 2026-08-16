@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
-import { nextCalendarPayoutDate, payoutFrequencyLabel, resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { nextPayoutFromCommissions, payoutFrequencyLabel, resolvePayoutFrequency } from '@/lib/payout-schedule';
 import { owedCommissionWhere } from '@/lib/program-metrics';
 import { getCurrencySymbol } from '@/lib/currency';
 import { resolveHoldDays } from '@/lib/commission-hold';
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.commission.findMany({
         where: { affiliateId: user.affiliate.id, ...owedCommissionWhere },
-        select: { amountCents: true, status: true },
+        select: { amountCents: true, status: true, approvedAt: true, createdAt: true, payoutId: true },
       }),
       getCurrencySymbol(),
     ]);
@@ -79,17 +79,16 @@ export async function GET(request: NextRequest) {
     );
     const holdDays = resolveHoldDays(settings?.commissionHoldDays);
     const unpaidBalanceCents = unpaidCommissions.reduce((sum, c) => sum + c.amountCents, 0);
-    const approvedUnpaidCents = unpaidCommissions
-      .filter((c) => c.status === 'APPROVED')
-      .reduce((sum, c) => sum + c.amountCents, 0);
-    const nextPayoutCents = holdDays === 0 ? unpaidBalanceCents : approvedUnpaidCents;
+    const approvedUnpaid = unpaidCommissions.filter((c) => c.status === 'APPROVED' && !c.payoutId);
+    const nextPayout = nextPayoutFromCommissions(approvedUnpaid, payoutFrequency);
+    const nextPayoutCents = nextPayout.nextPayoutCents;
     const pendingHoldCents = unpaidCommissions
       .filter((c) => c.status === 'PENDING')
       .reduce((sum, c) => sum + c.amountCents, 0);
     const paidSoFarCents = payouts
       .filter((p) => p.status === 'COMPLETED')
       .reduce((sum, p) => sum + p.amountCents, 0);
-    const nextPayoutAt = nextCalendarPayoutDate(payoutFrequency).toISOString();
+    const nextPayoutAt = nextPayout.nextPayoutAt?.toISOString() || null;
 
     return NextResponse.json({
       success: true,

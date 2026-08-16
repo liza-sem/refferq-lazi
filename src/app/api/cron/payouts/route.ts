@@ -12,7 +12,7 @@ import { evaluateAllAffiliateTiers } from '@/lib/partner-tier-automation';
  *     -H "x-cron-secret: $CRON_SECRET"
  *
  * Each run matures due commissions, then pays at most dripSize affiliates
- * whose tier payout term says this is a pay day (oldest first) via PayPal.
+ * whose commissions have reached approvedAt + term (oldest first) via PayPal.
  */
 async function handle(request: NextRequest) {
   const auth = await authorizeCronOrAdmin(request);

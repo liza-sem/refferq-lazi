@@ -15,6 +15,13 @@ export const PAYOUT_FREQUENCY_OPTIONS: Array<{ value: PayoutFrequency; label: st
   { value: 'QUARTERLY', label: 'Quarterly' },
 ];
 
+const TERM_EXPLANATION: Record<PayoutFrequency, string> = {
+  WEEKLY: '7 days after each approved sale',
+  BIWEEKLY: '14 days after each approved sale',
+  MONTHLY: '1 month after each approved sale',
+  QUARTERLY: '3 months after each approved sale',
+};
+
 export function normalizePayoutFrequency(value: string | null | undefined): PayoutFrequency {
   const raw = (value || '').trim().toUpperCase().replace(/[-_\s]/g, '');
   if (raw === 'WEEKLY') return 'WEEKLY';
@@ -52,68 +59,102 @@ export function payoutFrequencyLabel(frequency: string | null | undefined): stri
   return PAYOUT_FREQUENCY_OPTIONS.find((option) => option.value === normalized)?.label || 'Monthly';
 }
 
-/** UTC calendar day as “Monday 17 Aug”. */
+export function payoutTermExplanation(frequency: string | null | undefined): string {
+  return TERM_EXPLANATION[normalizePayoutFrequency(frequency)];
+}
+
+/** UTC calendar day as “23 Aug”. */
 export function formatPayoutWhen(isoOrDate: string | Date | null | undefined): string {
   if (!isoOrDate) return '';
   const date = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
   if (Number.isNaN(date.getTime())) return '';
-  const weekday = date.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
   const day = date.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'UTC' });
   const month = date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
-  return `${weekday} ${day} ${month}`;
+  return `${day} ${month}`;
 }
 
 export function payoutFrequencyPeriodMs(frequency: PayoutFrequency): number {
   return PERIOD_MS[frequency];
 }
 
-/**
- * Calendar pay days, aligned with the existing scheduled-report cadence:
- * weekly = Monday, monthly = 1st, bi-weekly = 1st and 15th, quarterly = 1st of Jan/Apr/Jul/Oct.
- */
-/** Next calendar pay day (UTC date). If today is a pay day, returns today. */
-export function nextCalendarPayoutDate(frequency: PayoutFrequency, now = new Date()): Date {
-  const cursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  for (let i = 0; i < 120; i++) {
-    if (isCalendarPayoutDay(frequency, cursor)) return cursor;
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return cursor;
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
-export function isCalendarPayoutDay(frequency: PayoutFrequency, now = new Date()): boolean {
-  const day = now.getUTCDay();
-  const date = now.getUTCDate();
-  const month = now.getUTCMonth();
+function addUtcMonths(date: Date, months: number): Date {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + months;
+  const targetYear = year + Math.floor(month / 12);
+  const targetMonth = ((month % 12) + 12) % 12;
+  const day = date.getUTCDate();
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(
+    targetYear,
+    targetMonth,
+    Math.min(day, lastDay),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+    date.getUTCMilliseconds(),
+  ));
+}
+
+/**
+ * When this commission becomes payable: approvedAt + the partner’s term.
+ * Weekly = +7 days, bi-weekly = +14 days, monthly = +1 calendar month, quarterly = +3 months.
+ */
+export function commissionDueAt(
+  approvedAt: Date,
+  frequency: PayoutFrequency,
+): Date {
   switch (frequency) {
     case 'WEEKLY':
-      return day === 1;
+      return addUtcDays(approvedAt, 7);
     case 'BIWEEKLY':
-      return date === 1 || date === 15;
+      return addUtcDays(approvedAt, 14);
     case 'MONTHLY':
-      return date === 1;
+      return addUtcMonths(approvedAt, 1);
     case 'QUARTERLY':
-      return date === 1 && month % 3 === 0;
-    default:
-      return false;
+      return addUtcMonths(approvedAt, 3);
   }
 }
 
-export function isOnPayoutSchedule(input: {
-  frequency: PayoutFrequency;
-  lastPayoutAt: Date | null;
-  oldestPayableAt: Date | null;
-  now?: Date;
-}): boolean {
-  const now = input.now ?? new Date();
-  if (isCalendarPayoutDay(input.frequency, now)) return true;
+export function isCommissionDue(
+  approvedAt: Date,
+  frequency: PayoutFrequency,
+  now = new Date(),
+): boolean {
+  return now.getTime() >= commissionDueAt(approvedAt, frequency).getTime();
+}
 
-  const period = payoutFrequencyPeriodMs(input.frequency);
-  if (input.lastPayoutAt && now.getTime() - input.lastPayoutAt.getTime() >= period) {
-    return true;
+export type UnpaidCommissionForPayout = {
+  amountCents: number;
+  approvedAt: Date | null;
+  createdAt: Date;
+};
+
+/** Soonest due date among unpaid commissions, and the sum due on or before that date. */
+export function nextPayoutFromCommissions(
+  commissions: UnpaidCommissionForPayout[],
+  frequency: PayoutFrequency,
+): { nextPayoutAt: Date | null; nextPayoutCents: number } {
+  if (commissions.length === 0) {
+    return { nextPayoutAt: null, nextPayoutCents: 0 };
   }
-  if (!input.lastPayoutAt && input.oldestPayableAt && now.getTime() - input.oldestPayableAt.getTime() >= period) {
-    return true;
+
+  const dated = commissions.map((commission) => ({
+    amountCents: commission.amountCents,
+    dueAt: commissionDueAt(commission.approvedAt || commission.createdAt, frequency),
+  }));
+
+  let soonest = dated[0].dueAt;
+  for (const row of dated) {
+    if (row.dueAt < soonest) soonest = row.dueAt;
   }
-  return false;
+
+  const nextPayoutCents = dated
+    .filter((row) => row.dueAt.getTime() <= soonest.getTime())
+    .reduce((sum, row) => sum + row.amountCents, 0);
+
+  return { nextPayoutAt: soonest, nextPayoutCents };
 }

@@ -6,7 +6,7 @@ import { isPaypalConfigured, paypalMode, sendPaypalPayout } from '@/lib/paypal';
 import { matureCommissionsByIds } from '@/lib/mature-commissions';
 import { getProgramDefaults } from '@/lib/program-defaults';
 import {
-  isOnPayoutSchedule,
+  isCommissionDue,
   payoutFrequencyLabel,
   resolvePayoutFrequency,
   type PayoutFrequency,
@@ -49,21 +49,6 @@ function minPayoutCentsFromSettings(settings: {
     return Math.max(0, settings.minimumPayoutThreshold);
   }
   return Math.max(0, settings.minPayoutCents || 0);
-}
-
-async function lastCompletedPayoutAt(affiliateIds: string[]): Promise<Map<string, Date>> {
-  const map = new Map<string, Date>();
-  if (affiliateIds.length === 0) return map;
-  const rows = await prisma.payout.groupBy({
-    by: ['affiliateId'],
-    where: { affiliateId: { in: affiliateIds }, status: 'COMPLETED' },
-    _max: { processedAt: true, createdAt: true },
-  });
-  for (const row of rows) {
-    const at = row._max.processedAt || row._max.createdAt;
-    if (at) map.set(row.affiliateId, at);
-  }
-  return map;
 }
 
 async function markLastRun(settingsId?: string) {
@@ -275,6 +260,7 @@ export async function runAutoPayouts(input: {
 
   const grouped = new Map<string, Eligible>();
   let skipped = 0;
+  const now = new Date();
 
   for (const commission of approved) {
     const paypalEmail = paypalEmailFromDetails(commission.affiliate.payoutDetails);
@@ -282,6 +268,13 @@ export async function runAutoPayouts(input: {
       skipped += 1;
       continue;
     }
+
+    const frequency = resolvePayoutFrequency(
+      commission.affiliate.partnerGroup?.payoutFrequency,
+      programDefaults.payoutFrequency,
+    );
+    const approvedAt = commission.approvedAt || commission.createdAt;
+    if (!isCommissionDue(approvedAt, frequency, now)) continue;
 
     let entry = grouped.get(commission.affiliateId);
     if (!entry) {
@@ -292,36 +285,23 @@ export async function runAutoPayouts(input: {
         userEmail: commission.affiliate.user.email,
         paypalEmail,
         amountCents: 0,
-        frequency: resolvePayoutFrequency(
-          commission.affiliate.partnerGroup?.payoutFrequency,
-          programDefaults.payoutFrequency,
-        ),
-        oldestPayableAt: commission.approvedAt || commission.createdAt,
+        frequency,
+        oldestPayableAt: approvedAt,
         commissions: [],
       };
       grouped.set(commission.affiliateId, entry);
     }
     entry.commissions.push(commission);
     entry.amountCents += commission.amountCents;
-    const payableAt = commission.approvedAt || commission.createdAt;
-    if (payableAt < entry.oldestPayableAt) entry.oldestPayableAt = payableAt;
+    if (approvedAt < entry.oldestPayableAt) entry.oldestPayableAt = approvedAt;
   }
 
-  const lastPaid = await lastCompletedPayoutAt([...grouped.keys()]);
-  const now = new Date();
-  const aboveMin = [...grouped.values()].filter((entry) => entry.amountCents >= minPayoutCents);
+  const aboveMin = [...grouped.values()]
+    .filter((entry) => entry.amountCents >= minPayoutCents)
+    .sort((a, b) => a.oldestPayableAt.getTime() - b.oldestPayableAt.getTime());
   skipped += [...grouped.values()].filter((entry) => entry.amountCents < minPayoutCents).length;
-
-  const onSchedule = aboveMin.filter((entry) =>
-    isOnPayoutSchedule({
-      frequency: entry.frequency,
-      lastPayoutAt: lastPaid.get(entry.affiliateId) || null,
-      oldestPayableAt: entry.oldestPayableAt,
-      now,
-    }),
-  );
-  skipped += aboveMin.length - onSchedule.length;
-  const batch = onSchedule.slice(0, dripSize);
+  const batch = aboveMin.slice(0, dripSize);
+  skipped += aboveMin.length - batch.length;
 
   const results: PayoutRunResult['results'] = [...recovered];
   let processed = recovered.filter((r) => r.status.startsWith('RECOVERED')).length;
@@ -712,8 +692,9 @@ export async function getAutoPayoutStatus() {
   });
 
   const eligibleAffiliateIds = new Set<string>();
-  const grouped = new Map<string, { amountCents: number; frequency: PayoutFrequency; oldestPayableAt: Date }>();
+  const grouped = new Map<string, { amountCents: number; frequency: PayoutFrequency }>();
   let totalPendingCents = 0;
+  const now = new Date();
   for (const commission of approved) {
     const email = paypalEmailFromDetails(commission.affiliate.payoutDetails);
     if (!isValidPaypalEmail(email)) continue;
@@ -723,35 +704,22 @@ export async function getAutoPayoutStatus() {
       commission.affiliate.partnerGroup?.payoutFrequency,
       programDefaults.payoutFrequency,
     );
-    const payableAt = commission.approvedAt || commission.createdAt;
+    const approvedAt = commission.approvedAt || commission.createdAt;
+    if (!isCommissionDue(approvedAt, frequency, now)) continue;
     const existing = grouped.get(commission.affiliateId);
     if (!existing) {
       grouped.set(commission.affiliateId, {
         amountCents: commission.amountCents,
         frequency,
-        oldestPayableAt: payableAt,
       });
     } else {
       existing.amountCents += commission.amountCents;
-      if (payableAt < existing.oldestPayableAt) existing.oldestPayableAt = payableAt;
     }
   }
 
-  const lastPaid = await lastCompletedPayoutAt([...grouped.keys()]);
-  const now = new Date();
   let payableThisRun = 0;
-  for (const [affiliateId, entry] of grouped) {
-    if (entry.amountCents < minPayoutCents) continue;
-    if (
-      isOnPayoutSchedule({
-        frequency: entry.frequency,
-        lastPayoutAt: lastPaid.get(affiliateId) || null,
-        oldestPayableAt: entry.oldestPayableAt,
-        now,
-      })
-    ) {
-      payableThisRun += 1;
-    }
+  for (const entry of grouped.values()) {
+    if (entry.amountCents >= minPayoutCents) payableThisRun += 1;
   }
 
   const recentPayouts = await prisma.payout.findMany({

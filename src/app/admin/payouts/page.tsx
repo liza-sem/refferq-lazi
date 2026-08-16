@@ -180,7 +180,7 @@ export default function PayoutsPage() {
             </div>
             <CardDescription>
               {autoStatus.autoPayoutEnabled
-                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run on each tier’s payout schedule (weekly / bi-weekly / monthly). Default is ${autoStatus.payoutFrequencyLabel.toLowerCase()}.`
+                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run once each commission’s term is due (7 / 14 days or 1 / 3 months after approval). Default is ${autoStatus.payoutFrequencyLabel.toLowerCase()}.`
                 : 'Off — turn this on in Program Settings.'}
             </CardDescription>
           </CardHeader>
@@ -200,7 +200,7 @@ export default function PayoutsPage() {
             </p>
             {autoStatus.refundHoldDays > 0 && (
               <p>
-                Refund hold is {autoStatus.refundHoldDays} day{autoStatus.refundHoldDays === 1 ? '' : 's'} after a sale (not the cookie, not the payout term). Test a partner from their profile with Create payout — that skips the schedule.
+                Refund hold is {autoStatus.refundHoldDays} day{autoStatus.refundHoldDays === 1 ? '' : 's'} after a sale (not the cookie, not the payout term). Test a partner from their profile with Create payout — that skips the term wait.
               </p>
             )}
             {autoStatus.paypalMode !== 'live' ? (

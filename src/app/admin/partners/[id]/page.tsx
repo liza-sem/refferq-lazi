@@ -826,7 +826,7 @@ export default function PartnerDetailPage() {
           <DialogHeader>
             <DialogTitle>Create payout</DialogTitle>
             <DialogDescription>
-              Sends PayPal now and skips the automatic {payoutPreview?.payoutFrequencyLabel?.toLowerCase() || 'monthly'} schedule.
+              Sends PayPal now and skips the wait after each approved sale.
               {payoutPreview?.paypalMode === 'live' ? ' Live mode sends real money.' : ' Sandbox does not send real money.'}
             </DialogDescription>
           </DialogHeader>
@@ -906,7 +906,7 @@ export default function PartnerDetailPage() {
                 id="skip-hold"
               />
               <Label htmlFor="skip-hold" className="text-sm font-normal leading-snug">
-                Pay now, skip the payout schedule
+                Pay now, skip the term wait
                 {payoutPreview.paypalMode === 'live' ? ' (live PayPal)' : ' — sandbox'}
               </Label>
             </div>

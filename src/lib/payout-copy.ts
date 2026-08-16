@@ -1,5 +1,5 @@
 import { formatMoney } from '@/lib/money';
-import { formatPayoutWhen, payoutFrequencyLabel } from '@/lib/payout-schedule';
+import { formatPayoutWhen, payoutTermExplanation } from '@/lib/payout-schedule';
 
 /** Amount + day for the next automatic pay, or a quiet empty state. */
 export function nextPayoutAmountLabel(
@@ -22,12 +22,6 @@ export function nextPayoutHint(
   return when ? `Pays ${when}` : undefined;
 }
 
-export function payoutScheduleLine(
-  frequency: string | null | undefined,
-  nextAt: string | Date | null | undefined,
-): string {
-  const freq = payoutFrequencyLabel(frequency).toLowerCase();
-  const when = formatPayoutWhen(nextAt);
-  if (when) return `You're on ${freq} payouts. Next send: ${when}.`;
-  return `You're on ${freq} payouts.`;
+export function payoutScheduleLine(frequency: string | null | undefined): string {
+  return payoutTermExplanation(frequency);
 }

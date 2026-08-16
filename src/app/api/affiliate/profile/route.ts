@@ -6,7 +6,7 @@ import { commissionPercent } from '@/lib/commission-rate';
 import { approvedCustomerWhere, realLeadWhere } from '@/lib/program-metrics';
 import { toAffiliateLead } from '@/lib/lead-privacy';
 import { backfillReferralPublicIds } from '@/lib/lead-public-id';
-import { nextCalendarPayoutDate, resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { nextPayoutFromCommissions, resolvePayoutFrequency } from '@/lib/payout-schedule';
 import { resolveHoldDays } from '@/lib/commission-hold';
 
 export async function GET(request: NextRequest) {
@@ -87,9 +87,6 @@ export async function GET(request: NextRequest) {
     const unpaidBalanceCents = commissions
       .filter((c) => c.status === 'PENDING' || c.status === 'APPROVED')
       .reduce((sum, c) => sum + c.amountCents, 0);
-    const approvedUnpaidCents = commissions
-      .filter((c) => c.status === 'APPROVED')
-      .reduce((sum, c) => sum + c.amountCents, 0);
 
     const totalCommissions = commissions.length;
     const pendingCommissionsCount = pendingCommissionsList.length;
@@ -110,8 +107,10 @@ export async function GET(request: NextRequest) {
       affiliate.partnerGroup?.payoutFrequency,
       settings?.payoutFrequency,
     );
-    const nextPayoutAt = nextCalendarPayoutDate(payoutFrequency);
-    const nextPayoutCents = commissionHoldDays === 0 ? unpaidBalanceCents : approvedUnpaidCents;
+    const approvedUnpaid = commissions.filter((c) => c.status === 'APPROVED' && !c.payoutId);
+    const nextPayout = nextPayoutFromCommissions(approvedUnpaid, payoutFrequency);
+    const nextPayoutAt = nextPayout.nextPayoutAt;
+    const nextPayoutCents = nextPayout.nextPayoutCents;
     const nextMaturesAt = commissionHoldDays > 0
       ? pendingCommissionsList
           .filter(c => c.maturesAt)
@@ -125,7 +124,7 @@ export async function GET(request: NextRequest) {
       unpaidBalanceCents,
       nextPayoutCents,
       nextMaturesAt: nextMaturesAt?.toISOString() || null,
-      nextPayoutAt: nextPayoutAt.toISOString(),
+      nextPayoutAt: nextPayoutAt?.toISOString() || null,
       commissionHoldDays,
       payoutFrequency,
       totalCommissions,
