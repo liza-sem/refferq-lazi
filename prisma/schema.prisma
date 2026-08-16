@@ -42,6 +42,7 @@ model Affiliate {
   notifySaleEarned     Boolean       @default(true) @map("notify_sale_earned")
   notifyPayouts        Boolean       @default(true) @map("notify_payouts")
   notifyTierUpgraded   Boolean       @default(true) @map("notify_tier_upgraded")
+  welcomeSentAt        DateTime?     @map("welcome_sent_at")
   user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   commissions    Commission[]
   conversions    Conversion[]

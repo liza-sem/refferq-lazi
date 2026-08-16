@@ -21,6 +21,8 @@ export interface WelcomeEmailData {
   role: 'affiliate' | 'admin';
   loginUrl: string;
   password?: string;
+  referralCode?: string;
+  publicReferralLink?: string;
 }
 
 export interface ReferralNotificationData {
@@ -179,14 +181,9 @@ class EmailService {
         <p>Thank you for joining our affiliate platform as a <strong>${this.escapeHtml(data.role)}</strong>.</p>
         
         ${data.role === 'affiliate' ? `
-        <p>Your account is currently pending approval. Our admin team will review your application and activate your account within 24-48 hours.</p>
-        <p>Once approved, you'll be able to:</p>
-        <ul>
-          <li>Generate unique referral links</li>
-          <li>Submit manual referrals</li>
-          <li>Track your commissions and earnings</li>
-          <li>Access marketing materials</li>
-        </ul>
+        <p>Your partner account is ready. Share your referral link to start earning.</p>
+        ${data.referralCode ? `<p><strong>Referral code:</strong> ${this.escapeHtml(data.referralCode)}</p>` : ''}
+        ${data.publicReferralLink ? `<p><strong>Your link:</strong> ${this.escapeHtml(data.publicReferralLink)}</p>` : ''}
         ` : `
         <p>Your admin account has been created and is ready to use.</p>
         <p>You can now:</p>
@@ -496,6 +493,8 @@ class EmailService {
   }
 
   async sendWelcomeEmail(data: WelcomeEmailData): Promise<{ success: boolean; message: string }> {
+    const referralCode = data.referralCode?.trim() || '';
+    const publicReferralLink = data.publicReferralLink?.trim() || '';
     return this.sendTemplatedEmail({
       to: data.email,
       templateType: 'WELCOME',
@@ -503,10 +502,69 @@ class EmailService {
       variables: {
         name: data.name,
         email: data.email,
-        referralCode: '',
+        referralCode,
+        code: referralCode,
+        publicReferralLink,
+        referralLink: publicReferralLink,
       },
       generateFallbackHtml: () => this.generateWelcomeEmailHTML(data),
     });
+  }
+
+  /**
+   * Send WELCOME once, only after an affiliate exists with a referral code.
+   * Skips accounts older than 7 days so existing partners are not emailed on next login.
+   */
+  async sendWelcomeOnce(userId: string, opts?: { force?: boolean }): Promise<void> {
+    const { prisma } = await import('./prisma');
+    const { publicReferralLink } = await import('./referral-link');
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { affiliate: true },
+    });
+    const affiliate = user?.affiliate;
+    const referralCode = affiliate?.referralCode?.trim() || '';
+    if (!user || user.role !== 'AFFILIATE' || !affiliate || !referralCode) return;
+    if (affiliate.welcomeSentAt) return;
+
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    if (!opts?.force && Date.now() - user.createdAt.getTime() > sevenDaysMs) return;
+
+    const claimed = await prisma.affiliate.updateMany({
+      where: { id: affiliate.id, welcomeSentAt: null },
+      data: { welcomeSentAt: new Date() },
+    });
+    if (claimed.count === 0) return;
+
+    try {
+      const settings = await prisma.programSettings.findFirst({
+        select: { websiteUrl: true },
+      });
+      const link = publicReferralLink(settings?.websiteUrl, referralCode);
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://partners.lazi.studio').replace(/\/$/, '');
+      const result = await this.sendWelcomeEmail({
+        name: user.name,
+        email: user.email,
+        role: 'affiliate',
+        loginUrl: `${appUrl}/login`,
+        referralCode,
+        publicReferralLink: link,
+      });
+      if (!result.success) {
+        await prisma.affiliate.update({
+          where: { id: affiliate.id },
+          data: { welcomeSentAt: null },
+        });
+        console.error('⚠️ Welcome email failed:', result.message);
+      }
+    } catch (error) {
+      await prisma.affiliate.update({
+        where: { id: affiliate.id },
+        data: { welcomeSentAt: null },
+      });
+      console.error('⚠️ Welcome email failed:', error);
+    }
   }
 
   async sendOtpEmail(to: string, name: string, code: string): Promise<{ success: boolean; message: string }> {

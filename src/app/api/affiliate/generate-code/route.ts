@@ -59,6 +59,11 @@ export async function POST(request: NextRequest) {
         }
       });
 
+      const { emailService } = await import('@/lib/email');
+      void emailService.sendWelcomeOnce(user.id, { force: true }).catch((err) => {
+        console.error('⚠️ Welcome email failed after affiliate create:', err);
+      });
+
       return NextResponse.json({
         success: true,
         message: 'Affiliate profile created with referral code',
@@ -73,6 +78,11 @@ export async function POST(request: NextRequest) {
       affiliate = await prisma.affiliate.update({
         where: { id: affiliate.id },
         data: { referralCode }
+      });
+
+      const { emailService } = await import('@/lib/email');
+      void emailService.sendWelcomeOnce(user.id, { force: true }).catch((err) => {
+        console.error('⚠️ Welcome email failed after referral code create:', err);
       });
 
       return NextResponse.json({

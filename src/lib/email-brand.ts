@@ -140,6 +140,8 @@ export const EMAIL_TEMPLATE_CATALOG: EmailCatalogEntry[] = [
     variables: [
       ...SHARED_EMAIL_VARIABLES,
       { name: 'code', desc: 'Referral code' },
+      { name: 'publicReferralLink', desc: 'Public referral URL (lazi.studio/?ref=CODE)' },
+      { name: 'referralLink', desc: 'Same as publicReferralLink' },
     ],
     defaultSubject: 'Welcome to the {{companyName}} partner program',
   },
@@ -248,10 +250,11 @@ export function defaultBodies(): Record<string, string> {
       heading: 'Welcome to the program',
       intro: 'Hi {{name}},',
       paragraphs: [
-        'Your {{companyName}} partner account is ready. Sign in to get your referral link and track sales.',
+        'Your {{companyName}} partner account is ready. Share your referral link to start earning.',
       ],
       details: [
         { label: 'Referral code', value: '{{referralCode}}' },
+        { label: 'Your link', value: '{{publicReferralLink}}' },
       ],
       ctaLabel: 'Open partner dashboard',
       ctaUrl: dash,

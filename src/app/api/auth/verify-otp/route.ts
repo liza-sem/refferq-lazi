@@ -3,6 +3,7 @@ import { otpService } from '@/lib/otp';
 import { SignJWT } from 'jose';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { isPaypalOnboardingComplete } from '@/lib/onboarding';
+import { emailService } from '@/lib/email';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET!
@@ -41,6 +42,12 @@ export async function POST(request: NextRequest) {
     }
 
     const user = result.user!;
+
+    if (user.role === 'AFFILIATE') {
+      void emailService.sendWelcomeOnce(user.id).catch((err) => {
+        console.error('⚠️ Welcome email failed after OTP verify:', err);
+      });
+    }
 
     // Generate JWT token
     const token = await new SignJWT({

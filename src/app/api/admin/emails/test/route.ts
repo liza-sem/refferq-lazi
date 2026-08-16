@@ -70,6 +70,8 @@ export async function POST(request: Request) {
       leadId: 'LD-A3K9',
       reference: 'LD-A3K9',
       referralCode: 'LAZI-ALEX',
+      publicReferralLink: 'https://lazi.studio/?ref=LAZI-ALEX',
+      referralLink: 'https://lazi.studio/?ref=LAZI-ALEX',
       companyName: 'LAZI STUDIO PARTNERS',
       dashboardUrl: 'https://partners.lazi.studio/affiliate',
       reason: 'Does not meet our criteria',
