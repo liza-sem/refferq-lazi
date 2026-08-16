@@ -18,12 +18,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, name, role } = body;
+    const { email, name, company, country } = body;
 
     // Validate required fields
     if (!email || !name) {
       return NextResponse.json(
         { success: false, message: 'Email and name are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!country || typeof country !== 'string' || !country.trim()) {
+      return NextResponse.json(
+        { success: false, message: 'Country is required' },
         { status: 400 }
       );
     }
@@ -49,6 +56,8 @@ export async function POST(request: NextRequest) {
       password: randomPassword,
       name: name.trim(),
       role: userRole,
+      country: String(country).trim(),
+      company: typeof company === 'string' ? company.trim() : '',
     });
 
     if (!result.success) {

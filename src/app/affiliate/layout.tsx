@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import {
   SidebarProvider,
   Sidebar,
@@ -190,7 +190,21 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
   );
 }
 
-export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
+function AffiliateLoading({ color }: { color?: string }) {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <div className="text-center">
+        <div className="relative mx-auto h-12 w-12">
+          <div className="absolute inset-0 rounded-full border-4 border-muted" />
+          <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent" style={{ borderTopColor: color || '#059669' }} />
+        </div>
+        <p className="mt-4 text-sm text-muted-foreground">Loading your dashboard...</p>
+      </div>
+    </div>
+  );
+}
+
+function AffiliateShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -214,21 +228,7 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
   }, [loading, user, isOnboarding, router]);
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="relative mx-auto h-12 w-12">
-            <div className="absolute inset-0 rounded-full border-4 border-muted" />
-            <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent" style={{ borderTopColor: brand.brandButtonColor || '#059669' }} />
-          </div>
-          <p className="mt-4 text-sm text-muted-foreground">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isOnboarding && user?.hasAffiliate) {
-    return <>{children}</>;
+    return <AffiliateLoading color={brand.brandButtonColor} />;
   }
 
   if (!user || !user.hasAffiliate) {
@@ -246,6 +246,14 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
         </div>
       </div>
     );
+  }
+
+  if (isOnboarding) {
+    return <>{children}</>;
+  }
+
+  if (!user.onboardingComplete) {
+    return <AffiliateLoading color={brand.brandButtonColor} />;
   }
 
   return (
@@ -273,5 +281,13 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
         </main>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <AffiliateShell>{children}</AffiliateShell>
+    </AuthProvider>
   );
 }

@@ -35,6 +35,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
+import { COUNTRIES, DEFAULT_COUNTRY } from '@/lib/countries';
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -48,7 +49,7 @@ export default function SettingsPage() {
     name: '',
     company: '',
     email: '',
-    country: 'India',
+    country: DEFAULT_COUNTRY,
     paymentMethod: 'PayPal',
     paymentEmail: '',
   });
@@ -69,7 +70,7 @@ export default function SettingsPage() {
           name: data.user?.name || user?.name || '',
           company: pd.company || '',
           email: data.user?.email || user?.email || '',
-          country: pd.country || 'India',
+          country: pd.country || DEFAULT_COUNTRY,
           paymentMethod: pd.paymentMethod || 'PayPal',
           paymentEmail: pd.paymentEmail || data.user?.email || '',
         });
@@ -229,15 +230,9 @@ export default function SettingsPage() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="India">India</SelectItem>
-                  <SelectItem value="USA">United States</SelectItem>
-                  <SelectItem value="UK">United Kingdom</SelectItem>
-                  <SelectItem value="Canada">Canada</SelectItem>
-                  <SelectItem value="Australia">Australia</SelectItem>
-                  <SelectItem value="Germany">Germany</SelectItem>
-                  <SelectItem value="France">France</SelectItem>
-                  <SelectItem value="Singapore">Singapore</SelectItem>
-                  <SelectItem value="UAE">UAE</SelectItem>
+                  {COUNTRIES.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -14,25 +14,50 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Target, Mail, Loader2, Wallet } from 'lucide-react';
+import { Target, Mail, Loader2, Wallet, Building2, Globe } from 'lucide-react';
+import { COUNTRIES, DEFAULT_COUNTRY } from '@/lib/countries';
 
 export default function AffiliateOnboardingPage() {
   const router = useRouter();
   const { user, loading: authLoading, checkAuth } = useAuth();
   const [paypalEmail, setPaypalEmail] = useState('');
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [company, setCompany] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (authLoading) return;
+    if (user?.onboardingComplete) {
+      router.replace('/affiliate');
+      return;
+    }
     if (user?.email && !paypalEmail) {
       setPaypalEmail(user.email);
     }
-    if (user?.onboardingComplete) {
-      router.replace('/affiliate');
-    }
   }, [authLoading, user, paypalEmail, router]);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    fetch('/api/affiliate/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) return;
+        const pd = data.affiliate?.payoutDetails || {};
+        if (pd.country) setCountry(pd.country);
+        if (pd.company) setCompany(pd.company);
+        if (pd.paymentEmail) setPaypalEmail(pd.paymentEmail);
+      })
+      .catch(() => {});
+  }, [authLoading, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,15 +72,19 @@ export default function AffiliateOnboardingPage() {
         body: JSON.stringify({
           paymentEmail: paypalEmail,
           paymentMethod: 'PayPal',
+          country,
+          company,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'Could not save PayPal email');
+        setError(data.error || 'Could not save your details');
         return;
       }
-      await checkAuth();
-      router.replace('/affiliate');
+      const nextUser = await checkAuth();
+      if (nextUser?.onboardingComplete) {
+        router.replace('/affiliate');
+      }
     } catch (_e) {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -89,9 +118,9 @@ export default function AffiliateOnboardingPage() {
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <Wallet className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-xl">Add your PayPal email</CardTitle>
+            <CardTitle className="text-xl">Your payout details</CardTitle>
             <CardDescription>
-              Commissions are sent to this PayPal account. You can change it later in settings.
+              Commissions are sent to this PayPal account. You can change these later in settings.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
@@ -118,9 +147,40 @@ export default function AffiliateOnboardingPage() {
                   />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  <Select value={country} onValueChange={setCountry}>
+                    <SelectTrigger id="country" className="pl-10">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company">Company <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="company"
+                    type="text"
+                    placeholder="Company name"
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    className="pl-10"
+                    autoComplete="organization"
+                  />
+                </div>
+              </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full" size="lg" disabled={saving || !paypalEmail}>
+              <Button type="submit" className="w-full" size="lg" disabled={saving || !paypalEmail || !country}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {saving ? 'Saving...' : 'Continue to dashboard'}
               </Button>

@@ -20,8 +20,16 @@ import {
   InputOTPSlot,
   InputOTPSeparator,
 } from '@/components/ui/input-otp';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Target, User, Mail, ShieldCheck, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import { Target, User, Mail, ShieldCheck, ArrowLeft, Loader2, CheckCircle2, Building2, Globe } from 'lucide-react';
+import { COUNTRIES, DEFAULT_COUNTRY } from '@/lib/countries';
 
 type Step = 'details' | 'otp' | 'success';
 
@@ -30,6 +38,8 @@ export default function RegisterPage() {
   const [step, setStep] = useState<Step>('details');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [company, setCompany] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +55,7 @@ export default function RegisterPage() {
       const registerRes = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, role: 'AFFILIATE' }),
+        body: JSON.stringify({ email, name, country, company, role: 'AFFILIATE' }),
       });
 
       const registerData = await registerRes.json();
@@ -208,13 +218,44 @@ export default function RegisterPage() {
                       />
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country</Label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                      <Select value={country} onValueChange={setCountry}>
+                        <SelectTrigger id="country" className="pl-10">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COUNTRIES.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="company"
+                        type="text"
+                        placeholder="Company name"
+                        value={company}
+                        onChange={(e) => setCompany(e.target.value)}
+                        className="pl-10"
+                        autoComplete="organization"
+                      />
+                    </div>
+                  </div>
                 </CardContent>
                 <CardFooter className="flex-col gap-4">
                   <Button
                     type="submit"
                     className="w-full"
                     size="lg"
-                    disabled={loading || !name || !email}
+                    disabled={loading || !name || !email || !country}
                   >
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -20,6 +20,8 @@ export interface RegisterData {
   password: string;
   name: string;
   role: string; // 'affiliate' or 'admin' from the form
+  company?: string;
+  country?: string;
 }
 
 class AuthService {
@@ -70,11 +72,16 @@ class AuthService {
       if (userRoleLower === 'affiliate') {
         const referralCode = this.generateReferralCode(data.name);
 
+        const company = data.company?.trim();
+        const country = data.country?.trim();
         await prisma.affiliate.create({
           data: {
             userId: user.id,
             referralCode,
-            payoutDetails: {},
+            payoutDetails: {
+              ...(company ? { company } : {}),
+              ...(country ? { country } : {}),
+            },
             balanceCents: 0
           }
         });
