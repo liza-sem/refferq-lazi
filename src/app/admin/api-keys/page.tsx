@@ -123,7 +123,7 @@ export default function ApiKeysPage() {
       });
       const json = await res.json();
       if (json.success) {
-        setNewKeySecret(json.apiKey.fullKey);
+        setNewKeySecret(json.apiKey.key || json.apiKey.fullKey || null);
         await fetchKeys();
       }
     } catch (error) {
@@ -233,10 +233,20 @@ export default function ApiKeysPage() {
                         <AlertTitle>Important</AlertTitle>
                         <AlertDescription>This is the only time the full key will be displayed. Store it securely.</AlertDescription>
                       </Alert>
-                      <div className="flex items-center gap-2">
-                        <Input value={newKeySecret} readOnly className="font-mono text-sm" />
-                        <Button variant="outline" size="icon" onClick={() => handleCopy(newKeySecret)}>
-                          {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={newKeySecret}
+                            readOnly
+                            className="font-mono text-sm"
+                            onFocus={(e) => e.target.select()}
+                          />
+                          <Button variant="outline" size="icon" onClick={() => handleCopy(newKeySecret)}>
+                            {copied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        <Button className="w-full" onClick={() => handleCopy(newKeySecret)}>
+                          {copied ? <><CheckCircle2 className="mr-2 h-4 w-4" />Copied</> : <><Copy className="mr-2 h-4 w-4" />Copy API key</>}
                         </Button>
                       </div>
                     </div>
