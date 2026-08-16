@@ -123,7 +123,10 @@ export async function GET(request: NextRequest) {
     }
 
     const referrals = await prisma.referral.findMany({
-      where: { affiliateId: user.affiliate.id },
+      where: {
+        affiliateId: user.affiliate.id,
+        NOT: { leadEmail: { endsWith: '@tracking.internal' } },
+      },
       orderBy: { createdAt: 'desc' }
     });
 

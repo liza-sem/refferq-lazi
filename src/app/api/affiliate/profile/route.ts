@@ -92,7 +92,9 @@ export async function GET(request: NextRequest) {
     };
 
     // Map referrals to include estimatedValue from metadata
-    const mappedReferrals = referrals.map(ref => {
+    const mappedReferrals = referrals
+      .filter((ref) => !String(ref.leadEmail || '').endsWith('@tracking.internal'))
+      .map(ref => {
       const metadata = ref.metadata as any;
       return {
         ...ref,

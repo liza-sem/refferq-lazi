@@ -44,7 +44,10 @@ export async function GET(request: NextRequest) {
           where: {
             status: 'APPROVED'
           }
-        }
+        },
+        conversions: {
+          select: { amountCents: true },
+        },
       }
     });
 
@@ -118,6 +121,7 @@ export async function GET(request: NextRequest) {
         referralCode: affiliate.referralCode,
         totalReferrals: affiliate.referrals.length,
         totalEarnings: affiliate.balanceCents,
+        totalRevenue: affiliate.conversions.reduce((sum, conversion) => sum + conversion.amountCents, 0),
         totalCommissions: affiliate.commissions.length
       })),
       referralsByStatus: referralsByStatus.map(item => ({

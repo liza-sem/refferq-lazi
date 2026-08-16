@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { extractTrackingKey, isValidTrackingKey, trackJson, trackOptionsResponse } from '@/lib/tracking-auth';
+import { isClickPlaceholderEmail, toAmountCents } from '@/lib/money';
 
 /**
  * POST /api/track/conversion - Track conversions/sales
@@ -23,18 +24,19 @@ export async function POST(req: NextRequest) {
       customerEmail,
       customerName,
       amount,
+      amountCents: amountCentsRaw,
       currency,
       orderId,
       metadata,
       url,
       timestamp,
+      attributionKey,
     } = body;
 
     if (!referralCode) {
       return trackJson({ success: false, error: 'Referral code is required' }, 400);
     }
 
-    // Find affiliate by referral code
     const affiliate = await prisma.affiliate.findUnique({
       where: { referralCode },
       include: {
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
             status: true,
           },
         },
+        partnerGroup: true,
       },
     });
 
@@ -57,44 +60,59 @@ export async function POST(req: NextRequest) {
       return trackJson({ success: false, error: 'Affiliate is not active' }, 403);
     }
 
-    // Check if referral with this email already exists
-    let referral;
-    if (customerEmail) {
+    const email = typeof customerEmail === 'string' ? customerEmail.trim().toLowerCase() : '';
+    const name = typeof customerName === 'string' && customerName.trim() ? customerName.trim() : 'Unknown Customer';
+    const amountCents = toAmountCents(amount, amountCentsRaw);
+    const attrKey = attributionKey || metadata?.attribution_key || metadata?.attributionKey;
+
+    let referral = email
+      ? await prisma.referral.findFirst({
+          where: { leadEmail: email, affiliateId: affiliate.id },
+        })
+      : null;
+
+    if (!referral) {
       referral = await prisma.referral.findFirst({
         where: {
-          leadEmail: customerEmail,
           affiliateId: affiliate.id,
+          status: 'PENDING',
+          OR: [
+            { leadEmail: { endsWith: '@tracking.internal' } },
+            ...(attrKey ? [{ metadata: { path: ['attribution_key'], equals: attrKey } }] : []),
+          ],
         },
+        orderBy: { createdAt: 'desc' },
       });
     }
 
-    // Create referral if doesn't exist
-    if (!referral && customerEmail) {
-      referral = await prisma.referral.create({
-        data: {
-          leadEmail: customerEmail,
-          leadName: customerName || 'Unknown Customer',
-          affiliateId: affiliate.id,
-          status: 'APPROVED',
-          metadata: metadata || {},
-        },
-      });
-    } else if (referral && referral.status === 'PENDING') {
-      // Update referral status to APPROVED
+    const nextMetadata = {
+      ...((referral?.metadata as object) || {}),
+      ...(metadata || {}),
+      estimated_value: amountCents / 100,
+      orderId: orderId || null,
+    };
+
+    if (referral) {
       referral = await prisma.referral.update({
         where: { id: referral.id },
         data: {
+          leadEmail: email || referral.leadEmail,
+          leadName: name !== 'Unknown Customer' || isClickPlaceholderEmail(referral.leadEmail) ? name : referral.leadName,
           status: 'APPROVED',
-          metadata: {
-            ...(referral.metadata as object),
-            ...metadata,
-          },
+          metadata: nextMetadata,
+        },
+      });
+    } else if (email) {
+      referral = await prisma.referral.create({
+        data: {
+          leadEmail: email,
+          leadName: name,
+          affiliateId: affiliate.id,
+          status: 'APPROVED',
+          metadata: nextMetadata,
         },
       });
     }
-
-    // Create conversion record
-    const amountCents = Math.round((amount || 0) * 100);
 
     const conversion = await prisma.conversion.create({
       data: {
@@ -113,15 +131,28 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Note: Commission calculation will be done by the commission rules system
-    // This just creates the conversion record
+    const ratePercent = affiliate.partnerGroup?.commissionRate ?? 20;
+    const rate = ratePercent > 1 ? ratePercent / 100 : ratePercent;
+    const commissionAmount = Math.round(amountCents * rate);
 
-    console.log('✅ Conversion tracked successfully:', {
-      conversionId: conversion.id,
-      affiliateId: affiliate.id,
-      referralId: referral?.id,
-      amount: amountCents / 100,
-    });
+    const settings = await prisma.programSettings.findFirst();
+    const holdDays = settings?.commissionHoldDays ?? 30;
+    const maturesAt = new Date();
+    maturesAt.setDate(maturesAt.getDate() + holdDays);
+
+    if (commissionAmount > 0) {
+      await prisma.commission.create({
+        data: {
+          conversionId: conversion.id,
+          affiliateId: affiliate.id,
+          userId: affiliate.userId,
+          amountCents: commissionAmount,
+          rate,
+          status: 'PENDING',
+          maturesAt,
+        },
+      });
+    }
 
     return trackJson({
       success: true,

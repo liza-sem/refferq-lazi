@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
 
     // Get all referrals with affiliate information
     const referrals = await prisma.referral.findMany({
+      where: {
+        NOT: { leadEmail: { endsWith: '@tracking.internal' } },
+      },
       include: {
         affiliate: {
           include: {

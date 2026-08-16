@@ -87,6 +87,15 @@
       return Promise.resolve({ success: false, error: 'No referral code' });
     }
 
+    let attributionKey = options.attributionKey || null;
+    try {
+      const raw = Cookies.get('affiliate_attribution');
+      if (raw) {
+        const parsed = JSON.parse(decodeURIComponent(raw));
+        attributionKey = attributionKey || parsed.attribution_key || null;
+      }
+    } catch (_e) {}
+
     return fetch(apiUrl + '/api/track/conversion', {
       method: 'POST',
       headers: {
@@ -100,6 +109,7 @@
         amount: options.amount || 0,
         currency: options.currency || 'USD',
         orderId: options.orderId,
+        attributionKey: attributionKey,
         metadata: options.metadata || {},
         url: window.location.href,
         timestamp: new Date().toISOString(),

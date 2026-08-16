@@ -85,12 +85,15 @@ export async function GET(
     // Generate attribution key
     const attributionKey = `attr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Find or create a referral record for click tracking
+    // Reuse one pending click placeholder per affiliate so a later purchase
+    // can be merged onto the same lead instead of creating a second row.
     let referral = await prisma.referral.findFirst({
       where: {
         affiliateId: affiliate.id,
-        leadEmail: `click-${attributionKey}@tracking.internal`,
-      }
+        status: 'PENDING',
+        leadEmail: { endsWith: '@tracking.internal' },
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!referral) {
