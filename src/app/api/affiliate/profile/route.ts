@@ -85,7 +85,13 @@ export async function GET(request: NextRequest) {
     const pendingCommissionsList = commissions.filter(c => c.status === 'PENDING');
     const pendingEarningsCents = pendingCommissionsList.reduce((sum, c) => sum + c.amountCents, 0);
     const unpaidBalanceCents = commissions
-      .filter((c) => c.status === 'PENDING' || c.status === 'APPROVED')
+      .filter((c) => (c.status === 'PENDING' || c.status === 'APPROVED') && !c.payoutId)
+      .reduce((sum, c) => sum + c.amountCents, 0);
+    const inPayoutCents = commissions
+      .filter((c) => c.status === 'APPROVED' && Boolean(c.payoutId))
+      .reduce((sum, c) => sum + c.amountCents, 0);
+    const paidOutCents = commissions
+      .filter((c) => c.status === 'PAID')
       .reduce((sum, c) => sum + c.amountCents, 0);
 
     const totalCommissions = commissions.length;
@@ -122,6 +128,8 @@ export async function GET(request: NextRequest) {
       pendingEarnings: pendingEarningsCents,
       pendingEarningsList: pendingCommissionsList.length,
       unpaidBalanceCents,
+      inPayoutCents,
+      paidOutCents,
       nextPayoutCents,
       nextMaturesAt: nextMaturesAt?.toISOString() || null,
       nextPayoutAt: nextPayoutAt?.toISOString() || null,

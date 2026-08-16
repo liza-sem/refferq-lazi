@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
       createdAt: commission.createdAt,
       maturesAt: commission.maturesAt,
       paidAt: commission.paidAt,
+      payoutId: commission.payoutId,
       customerName,
     };
   };
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
     ...result,
     success: true,
     message: result.paypalMode === 'live'
-      ? `Paid ${result.commissionCount} commission(s) via live PayPal.`
-      : `Sandbox payout sent for ${result.commissionCount} commission(s).`,
+      ? `Sent ${result.commissionCount} commission(s) to PayPal. Usually confirms in minutes.`
+      : `Sandbox payout sent for ${result.commissionCount} commission(s). Usually confirms in minutes.`,
   });
 }

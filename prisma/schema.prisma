@@ -146,6 +146,8 @@ model Payout {
   notes           String?
   recipientEmail  String?      @map("recipient_email")
   paypalBatchId   String?      @map("paypal_batch_id")
+  paypalItemId    String?      @map("paypal_item_id")
+  paypalStatus    String?      @map("paypal_status")
   processedAt     DateTime?    @map("processed_at")
   createdBy       String       @map("created_by")
   createdAt       DateTime     @default(now()) @map("created_at")

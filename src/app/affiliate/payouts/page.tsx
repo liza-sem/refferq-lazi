@@ -21,12 +21,15 @@ import {
 } from '@/components/ui/table';
 import { Download } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
-import { nextPayoutAmountLabel, nextPayoutHint, payoutScheduleLine } from '@/lib/payout-copy';
+import { nextPayoutAmountLabel, nextPayoutHint, payoutScheduleLine, inPayoutHint, PAYPAL_CONFIRM_HINT } from '@/lib/payout-copy';
+import { humanPayoutStatus } from '@/lib/payout-status';
 
 interface Payout {
   id: string;
   amount: number;
   status: string;
+  displayStatus?: string;
+  paypalStatus?: string | null;
   method: string;
   createdAt: string;
   paidAt?: string;
@@ -38,6 +41,7 @@ export default function PayoutsPage() {
   const [loading, setLoading] = useState(true);
   const [unpaidBalanceCents, setUnpaidBalanceCents] = useState(0);
   const [nextPayoutCents, setNextPayoutCents] = useState(0);
+  const [inPayoutCents, setInPayoutCents] = useState(0);
   const [paidSoFarCents, setPaidSoFarCents] = useState(0);
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [schedule, setSchedule] = useState({
@@ -58,6 +62,7 @@ export default function PayoutsPage() {
         setPayouts(payData.payouts || []);
         setUnpaidBalanceCents(payData.unpaidBalanceCents || 0);
         setNextPayoutCents(payData.nextPayoutCents || 0);
+        setInPayoutCents(payData.inPayoutCents || 0);
         setPaidSoFarCents(payData.paidSoFarCents || 0);
         setCurrencySymbol(payData.currencySymbol || '$');
         if (payData.schedule) {
@@ -77,15 +82,15 @@ export default function PayoutsPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const getStatusBadge = (status: string) => {
-    const map: Record<string, { variant: 'success' | 'pending' | 'destructive' | 'info'; label: string }> = {
-      COMPLETED: { variant: 'success', label: 'Paid' },
-      PAID: { variant: 'success', label: 'Paid' },
-      PENDING: { variant: 'pending', label: 'Queued' },
-      PROCESSING: { variant: 'info', label: 'Sending' },
-      FAILED: { variant: 'destructive', label: 'Failed' },
+  const getStatusBadge = (payout: Payout) => {
+    const label = payout.displayStatus || humanPayoutStatus(payout.status, payout.paypalStatus);
+    const map: Record<string, { variant: 'success' | 'pending' | 'destructive' | 'info' }> = {
+      Paid: { variant: 'success' },
+      'Sent to PayPal': { variant: 'info' },
+      Unpaid: { variant: 'pending' },
+      Failed: { variant: 'destructive' },
     };
-    const { variant, label } = map[status] || { variant: 'pending' as const, label: status };
+    const variant = map[label]?.variant || 'pending';
     return <Badge variant={variant}>{label}</Badge>;
   };
 
@@ -94,7 +99,7 @@ export default function PayoutsPage() {
     const rows = payouts.map((p) => [
       formatDate(p.paidAt || p.createdAt),
       p.method,
-      p.status,
+      p.displayStatus || humanPayoutStatus(p.status, p.paypalStatus),
       (p.amount / 100).toFixed(2),
     ]);
     const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
@@ -126,19 +131,26 @@ export default function PayoutsPage() {
 
   const nextValue = nextPayoutAmountLabel(nextPayoutCents, schedule.nextPayoutAt, currencySymbol);
   const nextHint = nextPayoutHint(nextPayoutCents, schedule.nextPayoutAt);
+  const sentHint = inPayoutHint(inPayoutCents, currencySymbol);
 
   const metrics: Array<{ title: string; value: string; hint?: string }> = [
     {
       title: 'Unpaid',
       value: formatMoney(unpaidBalanceCents, currencySymbol),
     },
+    inPayoutCents > 0
+      ? {
+          title: 'In payout',
+          value: formatMoney(inPayoutCents, currencySymbol),
+          hint: nextPayoutCents > 0 ? nextHint : sentHint,
+        }
+      : {
+          title: 'Next payout',
+          value: nextPayoutCents > 0 ? formatMoney(nextPayoutCents, currencySymbol) : nextValue,
+          hint: nextHint,
+        },
     {
-      title: 'Next payout',
-      value: nextPayoutCents > 0 ? formatMoney(nextPayoutCents, currencySymbol) : nextValue,
-      hint: nextHint,
-    },
-    {
-      title: 'Paid so far',
+      title: 'Paid out',
       value: formatMoney(paidSoFarCents, currencySymbol),
     },
   ];
@@ -175,6 +187,7 @@ export default function PayoutsPage() {
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-base">History</CardTitle>
+          <p className="text-xs text-muted-foreground">{PAYPAL_CONFIRM_HINT}</p>
         </CardHeader>
         <CardContent className="p-0">
           {payouts.length === 0 ? (
@@ -196,7 +209,7 @@ export default function PayoutsPage() {
                   <TableRow key={payout.id}>
                     <TableCell className="text-sm">{formatDate(payout.paidAt || payout.createdAt)}</TableCell>
                     <TableCell className="text-muted-foreground">{payout.method || 'PayPal'}</TableCell>
-                    <TableCell>{getStatusBadge(payout.status)}</TableCell>
+                    <TableCell>{getStatusBadge(payout)}</TableCell>
                     <TableCell className="text-right">{formatMoney(payout.amount, currencySymbol)}</TableCell>
                   </TableRow>
                 ))}

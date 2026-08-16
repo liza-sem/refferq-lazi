@@ -37,6 +37,7 @@ import {
   Download,
 } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
+import { humanPayoutStatus } from '@/lib/payout-status';
 
 interface Payout {
   id: string;
@@ -46,6 +47,7 @@ interface Payout {
   amountCents: number;
   commissionCount: number;
   status: string;
+  paypalStatus?: string | null;
   method: string;
   notes: string | null;
   createdAt: string;
@@ -53,9 +55,9 @@ interface Payout {
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ElementType }> = {
-  PENDING: { label: 'Pending', variant: 'secondary', icon: Clock },
-  PROCESSING: { label: 'Processing', variant: 'outline', icon: Loader2 },
-  COMPLETED: { label: 'Completed', variant: 'default', icon: CheckCircle2 },
+  PENDING: { label: 'Unpaid', variant: 'secondary', icon: Clock },
+  PROCESSING: { label: 'Sent to PayPal', variant: 'outline', icon: Loader2 },
+  COMPLETED: { label: 'Paid', variant: 'default', icon: CheckCircle2 },
   FAILED: { label: 'Failed', variant: 'destructive', icon: XCircle },
 };
 
@@ -273,9 +275,9 @@ export default function PayoutsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="PROCESSING">Processing</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="PENDING">Unpaid</SelectItem>
+                  <SelectItem value="PROCESSING">Sent to PayPal</SelectItem>
+                  <SelectItem value="COMPLETED">Paid</SelectItem>
                   <SelectItem value="FAILED">Failed</SelectItem>
                 </SelectContent>
               </Select>
@@ -321,7 +323,7 @@ export default function PayoutsPage() {
                       <TableCell className="text-sm">{payout.commissionCount}</TableCell>
                       <TableCell className="text-sm">{payout.method || '—'}</TableCell>
                       <TableCell>
-                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                        <Badge variant={cfg.variant}>{humanPayoutStatus(payout.status, payout.paypalStatus)}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(payout.createdAt).toLocaleDateString('en-IN', {

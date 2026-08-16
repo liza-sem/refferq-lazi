@@ -30,10 +30,12 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
-import { nextPayoutAmountLabel, nextPayoutHint } from '@/lib/payout-copy';
+import { nextPayoutAmountLabel, nextPayoutHint, inPayoutHint } from '@/lib/payout-copy';
 
 interface AffiliateStats {
   unpaidBalanceCents: number;
+  inPayoutCents: number;
+  paidOutCents: number;
   nextPayoutCents: number;
   nextPayoutAt: string | null;
   referredCount: number;
@@ -80,6 +82,8 @@ export default function AffiliateDashboard() {
       if (data.success) {
         setStats({
           unpaidBalanceCents: data.stats?.unpaidBalanceCents ?? 0,
+          inPayoutCents: data.stats?.inPayoutCents ?? 0,
+          paidOutCents: data.stats?.paidOutCents ?? 0,
           nextPayoutCents: data.stats?.nextPayoutCents ?? 0,
           nextPayoutAt: data.stats?.nextPayoutAt || null,
           referredCount: data.stats?.referredCount ?? 0,
@@ -147,22 +151,35 @@ export default function AffiliateDashboard() {
   }
 
   const unpaid = stats?.unpaidBalanceCents || 0;
+  const inPayout = stats?.inPayoutCents || 0;
+  const paidOut = stats?.paidOutCents || 0;
   const nextCents = stats?.nextPayoutCents || 0;
   const nextAt = stats?.nextPayoutAt || null;
   const referred = stats?.referredCount || 0;
   const clicks = stats?.totalClicks || 0;
   const nextValue = nextPayoutAmountLabel(nextCents, nextAt, currencySymbol);
   const nextHint = nextPayoutHint(nextCents, nextAt);
+  const sentHint = inPayoutHint(inPayout, currencySymbol);
 
   const metrics: Array<{ title: string; value: string; hint?: string }> = [
     {
       title: 'Unpaid',
       value: formatMoney(unpaid, currencySymbol),
     },
+    inPayout > 0
+      ? {
+          title: 'In payout',
+          value: formatMoney(inPayout, currencySymbol),
+          hint: nextCents > 0 ? nextHint : sentHint,
+        }
+      : {
+          title: 'Next payout',
+          value: nextCents > 0 ? formatMoney(nextCents, currencySymbol) : nextValue,
+          hint: nextHint,
+        },
     {
-      title: 'Next payout',
-      value: nextCents > 0 ? formatMoney(nextCents, currencySymbol) : nextValue,
-      hint: nextHint,
+      title: 'Paid out',
+      value: formatMoney(paidOut, currencySymbol),
     },
     {
       title: 'Referred',
@@ -194,7 +211,7 @@ export default function AffiliateDashboard() {
         </p>
       </div>
 
-      <div className="grid gap-10 sm:grid-cols-3">
+      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
           <div key={metric.title}>
             <p className="text-sm text-muted-foreground">{metric.title}</p>
@@ -314,8 +331,8 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-12">
       <Skeleton className="h-20 w-full rounded-lg" />
-      <div className="grid gap-10 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i}>
             <Skeleton className="h-4 w-20" />
             <Skeleton className="mt-2 h-8 w-28" />

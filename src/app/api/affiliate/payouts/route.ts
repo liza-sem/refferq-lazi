@@ -5,6 +5,7 @@ import { nextPayoutFromCommissions, payoutFrequencyLabel, resolvePayoutFrequency
 import { owedCommissionWhere } from '@/lib/program-metrics';
 import { getCurrencySymbol } from '@/lib/currency';
 import { resolveHoldDays } from '@/lib/commission-hold';
+import { humanPayoutStatus } from '@/lib/payout-status';
 
 export async function GET(request: NextRequest) {
   try {
@@ -85,6 +86,9 @@ export async function GET(request: NextRequest) {
     const pendingHoldCents = unpaidCommissions
       .filter((c) => c.status === 'PENDING')
       .reduce((sum, c) => sum + c.amountCents, 0);
+    const inPayoutCents = payouts
+      .filter((p) => p.status === 'PROCESSING')
+      .reduce((sum, p) => sum + p.amountCents, 0);
     const paidSoFarCents = payouts
       .filter((p) => p.status === 'COMPLETED')
       .reduce((sum, p) => sum + p.amountCents, 0);
@@ -96,11 +100,14 @@ export async function GET(request: NextRequest) {
         id: p.id,
         amount: p.amountCents,
         status: p.status,
+        displayStatus: humanPayoutStatus(p.status, p.paypalStatus),
+        paypalStatus: p.paypalStatus,
         method: p.method,
         createdAt: p.createdAt.toISOString(),
         paidAt: p.processedAt?.toISOString() || null
       })),
       unpaidBalanceCents,
+      inPayoutCents,
       nextPayoutCents,
       paidSoFarCents,
       pendingHoldCents,

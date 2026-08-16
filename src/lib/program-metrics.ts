@@ -17,9 +17,10 @@ export const confirmedPurchaseWhere = {
   status: { not: 'REJECTED' as const },
 };
 
-/** Commission owed: earned but not yet paid out. */
+/** Commission owed: earned, not in a PayPal payout, and not SUCCESS yet. */
 export const owedCommissionWhere = {
   status: { in: ['PENDING' as const, 'APPROVED' as const] },
+  payoutId: null,
 };
 
 /** Partner earnings: all commissions except cancelled / clawed back. */

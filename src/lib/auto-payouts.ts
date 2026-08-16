@@ -2,7 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { logAuditAction } from '@/lib/audit';
 import { emailService } from '@/lib/email';
 import { isValidPaypalEmail, paypalEmailFromDetails } from '@/lib/onboarding';
-import { isPaypalConfigured, paypalMode, sendPaypalPayout } from '@/lib/paypal';
+import { getPaypalPayout, isPaypalConfigured, paypalMode, sendPaypalPayout } from '@/lib/paypal';
+import { classifyPaypalStatus } from '@/lib/payout-status';
 import { matureCommissionsByIds } from '@/lib/mature-commissions';
 import { getProgramDefaults } from '@/lib/program-defaults';
 import {
@@ -20,6 +21,9 @@ export type PayoutRunResult = {
   processed: number;
   skipped: number;
   failed: number;
+  refreshed: number;
+  confirmed: number;
+  released: number;
   totalAmountCents: number;
   paypalConfigured: boolean;
   autoPayoutEnabled: boolean;
@@ -61,12 +65,53 @@ async function markLastRun(settingsId?: string) {
   return now;
 }
 
+async function recordPaypalInitiated(input: {
+  payoutId: string;
+  paypalBatchId: string;
+  paypalStatus?: string | null;
+  paypalItemId?: string | null;
+}) {
+  await prisma.payout.update({
+    where: { id: input.payoutId },
+    data: {
+      status: 'PROCESSING',
+      paypalBatchId: input.paypalBatchId,
+      paypalStatus: input.paypalStatus || 'PENDING',
+      ...(input.paypalItemId ? { paypalItemId: input.paypalItemId } : {}),
+    },
+  });
+}
+
+async function sendPayoutCompletedEmail(payoutId: string) {
+  const payout = await prisma.payout.findUnique({
+    where: { id: payoutId },
+    include: {
+      affiliate: { include: { user: { select: { name: true, email: true } } } },
+    },
+  });
+  if (!payout?.affiliate.user.email) return;
+  try {
+    await emailService.sendPayoutCompletedEmail(payout.affiliate.user.email, {
+      affiliateName: payout.affiliate.user.name || 'Partner',
+      amountCents: payout.amountCents,
+      commissionCount: payout.commissionCount,
+      payoutId: payout.id,
+      method: 'PayPal',
+      processedAt: (payout.processedAt || new Date()).toISOString(),
+    });
+  } catch (emailError) {
+    console.error('Failed to send payout completed email:', emailError);
+  }
+}
+
 async function finalizePaidPayout(input: {
   payoutId: string;
   affiliateId: string;
   commissionIds: string[];
   amountCents: number;
   paypalBatchId: string;
+  paypalItemId?: string | null;
+  paypalStatus?: string | null;
   actorId: string;
 }) {
   const now = new Date();
@@ -77,6 +122,8 @@ async function finalizePaidPayout(input: {
         status: 'COMPLETED',
         processedAt: now,
         paypalBatchId: input.paypalBatchId,
+        paypalItemId: input.paypalItemId || undefined,
+        paypalStatus: input.paypalStatus || 'SUCCESS',
       },
     }),
     prisma.commission.updateMany({
@@ -115,13 +162,181 @@ async function finalizePaidPayout(input: {
       affiliateId: input.affiliateId,
       amountCents: input.amountCents,
       paypalBatchId: input.paypalBatchId,
+      paypalStatus: input.paypalStatus || 'SUCCESS',
+    },
+  });
+
+  await sendPayoutCompletedEmail(input.payoutId);
+}
+
+async function failPayoutAndRelease(input: {
+  payoutId: string;
+  affiliateId: string;
+  amountCents: number;
+  paypalBatchId?: string | null;
+  paypalItemId?: string | null;
+  paypalStatus?: string | null;
+  actorId: string;
+  wasPaid: boolean;
+}) {
+  await prisma.$transaction(async (tx) => {
+    await tx.commission.updateMany({
+      where: { payoutId: input.payoutId },
+      data: {
+        status: 'APPROVED',
+        payoutId: null,
+        paidAt: null,
+      },
+    });
+    await tx.payout.update({
+      where: { id: input.payoutId },
+      data: {
+        status: 'FAILED',
+        paypalBatchId: input.paypalBatchId || undefined,
+        paypalItemId: input.paypalItemId || undefined,
+        paypalStatus: input.paypalStatus || 'FAILED',
+        notes: `PayPal ${input.paypalStatus || 'FAILED'} — commission returned to unpaid`.slice(0, 500),
+      },
+    });
+    if (input.wasPaid) {
+      await tx.affiliate.update({
+        where: { id: input.affiliateId },
+        data: { balanceCents: { increment: input.amountCents } },
+      });
+    }
+  });
+
+  await logAuditAction({
+    actorId: input.actorId,
+    action: 'AUTO_PAYOUT_FAILED',
+    objectType: 'PAYOUT',
+    objectId: input.payoutId,
+    payload: {
+      affiliateId: input.affiliateId,
+      amountCents: input.amountCents,
+      paypalBatchId: input.paypalBatchId,
+      paypalStatus: input.paypalStatus,
     },
   });
 }
 
-async function recoverProcessingPayouts(actorId: string) {
+type RefreshPayout = {
+  id: string;
+  affiliateId: string;
+  amountCents: number;
+  status: string;
+  paypalBatchId: string | null;
+  commissions: Array<{ id: string; status: string }>;
+  affiliate: { user: { name: string } };
+};
+
+async function applyPaypalSnapshot(
+  payout: RefreshPayout,
+  snapshot: {
+    payoutBatchId: string;
+    batchStatus: string;
+    items: Array<{ payoutItemId: string | null; transactionStatus: string | null }>;
+  },
+  actorId: string,
+): Promise<'paid' | 'in_flight' | 'failed'> {
+  const item = snapshot.items[0];
+  const outcome = classifyPaypalStatus(snapshot.batchStatus, item?.transactionStatus);
+  const paypalStatus = item?.transactionStatus || snapshot.batchStatus;
+  const commissionIds = payout.commissions.map((c) => c.id);
+
+  if (outcome === 'paid') {
+    if (payout.status !== 'COMPLETED') {
+      await finalizePaidPayout({
+        payoutId: payout.id,
+        affiliateId: payout.affiliateId,
+        commissionIds,
+        amountCents: payout.amountCents,
+        paypalBatchId: snapshot.payoutBatchId,
+        paypalItemId: item?.payoutItemId,
+        paypalStatus,
+        actorId,
+      });
+    }
+    return 'paid';
+  }
+
+  if (outcome === 'failed') {
+    await failPayoutAndRelease({
+      payoutId: payout.id,
+      affiliateId: payout.affiliateId,
+      amountCents: payout.amountCents,
+      paypalBatchId: snapshot.payoutBatchId,
+      paypalItemId: item?.payoutItemId,
+      paypalStatus,
+      actorId,
+      wasPaid: payout.status === 'COMPLETED' || payout.commissions.some((c) => c.status === 'PAID'),
+    });
+    return 'failed';
+  }
+
+  await prisma.payout.update({
+    where: { id: payout.id },
+    data: {
+      status: 'PROCESSING',
+      paypalBatchId: snapshot.payoutBatchId,
+      paypalItemId: item?.payoutItemId || undefined,
+      paypalStatus,
+    },
+  });
+  return 'in_flight';
+}
+
+async function refreshOpenPaypalPayouts(actorId: string) {
+  const open = await prisma.payout.findMany({
+    where: {
+      method: 'PAYPAL',
+      status: 'PROCESSING',
+      paypalBatchId: { not: null },
+    },
+    include: {
+      commissions: { select: { id: true, status: true } },
+      affiliate: { include: { user: { select: { name: true } } } },
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 25,
+  });
+
+  const results: PayoutRunResult['results'] = [];
+  let confirmed = 0;
+  let released = 0;
+
+  for (const payout of open) {
+    if (!payout.paypalBatchId) continue;
+    try {
+      const snapshot = await getPaypalPayout(payout.paypalBatchId);
+      const outcome = await applyPaypalSnapshot(payout, snapshot, actorId);
+      if (outcome === 'paid') confirmed += 1;
+      if (outcome === 'failed') released += 1;
+      results.push({
+        affiliateId: payout.affiliateId,
+        name: payout.affiliate.user.name,
+        amountCents: payout.amountCents,
+        payoutId: payout.id,
+        status: outcome === 'paid' ? 'CONFIRMED' : outcome === 'failed' ? 'RELEASED' : 'IN_FLIGHT',
+      });
+    } catch (error) {
+      results.push({
+        affiliateId: payout.affiliateId,
+        name: payout.affiliate.user.name,
+        payoutId: payout.id,
+        status: 'REFRESH_FAILED',
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  return { refreshed: open.length, confirmed, released, results };
+}
+
+/** PROCESSING rows with no batch id never reached PayPal — retry send, but do not mark paid yet. */
+async function recoverUnsentPayouts(actorId: string) {
   const stuck = await prisma.payout.findMany({
-    where: { status: 'PROCESSING', method: 'PAYPAL' },
+    where: { status: 'PROCESSING', method: 'PAYPAL', paypalBatchId: null },
     include: {
       commissions: { select: { id: true } },
       affiliate: { include: { user: { select: { name: true, email: true } } } },
@@ -146,29 +361,11 @@ async function recoverProcessingPayouts(actorId: string) {
         note: `LAZI commission payout ${payout.id}`,
       });
 
-      await finalizePaidPayout({
+      await recordPaypalInitiated({
         payoutId: payout.id,
-        affiliateId: payout.affiliateId,
-        commissionIds: payout.commissions.map((c) => c.id),
-        amountCents: payout.amountCents,
         paypalBatchId: sent.payoutBatchId,
-        actorId,
+        paypalStatus: sent.batchStatus,
       });
-
-      try {
-        if (payout.affiliate.user.email) {
-          await emailService.sendPayoutCompletedEmail(payout.affiliate.user.email, {
-            affiliateName: payout.affiliate.user.name || 'Partner',
-            amountCents: payout.amountCents,
-            commissionCount: payout.commissionCount,
-            payoutId: payout.id,
-            method: 'PayPal',
-            processedAt: new Date().toISOString(),
-          });
-        }
-      } catch (emailError) {
-        console.error('Failed to send recovered payout email:', emailError);
-      }
 
       recovered.push({
         affiliateId: payout.affiliateId,
@@ -208,6 +405,9 @@ export async function runAutoPayouts(input: {
       processed: 0,
       skipped: 0,
       failed: 0,
+      refreshed: 0,
+      confirmed: 0,
+      released: 0,
       totalAmountCents: 0,
       paypalConfigured: isPaypalConfigured(),
       autoPayoutEnabled,
@@ -218,15 +418,33 @@ export async function runAutoPayouts(input: {
     };
   };
 
-  if (!autoPayoutEnabled) {
-    return empty();
-  }
-
   if (!isPaypalConfigured()) {
     return empty();
   }
 
-  const recovered = await recoverProcessingPayouts(input.actorId);
+  const refresh = await refreshOpenPaypalPayouts(input.actorId);
+  const recovered = await recoverUnsentPayouts(input.actorId);
+
+  if (!autoPayoutEnabled) {
+    const last = await markLastRun(settings?.id);
+    return {
+      matured: 0,
+      processed: recovered.filter((r) => r.status.startsWith('RECOVERED')).length,
+      skipped: 0,
+      failed: recovered.filter((r) => r.status === 'FAILED').length,
+      refreshed: refresh.refreshed,
+      confirmed: refresh.confirmed,
+      released: refresh.released,
+      totalAmountCents: recovered
+        .filter((r) => r.status.startsWith('RECOVERED'))
+        .reduce((sum, r) => sum + (r.amountCents || 0), 0),
+      paypalConfigured: true,
+      autoPayoutEnabled,
+      dripSize,
+      lastAutoPayoutAt: last.toISOString(),
+      results: [...refresh.results, ...recovered],
+    };
+  }
   const programDefaults = await getProgramDefaults();
 
   const approved = await prisma.commission.findMany({
@@ -303,7 +521,7 @@ export async function runAutoPayouts(input: {
   const batch = aboveMin.slice(0, dripSize);
   skipped += aboveMin.length - batch.length;
 
-  const results: PayoutRunResult['results'] = [...recovered];
+  const results: PayoutRunResult['results'] = [...refresh.results, ...recovered];
   let processed = recovered.filter((r) => r.status.startsWith('RECOVERED')).length;
   let failed = recovered.filter((r) => r.status === 'FAILED').length;
   let totalAmountCents = recovered
@@ -359,29 +577,11 @@ export async function runAutoPayouts(input: {
         note: `LAZI commission payout ${claimed.payout.id}`,
       });
 
-      await finalizePaidPayout({
+      await recordPaypalInitiated({
         payoutId: claimed.payout.id,
-        affiliateId: entry.affiliateId,
-        commissionIds: claimed.commissionIds,
-        amountCents: claimed.amountCents,
         paypalBatchId: sent.payoutBatchId,
-        actorId: input.actorId,
+        paypalStatus: sent.batchStatus,
       });
-
-      try {
-        if (entry.userEmail) {
-          await emailService.sendPayoutCompletedEmail(entry.userEmail, {
-            affiliateName: entry.name || 'Partner',
-            amountCents: claimed.amountCents,
-            commissionCount: claimed.commissionIds.length,
-            payoutId: claimed.payout.id,
-            method: 'PayPal',
-            processedAt: new Date().toISOString(),
-          });
-        }
-      } catch (emailError) {
-        console.error('Failed to send payout completed email:', emailError);
-      }
 
       processed += 1;
       totalAmountCents += claimed.amountCents;
@@ -390,7 +590,7 @@ export async function runAutoPayouts(input: {
         name: entry.name,
         amountCents: claimed.amountCents,
         payoutId: claimed.payout.id,
-        status: 'PAID',
+        status: 'SENT',
       });
     } catch (error) {
       failed += 1;
@@ -428,6 +628,9 @@ export async function runAutoPayouts(input: {
     processed,
     skipped,
     failed,
+    refreshed: refresh.refreshed,
+    confirmed: refresh.confirmed,
+    released: refresh.released,
     totalAmountCents,
     paypalConfigured: true,
     autoPayoutEnabled,
@@ -446,6 +649,7 @@ export type ManualPayoutResult = {
   amountCents?: number;
   commissionCount?: number;
   paypalBatchId?: string;
+  paypalStatus?: string;
   paypalMode: 'sandbox' | 'live';
 };
 
@@ -608,29 +812,11 @@ export async function runManualPaypalPayout(input: {
       note: `LAZI test payout ${claimed.payout.id}`,
     });
 
-    await finalizePaidPayout({
+    await recordPaypalInitiated({
       payoutId: claimed.payout.id,
-      affiliateId: affiliate.id,
-      commissionIds: claimed.commissionIds,
-      amountCents: claimed.amountCents,
       paypalBatchId: sent.payoutBatchId,
-      actorId: input.actorId,
+      paypalStatus: sent.batchStatus,
     });
-
-    try {
-      if (affiliate.user.email) {
-        await emailService.sendPayoutCompletedEmail(affiliate.user.email, {
-          affiliateName: affiliate.user.name || 'Partner',
-          amountCents: claimed.amountCents,
-          commissionCount: claimed.commissionIds.length,
-          payoutId: claimed.payout.id,
-          method: 'PayPal',
-          processedAt: new Date().toISOString(),
-        });
-      }
-    } catch (emailError) {
-      console.error('Failed to send manual payout email:', emailError);
-    }
 
     return {
       success: true,
@@ -640,6 +826,7 @@ export async function runManualPaypalPayout(input: {
       amountCents: claimed.amountCents,
       commissionCount: claimed.commissionIds.length,
       paypalBatchId: sent.payoutBatchId,
+      paypalStatus: sent.batchStatus,
       paypalMode: mode,
     };
   } catch (error) {
@@ -756,6 +943,7 @@ export async function getAutoPayoutStatus() {
       affiliateEmail: payout.user.email,
       amountCents: payout.amountCents,
       status: payout.status,
+      paypalStatus: payout.paypalStatus,
       createdAt: payout.createdAt,
       processedAt: payout.processedAt,
     })),

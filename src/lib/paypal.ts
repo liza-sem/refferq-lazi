@@ -13,9 +13,23 @@ type PayPalPayoutResponse = {
     batch_status?: string;
     sender_batch_header?: { sender_batch_id?: string };
   };
+  items?: Array<{
+    payout_item_id?: string;
+    transaction_id?: string;
+    transaction_status?: string;
+  }>;
   name?: string;
   message?: string;
   details?: Array<{ issue?: string; description?: string }>;
+};
+
+export type PaypalPayoutSnapshot = {
+  payoutBatchId: string;
+  batchStatus: string;
+  items: Array<{
+    payoutItemId: string | null;
+    transactionStatus: string | null;
+  }>;
 };
 
 export type PaypalMode = 'sandbox' | 'live';
@@ -78,7 +92,7 @@ export async function sendPaypalPayout(input: {
   amountCents: number;
   currency: string;
   note?: string;
-}): Promise<{ payoutBatchId: string; duplicate: boolean }> {
+}): Promise<{ payoutBatchId: string; batchStatus: string; duplicate: boolean }> {
   if (input.amountCents < 1) {
     throw new Error('Payout amount must be at least 1 cent');
   }
@@ -112,9 +126,11 @@ export async function sendPaypalPayout(input: {
   });
 
   const data = (await res.json()) as PayPalPayoutResponse;
+  const batchStatus = data.batch_header?.batch_status || 'PENDING';
   if (isDuplicateBatch(res.status, data)) {
     return {
       payoutBatchId: data.batch_header?.payout_batch_id || input.senderBatchId,
+      batchStatus,
       duplicate: true,
     };
   }
@@ -129,5 +145,27 @@ export async function sendPaypalPayout(input: {
     throw new Error('PayPal payout succeeded without a batch id');
   }
 
-  return { payoutBatchId, duplicate: false };
+  return { payoutBatchId, batchStatus, duplicate: false };
+}
+
+export async function getPaypalPayout(payoutBatchId: string): Promise<PaypalPayoutSnapshot> {
+  const token = await getAccessToken();
+  const res = await fetch(
+    `${paypalApiBase()}/v1/payments/payouts/${encodeURIComponent(payoutBatchId)}?page_size=20&page=1`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const data = (await res.json()) as PayPalPayoutResponse;
+  if (!res.ok) {
+    const detail = data.details?.[0]?.description || data.details?.[0]?.issue;
+    throw new Error(detail || data.message || data.name || `PayPal payout lookup failed (${res.status})`);
+  }
+
+  return {
+    payoutBatchId: data.batch_header?.payout_batch_id || payoutBatchId,
+    batchStatus: data.batch_header?.batch_status || 'PENDING',
+    items: (data.items || []).map((item) => ({
+      payoutItemId: item.payout_item_id || null,
+      transactionStatus: item.transaction_status || null,
+    })),
+  };
 }

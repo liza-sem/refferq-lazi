@@ -11,8 +11,9 @@ import { evaluateAllAffiliateTiers } from '@/lib/partner-tier-automation';
  *   curl -sS -X POST https://referrals.lazi.studio/api/cron/payouts \
  *     -H "x-cron-secret: $CRON_SECRET"
  *
- * Each run matures due commissions, then pays at most dripSize affiliates
- * whose commissions have reached approvedAt + term (oldest first) via PayPal.
+ * Each run matures due commissions, refreshes open PayPal payouts, then pays
+ * at most dripSize affiliates whose commissions have reached approvedAt + term
+ * (oldest first) via PayPal. Commissions stay unpaid until PayPal SUCCESS.
  */
 async function handle(request: NextRequest) {
   const auth = await authorizeCronOrAdmin(request);
@@ -38,6 +39,9 @@ async function handle(request: NextRequest) {
       processed: payouts.processed,
       skipped: payouts.skipped,
       failed: payouts.failed,
+      refreshed: payouts.refreshed,
+      confirmed: payouts.confirmed,
+      released: payouts.released,
       totalAmountCents: payouts.totalAmountCents,
       dripSize: payouts.dripSize,
       autoPayoutEnabled: payouts.autoPayoutEnabled,

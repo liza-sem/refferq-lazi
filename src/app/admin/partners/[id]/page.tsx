@@ -63,6 +63,7 @@ import {
 } from 'lucide-react';
 import { commissionPercent } from '@/lib/commission-rate';
 import { formatMoney } from '@/lib/money';
+import { humanPayoutStatus } from '@/lib/payout-status';
 
 interface Partner {
   id: string;
@@ -101,6 +102,7 @@ interface Commission {
   createdAt: string;
   maturesAt?: string | null;
   paidAt?: string;
+  payoutId?: string | null;
 }
 
 interface PayoutPreview {
@@ -122,6 +124,7 @@ interface Payout {
   amountCents: number;
   commissionCount: number;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  paypalStatus?: string | null;
   method?: string;
   createdAt: string;
   processedAt?: string;
@@ -281,6 +284,7 @@ export default function PartnerDetailPage() {
             createdAt: c.createdAt,
             maturesAt: c.maturesAt,
             paidAt: c.paidAt,
+            payoutId: (c as Commission).payoutId || null,
           }));
           setCommissions(history);
           const unpaidIds = (preview.commissions || []).map((c: { id: string }) => c.id);
@@ -384,13 +388,17 @@ export default function PartnerDetailPage() {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  const pendingCommissions = commissions.filter((c) => c.status === 'PENDING' || c.status === 'APPROVED');
+  const pendingCommissions = commissions.filter((c) =>
+    (c.status === 'PENDING' || c.status === 'APPROVED') && !c.payoutId,
+  );
   const pendingAmount = pendingCommissions.reduce((sum, c) => sum + c.amountCents, 0);
   const paidCommissions = commissions.filter((c) => c.status === 'PAID');
   const paidAmount = paidCommissions.reduce((sum, c) => sum + c.amountCents, 0);
   const payoutBlockers = payoutPreview?.blockers || [];
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, paypalStatus?: string | null) => {
+    const asPayout = paypalStatus !== undefined;
+    const label = asPayout ? humanPayoutStatus(status, paypalStatus) : status;
     const map: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ElementType }> = {
       COMPLETED: { variant: 'default', icon: CheckCircle2 },
       PAID: { variant: 'default', icon: CheckCircle2 },
@@ -406,7 +414,7 @@ export default function PartnerDetailPage() {
     return (
       <Badge variant={variant} className="gap-1 text-xs">
         <Icon className="h-3 w-3" />
-        {status}
+        {label}
       </Badge>
     );
   };
@@ -785,7 +793,7 @@ export default function PartnerDetailPage() {
                         <TableCell className="text-muted-foreground text-sm">{formatDate(payout.createdAt)}</TableCell>
                         <TableCell className="text-right font-semibold text-emerald-600">{formatMoney(payout.amountCents)}</TableCell>
                         <TableCell className="text-right">{payout.commissionCount}</TableCell>
-                        <TableCell>{getStatusBadge(payout.status)}</TableCell>
+                        <TableCell>{getStatusBadge(payout.status, payout.paypalStatus ?? null)}</TableCell>
                         <TableCell className="text-muted-foreground">{payout.method || '\u2014'}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {payout.processedAt ? formatDate(payout.processedAt) : '\u2014'}

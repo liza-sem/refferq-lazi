@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
       status: payout.status,
       method: payout.method,
       notes: payout.notes,
+      paypalStatus: payout.paypalStatus,
+      paypalBatchId: payout.paypalBatchId,
       createdAt: payout.createdAt,
       processedAt: payout.processedAt,
     }));
