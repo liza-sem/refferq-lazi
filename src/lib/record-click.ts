@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 
 const DEDUPE_MS = 30 * 60 * 1000;
@@ -7,7 +8,7 @@ export type RecordClickInput = {
   ipAddress: string;
   userAgent?: string | null;
   referer?: string | null;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.InputJsonObject;
 };
 
 export async function recordClick(input: RecordClickInput) {
@@ -33,7 +34,7 @@ export async function recordClick(input: RecordClickInput) {
       ipAddress: ip,
       userAgent: input.userAgent || null,
       referer: input.referer || null,
-      metadata: input.metadata || {},
+      metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
     },
   });
 
