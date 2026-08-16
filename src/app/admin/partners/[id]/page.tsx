@@ -110,6 +110,7 @@ interface PayoutPreview {
   paypalConfigured: boolean;
   paypalMode: 'sandbox' | 'live';
   payoutFrequencyLabel: string;
+  paydayLabel?: string;
   refundHoldDays: number;
   amountCents: number;
   pendingCount: number;
@@ -265,6 +266,7 @@ export default function PartnerDetailPage() {
             paypalConfigured: preview.paypalConfigured,
             paypalMode: preview.paypalMode === 'live' ? 'live' : 'sandbox',
             payoutFrequencyLabel: preview.payoutFrequencyLabel || 'Monthly',
+            paydayLabel: preview.paydayLabel,
             refundHoldDays: preview.refundHoldDays ?? 0,
             amountCents: preview.amountCents || 0,
             pendingCount: preview.pendingCount || 0,
@@ -834,7 +836,7 @@ export default function PartnerDetailPage() {
           <DialogHeader>
             <DialogTitle>Create payout</DialogTitle>
             <DialogDescription>
-              Sends PayPal now and skips the wait after each approved sale.
+              Sends PayPal now and skips the partner’s payday.
               {payoutPreview?.paypalMode === 'live' ? ' Live mode sends real money.' : ' Sandbox does not send real money.'}
             </DialogDescription>
           </DialogHeader>
@@ -843,7 +845,7 @@ export default function PartnerDetailPage() {
             <div className="space-y-1 rounded-md border px-3 py-2 text-xs text-muted-foreground">
               <p>PayPal: {payoutPreview.paypalEmail || 'not set'} · {payoutPreview.paypalConfigured ? 'keys connected' : 'keys missing'} · {payoutPreview.paypalMode}</p>
               <p>
-                Tier payout term: {payoutPreview.payoutFrequencyLabel}.{' '}
+                {payoutPreview.paydayLabel || `Tier payout term: ${payoutPreview.payoutFrequencyLabel}`}.{' '}
                 {payoutPreview.refundHoldDays > 0
                   ? `Refund hold: ${payoutPreview.refundHoldDays} day${payoutPreview.refundHoldDays === 1 ? '' : 's'}.`
                   : 'No refund hold.'}

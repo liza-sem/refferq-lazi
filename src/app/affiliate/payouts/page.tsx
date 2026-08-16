@@ -46,6 +46,8 @@ export default function PayoutsPage() {
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [schedule, setSchedule] = useState({
     payoutFrequency: 'MONTHLY',
+    payoutWeekday: 1,
+    payoutDayOfMonth: 1,
     nextPayoutAt: null as string | null,
   });
 
@@ -68,6 +70,8 @@ export default function PayoutsPage() {
         if (payData.schedule) {
           setSchedule({
             payoutFrequency: payData.schedule.payoutFrequency || 'MONTHLY',
+            payoutWeekday: payData.schedule.payoutWeekday ?? 1,
+            payoutDayOfMonth: payData.schedule.payoutDayOfMonth ?? 1,
             nextPayoutAt: payData.schedule.nextPayoutAt || null,
           });
         }
@@ -161,7 +165,10 @@ export default function PayoutsPage() {
         <div>
           <h1 className="text-2xl tracking-tight">Payouts</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {payoutScheduleLine(schedule.payoutFrequency)}
+            {payoutScheduleLine(schedule.payoutFrequency, {
+              weekday: schedule.payoutWeekday,
+              dayOfMonth: schedule.payoutDayOfMonth,
+            })}
           </p>
         </div>
         {payouts.length > 0 && (

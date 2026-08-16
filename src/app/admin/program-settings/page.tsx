@@ -65,6 +65,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { PayoutPaydaySelect } from '@/components/PayoutPaydaySelect';
 
 interface ProgramSettings {
   id: string;
@@ -77,6 +78,8 @@ interface ProgramSettings {
   minimumPayoutThreshold: number;
   payoutTerm: string;
   payoutFrequency: string;
+  payoutWeekday: number;
+  payoutDayOfMonth: number;
   cookieDuration: number;
   commissionHoldDays: number;
   autoPayoutEnabled: boolean;
@@ -185,6 +188,8 @@ export default function ProgramSettingsPage() {
           autoPayoutDripSize: data.settings.autoPayoutDripSize ?? 2,
           lastAutoPayoutAt: data.settings.lastAutoPayoutAt ?? null,
           payoutFrequency: data.settings.payoutFrequency || 'MONTHLY',
+          payoutWeekday: data.settings.payoutWeekday ?? 1,
+          payoutDayOfMonth: data.settings.payoutDayOfMonth ?? 1,
           cookieDuration: data.settings.cookieDuration ?? 30,
           commissionHoldDays: data.settings.commissionHoldDays ?? 0,
         });
@@ -213,6 +218,8 @@ export default function ProgramSettingsPage() {
           minimumPayoutThreshold: settings.minimumPayoutThreshold,
           payoutTerm: settings.payoutTerm,
           payoutFrequency: settings.payoutFrequency,
+          payoutWeekday: settings.payoutWeekday,
+          payoutDayOfMonth: settings.payoutDayOfMonth,
           cookieDuration: settings.cookieDuration,
           commissionHoldDays: settings.commissionHoldDays,
           autoPayoutEnabled: settings.autoPayoutEnabled !== false,
@@ -450,7 +457,18 @@ export default function ProgramSettingsPage() {
                   <SelectItem value="QUARTERLY">Quarterly</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground">Wait after each approved sale: 7 days, 14 days, 1 month, or 3 months. Tiers can override this.</p>
+              <p className="text-[10px] text-muted-foreground">How often PayPal is sent. Tiers and partners can pick a different payday.</p>
+              <PayoutPaydaySelect
+                frequency={settings.payoutFrequency || 'MONTHLY'}
+                weekday={String(settings.payoutWeekday ?? 1)}
+                dayOfMonth={String(settings.payoutDayOfMonth ?? 1)}
+                onWeekdayChange={(v) => setSettings({ ...settings, payoutWeekday: parseInt(v, 10) })}
+                onDayOfMonthChange={(v) => setSettings({ ...settings, payoutDayOfMonth: parseInt(v, 10) })}
+                hintPayday={{
+                  weekday: settings.payoutWeekday ?? 1,
+                  dayOfMonth: settings.payoutDayOfMonth ?? 1,
+                }}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="commissionHoldDays">Refund hold (days)</Label>

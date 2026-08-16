@@ -42,6 +42,8 @@ model Affiliate {
   notifySaleEarned     Boolean       @default(true) @map("notify_sale_earned")
   notifyPayouts        Boolean       @default(true) @map("notify_payouts")
   notifyTierUpgraded   Boolean       @default(true) @map("notify_tier_upgraded")
+  payoutWeekday        Int?          @map("payout_weekday")
+  payoutDayOfMonth     Int?          @map("payout_day_of_month")
   welcomeSentAt        DateTime?     @map("welcome_sent_at")
   user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   commissions    Commission[]
@@ -235,6 +237,8 @@ model ProgramSettings {
   autoPayoutDripSize        Int      @default(2) @map("auto_payout_drip_size")
   lastAutoPayoutAt          DateTime? @map("last_auto_payout_at")
   payoutFrequency           String   @default("MONTHLY") @map("payout_frequency")
+  payoutWeekday             Int      @default(1) @map("payout_weekday")
+  payoutDayOfMonth          Int      @default(1) @map("payout_day_of_month")
   commissionHoldDays        Int      @default(0) @map("commission_hold_days")
   minPayoutCents            Int      @default(100000) @map("min_payout_cents")
   companyName               String?  @map("company_name")
@@ -258,6 +262,8 @@ model PartnerGroup {
   minApprovedCommissionCents  Int?        @map("min_approved_commission_cents")
   demoteIfBelow               Boolean     @default(false) @map("demote_if_below")
   payoutFrequency             String?     @map("payout_frequency")
+  payoutWeekday               Int?        @map("payout_weekday")
+  payoutDayOfMonth            Int?        @map("payout_day_of_month")
   createdAt                   DateTime    @default(now()) @map("created_at")
   updatedAt                   DateTime    @updatedAt @map("updated_at")
   affiliates                  Affiliate[]
@@ -680,6 +686,8 @@ model Program {
   autoApprove       Boolean  @default(false) @map("auto_approve")
   minPayoutCents    Int      @default(100000) @map("min_payout_cents") // $1,000
   payoutFrequency   String   @default("MONTHLY") @map("payout_frequency")
+  payoutWeekday     Int      @default(1) @map("payout_weekday")
+  payoutDayOfMonth  Int      @default(1) @map("payout_day_of_month")
   termsUrl          String?  @map("terms_url")
   logoUrl           String?  @map("logo_url")
   brandColor        String   @default("#10b981") @map("brand_color")

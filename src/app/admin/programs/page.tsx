@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PartnerTiersPanel } from './tiers-panel';
 import { formatMoney } from '@/lib/money';
 import { symbolForCurrency } from '@/lib/currency';
+import { PayoutPaydaySelect } from '@/components/PayoutPaydaySelect';
 
 interface Program {
   id: string;
@@ -41,6 +42,8 @@ interface Program {
   autoApprove: boolean;
   minPayoutCents: number;
   payoutFrequency: string;
+  payoutWeekday?: number;
+  payoutDayOfMonth?: number;
   termsUrl?: string;
   logoUrl?: string;
   brandColor?: string;
@@ -50,7 +53,8 @@ interface Program {
 const emptyForm = {
   name: '', slug: '', description: '', commissionRate: '20', commissionType: 'PERCENTAGE',
   cookieDuration: '30', currency: 'USD', autoApprove: false, minPayoutCents: '100000',
-  payoutFrequency: 'MONTHLY', termsUrl: '', logoUrl: '', brandColor: '#6366f1',
+  payoutFrequency: 'MONTHLY', payoutWeekday: '1', payoutDayOfMonth: '1',
+  termsUrl: '', logoUrl: '', brandColor: '#6366f1',
 };
 
 export default function ProgramsPage() {
@@ -88,7 +92,10 @@ export default function ProgramsPage() {
       commissionRate: String(p.commissionRate), commissionType: p.commissionType,
       cookieDuration: String(p.cookieDuration), currency: p.currency,
       autoApprove: p.autoApprove, minPayoutCents: String(p.minPayoutCents),
-      payoutFrequency: p.payoutFrequency, termsUrl: p.termsUrl || '',
+      payoutFrequency: p.payoutFrequency,
+      payoutWeekday: String(p.payoutWeekday ?? 1),
+      payoutDayOfMonth: String(p.payoutDayOfMonth ?? 1),
+      termsUrl: p.termsUrl || '',
       logoUrl: p.logoUrl || '', brandColor: p.brandColor || '#6366f1',
     });
     setDialogOpen(true);
@@ -103,6 +110,8 @@ export default function ProgramsPage() {
         cookieDuration: parseInt(form.cookieDuration), currency: form.currency,
         autoApprove: form.autoApprove, minPayoutCents: parseInt(form.minPayoutCents),
         payoutFrequency: form.payoutFrequency,
+        payoutWeekday: parseInt(form.payoutWeekday, 10),
+        payoutDayOfMonth: parseInt(form.payoutDayOfMonth, 10),
         termsUrl: form.termsUrl || null, logoUrl: form.logoUrl || null,
         brandColor: form.brandColor || null,
       };
@@ -394,7 +403,18 @@ export default function ProgramsPage() {
                     <SelectItem value="QUARTERLY">Quarterly</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Wait after each approved sale for tiers that do not override: 7 days, 14 days, 1 month, or 3 months.</p>
+                <p className="text-xs text-muted-foreground">How often PayPal is sent for tiers that do not override.</p>
+                <PayoutPaydaySelect
+                  frequency={form.payoutFrequency}
+                  weekday={form.payoutWeekday}
+                  dayOfMonth={form.payoutDayOfMonth}
+                  onWeekdayChange={(v) => setForm({ ...form, payoutWeekday: v })}
+                  onDayOfMonthChange={(v) => setForm({ ...form, payoutDayOfMonth: v })}
+                  hintPayday={{
+                    weekday: parseInt(form.payoutWeekday, 10) || 1,
+                    dayOfMonth: parseInt(form.payoutDayOfMonth, 10) || 1,
+                  }}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

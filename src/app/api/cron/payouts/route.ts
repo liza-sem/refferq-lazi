@@ -8,12 +8,13 @@ import { evaluateAllAffiliateTiers } from '@/lib/partner-tier-automation';
  * Cron-safe payout drip.
  *
  * Dokploy / Hostinger cron (every 15–60 minutes):
- *   curl -sS -X POST https://referrals.lazi.studio/api/cron/payouts \
+ *   curl -sS -X POST https://partners.lazi.studio/api/cron/payouts \
  *     -H "x-cron-secret: $CRON_SECRET"
  *
  * Each run matures due commissions, refreshes open PayPal payouts, then pays
- * at most dripSize affiliates whose commissions have reached approvedAt + term
- * (oldest first) via PayPal. Commissions stay unpaid until PayPal SUCCESS.
+ * at most dripSize affiliates whose payday is today (or was missed since the
+ * last run). Same-day approvals after a run wait until the next payday.
+ * Commissions stay unpaid until PayPal SUCCESS.
  */
 async function handle(request: NextRequest) {
   const auth = await authorizeCronOrAdmin(request);

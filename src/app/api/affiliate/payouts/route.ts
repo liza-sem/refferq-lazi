@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
-import { nextPayoutFromCommissions, payoutFrequencyLabel, resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { nextPayoutFromCommissions, payoutFrequencyLabel, resolvePayoutSchedule } from '@/lib/payout-schedule';
 import { owedCommissionWhere } from '@/lib/program-metrics';
 import { getCurrencySymbol } from '@/lib/currency';
 import { resolveHoldDays } from '@/lib/commission-hold';
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       include: {
         affiliate: {
           include: {
-            partnerGroup: { select: { payoutFrequency: true } },
+            partnerGroup: { select: { payoutFrequency: true, payoutWeekday: true, payoutDayOfMonth: true } },
           },
         },
       },
@@ -63,6 +63,9 @@ export async function GET(request: NextRequest) {
           minPayoutCents: true,
           payoutTerm: true,
           payoutFrequency: true,
+          payoutWeekday: true,
+          payoutDayOfMonth: true,
+          lastAutoPayoutAt: true,
           commissionHoldDays: true,
         },
       }),
@@ -74,14 +77,21 @@ export async function GET(request: NextRequest) {
     ]);
 
     const minimumPayoutCents = settings?.minimumPayoutThreshold ?? settings?.minPayoutCents ?? 0;
-    const payoutFrequency = resolvePayoutFrequency(
-      user.affiliate.partnerGroup?.payoutFrequency,
-      settings?.payoutFrequency,
+    const { frequency: payoutFrequency, payday } = resolvePayoutSchedule(
+      user.affiliate,
+      user.affiliate.partnerGroup,
+      settings,
     );
     const holdDays = resolveHoldDays(settings?.commissionHoldDays);
     const unpaidBalanceCents = unpaidCommissions.reduce((sum, c) => sum + c.amountCents, 0);
     const approvedUnpaid = unpaidCommissions.filter((c) => c.status === 'APPROVED' && !c.payoutId);
-    const nextPayout = nextPayoutFromCommissions(approvedUnpaid, payoutFrequency);
+    const nextPayout = nextPayoutFromCommissions(
+      approvedUnpaid,
+      payoutFrequency,
+      payday,
+      new Date(),
+      settings?.lastAutoPayoutAt || null,
+    );
     const nextPayoutCents = nextPayout.nextPayoutCents;
     const pendingHoldCents = unpaidCommissions
       .filter((c) => c.status === 'PENDING')
@@ -117,6 +127,8 @@ export async function GET(request: NextRequest) {
         payoutTerm: settings?.payoutTerm || 'NET-15',
         payoutFrequency,
         payoutFrequencyLabel: payoutFrequencyLabel(payoutFrequency),
+        payoutWeekday: payday.weekday,
+        payoutDayOfMonth: payday.dayOfMonth,
         commissionHoldDays: holdDays,
         nextPayoutAt,
       },

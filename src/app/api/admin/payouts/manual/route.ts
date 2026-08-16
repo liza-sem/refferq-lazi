@@ -4,7 +4,7 @@ import { getRequestUserId } from '@/lib/request-user';
 import { isPaypalConfigured, paypalMode } from '@/lib/paypal';
 import { isValidPaypalEmail, paypalEmailFromDetails } from '@/lib/onboarding';
 import { getProgramDefaults } from '@/lib/program-defaults';
-import { payoutFrequencyLabel, resolvePayoutFrequency } from '@/lib/payout-schedule';
+import { payoutFrequencyLabel, payoutTermExplanation, resolvePayoutSchedule } from '@/lib/payout-schedule';
 import { runManualPaypalPayout } from '@/lib/auto-payouts';
 
 async function verifyAdmin(request: NextRequest) {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     where: { id: affiliateId },
     include: {
       user: { select: { name: true, email: true, status: true } },
-      partnerGroup: { select: { name: true, payoutFrequency: true } },
+      partnerGroup: { select: { name: true, payoutFrequency: true, payoutWeekday: true, payoutDayOfMonth: true } },
     },
   });
 
@@ -39,9 +39,10 @@ export async function GET(request: NextRequest) {
   }
 
   const defaults = await getProgramDefaults();
-  const frequency = resolvePayoutFrequency(
-    affiliate.partnerGroup?.payoutFrequency,
-    defaults.payoutFrequency,
+  const { frequency, payday } = resolvePayoutSchedule(
+    affiliate,
+    affiliate.partnerGroup,
+    defaults,
   );
   const paypalEmail = paypalEmailFromDetails(affiliate.payoutDetails);
   const paypalConfigured = isPaypalConfigured();
@@ -126,6 +127,7 @@ export async function GET(request: NextRequest) {
       paypalMode: mode,
       payoutFrequency: frequency,
       payoutFrequencyLabel: payoutFrequencyLabel(frequency),
+      paydayLabel: payoutTermExplanation(frequency, payday),
       refundHoldDays: defaults.commissionHoldDays,
       cookieDuration: defaults.cookieDuration,
       minPayoutCents: defaults.minPayoutCents,

@@ -1,8 +1,15 @@
 import { prisma } from '@/lib/prisma';
-import { normalizePayoutFrequency, type PayoutFrequency } from '@/lib/payout-schedule';
+import {
+  normalizeDayOfMonth,
+  normalizePayoutFrequency,
+  normalizeWeekday,
+  type PayoutFrequency,
+} from '@/lib/payout-schedule';
 
 export async function getProgramDefaults(): Promise<{
   payoutFrequency: PayoutFrequency;
+  payoutWeekday: number;
+  payoutDayOfMonth: number;
   cookieDuration: number;
   commissionHoldDays: number;
   minPayoutCents: number;
@@ -26,6 +33,14 @@ export async function getProgramDefaults(): Promise<{
   return {
     payoutFrequency: normalizePayoutFrequency(
       fallbackProgram?.payoutFrequency || settings?.payoutFrequency || 'MONTHLY',
+    ),
+    payoutWeekday: normalizeWeekday(
+      fallbackProgram?.payoutWeekday ?? settings?.payoutWeekday,
+      1,
+    ),
+    payoutDayOfMonth: normalizeDayOfMonth(
+      fallbackProgram?.payoutDayOfMonth ?? settings?.payoutDayOfMonth,
+      1,
     ),
     cookieDuration: settings?.cookieDuration ?? fallbackProgram?.cookieDuration ?? 30,
     commissionHoldDays: settings?.commissionHoldDays ?? 0,

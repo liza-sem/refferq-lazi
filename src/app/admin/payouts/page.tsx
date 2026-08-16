@@ -74,6 +74,7 @@ export default function PayoutsPage() {
     paypalMode: 'sandbox' | 'live';
     refundHoldDays: number;
     payoutFrequencyLabel: string;
+    paydayLabel?: string;
     minPayoutCents: number;
     eligibleAffiliates: number;
     payableThisRun: number;
@@ -97,6 +98,7 @@ export default function PayoutsPage() {
           paypalMode: data.config.paypalMode === 'live' ? 'live' : 'sandbox',
           refundHoldDays: data.config.refundHoldDays ?? data.config.commissionHoldDays ?? 0,
           payoutFrequencyLabel: data.config.payoutFrequencyLabel || 'Monthly',
+          paydayLabel: data.config.paydayLabel,
           minPayoutCents: data.config.minPayoutCents,
           eligibleAffiliates: data.stats?.eligibleAffiliates || 0,
           payableThisRun: data.stats?.payableThisRun || 0,
@@ -182,7 +184,7 @@ export default function PayoutsPage() {
             </div>
             <CardDescription>
               {autoStatus.autoPayoutEnabled
-                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run once each commission’s term is due (7 / 14 days or 1 / 3 months after approval). Default is ${autoStatus.payoutFrequencyLabel.toLowerCase()}.`
+                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run whose payday is today (or was missed since the last run). ${autoStatus.paydayLabel || autoStatus.payoutFrequencyLabel} by default; partners can pick their own day in Settings.`
                 : 'Off — turn this on in Program Settings.'}
             </CardDescription>
           </CardHeader>

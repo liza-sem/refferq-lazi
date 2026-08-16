@@ -4,7 +4,7 @@ import { getRequestUserId } from '@/lib/request-user';
 import { getOrCreateDefaultPartnerGroup } from '@/lib/default-partner-group';
 import { parseCommissionPercent } from '@/lib/commission-rate';
 import { formatTierRuleLabel } from '@/lib/partner-tier-automation';
-import { parseTierPayoutFrequency } from '@/lib/payout-schedule';
+import { parseOptionalDayOfMonth, parseOptionalWeekday, parseTierPayoutFrequency } from '@/lib/payout-schedule';
 import { logAuditAction } from '@/lib/audit';
 
 async function verifyAdmin(request: NextRequest) {
@@ -36,6 +36,8 @@ function serializeGroup(pg: {
   minApprovedCommissionCents: number | null;
   demoteIfBelow: boolean;
   payoutFrequency: string | null;
+  payoutWeekday: number | null;
+  payoutDayOfMonth: number | null;
   createdAt: Date;
   updatedAt: Date;
 }, memberCount: number) {
@@ -52,6 +54,8 @@ function serializeGroup(pg: {
     minApprovedCommissionCents: pg.minApprovedCommissionCents,
     demoteIfBelow: pg.demoteIfBelow,
     payoutFrequency: pg.payoutFrequency,
+    payoutWeekday: pg.payoutWeekday,
+    payoutDayOfMonth: pg.payoutDayOfMonth,
     memberCount,
     autoRuleLabel: formatTierRuleLabel(pg),
     createdAt: pg.createdAt,
@@ -106,6 +110,8 @@ export async function POST(request: NextRequest) {
       minApprovedCommissionCents,
       demoteIfBelow,
       payoutFrequency,
+      payoutWeekday,
+      payoutDayOfMonth,
     } = body;
 
     if (!name || typeof name !== 'string' || !name.trim()) {
@@ -140,6 +146,8 @@ export async function POST(request: NextRequest) {
         minApprovedCommissionCents: optionalInt(minApprovedCommissionCents) ?? null,
         demoteIfBelow: Boolean(demoteIfBelow),
         payoutFrequency: parseTierPayoutFrequency(payoutFrequency) ?? null,
+        payoutWeekday: parseOptionalWeekday(payoutWeekday) ?? null,
+        payoutDayOfMonth: parseOptionalDayOfMonth(payoutDayOfMonth) ?? null,
       },
     });
 
@@ -204,6 +212,12 @@ export async function PUT(request: NextRequest) {
     if (body.demoteIfBelow !== undefined) data.demoteIfBelow = Boolean(body.demoteIfBelow);
     if (body.payoutFrequency !== undefined) {
       data.payoutFrequency = parseTierPayoutFrequency(body.payoutFrequency) ?? null;
+    }
+    if (body.payoutWeekday !== undefined) {
+      data.payoutWeekday = parseOptionalWeekday(body.payoutWeekday) ?? null;
+    }
+    if (body.payoutDayOfMonth !== undefined) {
+      data.payoutDayOfMonth = parseOptionalDayOfMonth(body.payoutDayOfMonth) ?? null;
     }
 
     if (body.isDefault === true) {

@@ -300,14 +300,14 @@ For detailed deployment instructions, see [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 
 ### Automatic PayPal payouts
 
-After `commissionHoldDays`, a cron matures PENDING commissions and pays affiliates via the PayPal Payouts API. Each run pays at most a few affiliates (drip size, default 2) so a mass pay does not hit your PayPal balance.
+After `commissionHoldDays`, a cron matures PENDING commissions and pays affiliates via the PayPal Payouts API on each partner’s payday (program/tier default, or the day they picked in Settings). Each run pays at most a few affiliates (drip size, default 2) so a mass pay does not hit your PayPal balance.
 
 Start in **sandbox**: set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` from a Sandbox REST app, `PAYPAL_MODE=sandbox` (the default if unset), and `CRON_SECRET`. Enable Payouts on the app in the [PayPal Developer dashboard](https://developer.paypal.com/dashboard/applications) (Sandbox tab). Switch to live later by replacing those keys with Live credentials and setting `PAYPAL_MODE=live`.
 
 Dokploy or Hostinger cron every 15–60 minutes:
 
 ```bash
-curl -sS -X POST https://referrals.lazi.studio/api/cron/payouts \
+curl -sS -X POST https://partners.lazi.studio/api/cron/payouts \
   -H "x-cron-secret: $CRON_SECRET"
 ```
 

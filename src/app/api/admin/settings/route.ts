@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
           programName: 'LAZI Partner Program',
           websiteUrl: 'https://lazi.studio',
           currency: 'USD',
-          portalSubdomain: 'referrals.lazi.studio',
+          portalSubdomain: 'partners.lazi.studio',
           companyName: 'LAZI',
           brandButtonColor: '#111111',
           brandBackgroundColor: '#111111',
@@ -116,7 +116,7 @@ export async function PUT(request: NextRequest) {
           programName: 'LAZI Partner Program',
           websiteUrl: 'https://lazi.studio',
           currency: 'USD',
-          portalSubdomain: 'referrals.lazi.studio',
+          portalSubdomain: 'partners.lazi.studio',
           companyName: 'LAZI',
           brandButtonColor: '#111111',
           brandBackgroundColor: '#111111',
@@ -131,6 +131,7 @@ export async function PUT(request: NextRequest) {
       'companyName', 'companyLogo', 'favicon', 'portalAnnouncement',
       'brandButtonColor', 'brandBackgroundColor', 'brandTextColor',
       'cookieDuration', 'minimumPayoutThreshold', 'payoutTerm', 'payoutFrequency',
+      'payoutWeekday', 'payoutDayOfMonth',
       'commissionHoldDays', 'minPayoutCents', 'autoPayoutEnabled', 'autoPayoutDripSize',
     ];
     const sanitizedData: Record<string, any> = {};
@@ -149,6 +150,14 @@ export async function PUT(request: NextRequest) {
       const { normalizePayoutFrequency } = await import('@/lib/payout-schedule');
       sanitizedData.payoutFrequency = normalizePayoutFrequency(sanitizedData.payoutFrequency);
     }
+    if (sanitizedData.payoutWeekday !== undefined) {
+      const { normalizeWeekday } = await import('@/lib/payout-schedule');
+      sanitizedData.payoutWeekday = normalizeWeekday(sanitizedData.payoutWeekday, 1);
+    }
+    if (sanitizedData.payoutDayOfMonth !== undefined) {
+      const { normalizeDayOfMonth } = await import('@/lib/payout-schedule');
+      sanitizedData.payoutDayOfMonth = normalizeDayOfMonth(sanitizedData.payoutDayOfMonth, 1);
+    }
 
     const updatedSettings = await prisma.programSettings.update({
       where: { id: programSettings.id },
@@ -160,11 +169,18 @@ export async function PUT(request: NextRequest) {
       await releaseHeldCommissions(user.id);
     }
 
-    if (sanitizedData.payoutFrequency || sanitizedData.cookieDuration) {
+    if (
+      sanitizedData.payoutFrequency
+      || sanitizedData.cookieDuration
+      || sanitizedData.payoutWeekday !== undefined
+      || sanitizedData.payoutDayOfMonth !== undefined
+    ) {
       await prisma.program.updateMany({
         where: { isDefault: true },
         data: {
           ...(typeof sanitizedData.payoutFrequency === 'string' ? { payoutFrequency: sanitizedData.payoutFrequency } : {}),
+          ...(typeof sanitizedData.payoutWeekday === 'number' ? { payoutWeekday: sanitizedData.payoutWeekday } : {}),
+          ...(typeof sanitizedData.payoutDayOfMonth === 'number' ? { payoutDayOfMonth: sanitizedData.payoutDayOfMonth } : {}),
           ...(typeof sanitizedData.cookieDuration === 'number' ? { cookieDuration: sanitizedData.cookieDuration } : {}),
         },
       });

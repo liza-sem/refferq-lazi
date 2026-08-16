@@ -9,8 +9,10 @@ import { getProgramDefaults } from '@/lib/program-defaults';
 import {
   isCommissionDue,
   payoutFrequencyLabel,
-  resolvePayoutFrequency,
+  payoutTermExplanation,
+  resolvePayoutSchedule,
   type PayoutFrequency,
+  type PayoutPayday,
 } from '@/lib/payout-schedule';
 
 const DEFAULT_DRIP_SIZE = 2;
@@ -457,7 +459,7 @@ export async function runAutoPayouts(input: {
       affiliate: {
         include: {
           user: { select: { id: true, name: true, email: true, status: true } },
-          partnerGroup: { select: { payoutFrequency: true } },
+          partnerGroup: { select: { payoutFrequency: true, payoutWeekday: true, payoutDayOfMonth: true } },
         },
       },
     },
@@ -472,6 +474,7 @@ export async function runAutoPayouts(input: {
     paypalEmail: string;
     amountCents: number;
     frequency: PayoutFrequency;
+    payday: PayoutPayday;
     oldestPayableAt: Date;
     commissions: Array<(typeof approved)[number]>;
   };
@@ -479,6 +482,7 @@ export async function runAutoPayouts(input: {
   const grouped = new Map<string, Eligible>();
   let skipped = 0;
   const now = new Date();
+  const lastRun = settings?.lastAutoPayoutAt || null;
 
   for (const commission of approved) {
     const paypalEmail = paypalEmailFromDetails(commission.affiliate.payoutDetails);
@@ -487,12 +491,13 @@ export async function runAutoPayouts(input: {
       continue;
     }
 
-    const frequency = resolvePayoutFrequency(
-      commission.affiliate.partnerGroup?.payoutFrequency,
-      programDefaults.payoutFrequency,
+    const { frequency, payday } = resolvePayoutSchedule(
+      commission.affiliate,
+      commission.affiliate.partnerGroup,
+      programDefaults,
     );
     const approvedAt = commission.approvedAt || commission.createdAt;
-    if (!isCommissionDue(approvedAt, frequency, now)) continue;
+    if (!isCommissionDue(approvedAt, frequency, payday, now, lastRun)) continue;
 
     let entry = grouped.get(commission.affiliateId);
     if (!entry) {
@@ -504,6 +509,7 @@ export async function runAutoPayouts(input: {
         paypalEmail,
         amountCents: 0,
         frequency,
+        payday,
         oldestPayableAt: approvedAt,
         commissions: [],
       };
@@ -872,7 +878,9 @@ export async function getAutoPayoutStatus() {
       affiliate: {
         select: {
           payoutDetails: true,
-          partnerGroup: { select: { payoutFrequency: true } },
+          payoutWeekday: true,
+          payoutDayOfMonth: true,
+          partnerGroup: { select: { payoutFrequency: true, payoutWeekday: true, payoutDayOfMonth: true } },
         },
       },
     },
@@ -882,17 +890,19 @@ export async function getAutoPayoutStatus() {
   const grouped = new Map<string, { amountCents: number; frequency: PayoutFrequency }>();
   let totalPendingCents = 0;
   const now = new Date();
+  const lastRun = settings?.lastAutoPayoutAt || null;
   for (const commission of approved) {
     const email = paypalEmailFromDetails(commission.affiliate.payoutDetails);
     if (!isValidPaypalEmail(email)) continue;
     eligibleAffiliateIds.add(commission.affiliateId);
     totalPendingCents += commission.amountCents;
-    const frequency = resolvePayoutFrequency(
-      commission.affiliate.partnerGroup?.payoutFrequency,
-      programDefaults.payoutFrequency,
+    const { frequency, payday } = resolvePayoutSchedule(
+      commission.affiliate,
+      commission.affiliate.partnerGroup,
+      programDefaults,
     );
     const approvedAt = commission.approvedAt || commission.createdAt;
-    if (!isCommissionDue(approvedAt, frequency, now)) continue;
+    if (!isCommissionDue(approvedAt, frequency, payday, now, lastRun)) continue;
     const existing = grouped.get(commission.affiliateId);
     if (!existing) {
       grouped.set(commission.affiliateId, {
@@ -928,6 +938,12 @@ export async function getAutoPayoutStatus() {
       cookieDuration: programDefaults.cookieDuration,
       payoutFrequency: programDefaults.payoutFrequency,
       payoutFrequencyLabel: payoutFrequencyLabel(programDefaults.payoutFrequency),
+      payoutWeekday: programDefaults.payoutWeekday,
+      payoutDayOfMonth: programDefaults.payoutDayOfMonth,
+      paydayLabel: payoutTermExplanation(programDefaults.payoutFrequency, {
+        weekday: programDefaults.payoutWeekday,
+        dayOfMonth: programDefaults.payoutDayOfMonth,
+      }),
       lastAutoPayoutAt: settings?.lastAutoPayoutAt?.toISOString() || null,
       paypalConfigured: isPaypalConfigured(),
       paypalMode: paypalMode(),

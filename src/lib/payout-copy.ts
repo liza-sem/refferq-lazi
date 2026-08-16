@@ -1,5 +1,5 @@
 import { formatMoney } from '@/lib/money';
-import { formatPayoutWhen, payoutTermExplanation } from '@/lib/payout-schedule';
+import { formatPayoutWhen, payoutTermExplanation, type PayoutPayday } from '@/lib/payout-schedule';
 import { PAYPAL_CONFIRM_HINT } from '@/lib/payout-status';
 
 export { PAYPAL_CONFIRM_HINT };
@@ -30,6 +30,9 @@ export function inPayoutHint(cents: number, symbol = '$'): string | undefined {
   return `${formatMoney(cents, symbol)} sent, waiting on PayPal`;
 }
 
-export function payoutScheduleLine(frequency: string | null | undefined): string {
-  return payoutTermExplanation(frequency);
+export function payoutScheduleLine(
+  frequency: string | null | undefined,
+  payday?: PayoutPayday | null,
+): string {
+  return payoutTermExplanation(frequency, payday);
 }

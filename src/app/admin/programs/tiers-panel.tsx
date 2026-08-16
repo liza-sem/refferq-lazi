@@ -23,7 +23,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Layers, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { commissionPercent } from '@/lib/commission-rate';
-import { PAYOUT_FREQUENCY_OPTIONS, payoutFrequencyLabel } from '@/lib/payout-schedule';
+import { PAYOUT_FREQUENCY_OPTIONS, payoutTermExplanation } from '@/lib/payout-schedule';
+import { PayoutPaydaySelect } from '@/components/PayoutPaydaySelect';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -40,6 +41,8 @@ export interface PartnerTier {
   minApprovedCommissionCents: number | null;
   demoteIfBelow: boolean;
   payoutFrequency: string | null;
+  payoutWeekday: number | null;
+  payoutDayOfMonth: number | null;
   memberCount: number;
   autoRuleLabel: string | null;
 }
@@ -51,6 +54,8 @@ const emptyForm = {
   sortOrder: '0',
   isDefault: false,
   payoutFrequency: 'INHERIT',
+  payoutWeekday: 'INHERIT',
+  payoutDayOfMonth: 'INHERIT',
   minRevenue: '',
   minConversions: '',
   minApprovedCommission: '',
@@ -110,6 +115,8 @@ export function PartnerTiersPanel() {
       sortOrder: String(tier.sortOrder),
       isDefault: tier.isDefault,
       payoutFrequency: tier.payoutFrequency || 'INHERIT',
+      payoutWeekday: tier.payoutWeekday == null ? 'INHERIT' : String(tier.payoutWeekday),
+      payoutDayOfMonth: tier.payoutDayOfMonth == null ? 'INHERIT' : String(tier.payoutDayOfMonth),
       minRevenue: centsToDollars(tier.minRevenueCents),
       minConversions: tier.minConversions != null ? String(tier.minConversions) : '',
       minApprovedCommission: centsToDollars(tier.minApprovedCommissionCents),
@@ -125,6 +132,8 @@ export function PartnerTiersPanel() {
     sortOrder: parseInt(form.sortOrder, 10) || 0,
     isDefault: form.isDefault,
     payoutFrequency: form.payoutFrequency === 'INHERIT' ? null : form.payoutFrequency,
+    payoutWeekday: form.payoutWeekday === 'INHERIT' ? null : parseInt(form.payoutWeekday, 10),
+    payoutDayOfMonth: form.payoutDayOfMonth === 'INHERIT' ? null : parseInt(form.payoutDayOfMonth, 10),
     minRevenueCents: dollarsToCents(form.minRevenue),
     minConversions: form.minConversions.trim() === '' ? null : parseInt(form.minConversions, 10),
     minApprovedCommissionCents: dollarsToCents(form.minApprovedCommission),
@@ -294,7 +303,10 @@ export function PartnerTiersPanel() {
                     <TableCell>{commissionPercent(tier.commissionRate)}%</TableCell>
                     <TableCell>
                       {tier.payoutFrequency
-                        ? payoutFrequencyLabel(tier.payoutFrequency)
+                        ? payoutTermExplanation(tier.payoutFrequency, {
+                          weekday: tier.payoutWeekday ?? 1,
+                          dayOfMonth: tier.payoutDayOfMonth ?? 1,
+                        })
                         : <span className="text-xs text-muted-foreground">Program default</span>}
                     </TableCell>
                     <TableCell className="tabular-nums">{tier.sortOrder}</TableCell>
@@ -369,7 +381,21 @@ export function PartnerTiersPanel() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Wait after each approved sale before PayPal: 7 days, 14 days, 1 month, or 3 months. Blank uses the program default.</p>
+                <p className="text-xs text-muted-foreground">How often PayPal is sent. Blank uses the program default. Partners can still pick their own payday.</p>
+                <PayoutPaydaySelect
+                  frequency={form.payoutFrequency}
+                  weekday={form.payoutWeekday}
+                  dayOfMonth={form.payoutDayOfMonth}
+                  onWeekdayChange={(v) => setForm({ ...form, payoutWeekday: v })}
+                  onDayOfMonthChange={(v) => setForm({ ...form, payoutDayOfMonth: v })}
+                  allowInherit
+                  inheritWeekdayLabel="Program default"
+                  inheritDayLabel="Program default"
+                  hintPayday={{
+                    weekday: form.payoutWeekday === 'INHERIT' ? 1 : parseInt(form.payoutWeekday, 10) || 1,
+                    dayOfMonth: form.payoutDayOfMonth === 'INHERIT' ? 1 : parseInt(form.payoutDayOfMonth, 10) || 1,
+                  }}
+                />
               </div>
             </div>
             <div className="grid gap-2">

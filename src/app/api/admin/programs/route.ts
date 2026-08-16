@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
+import { normalizeDayOfMonth, normalizeWeekday } from '@/lib/payout-schedule';
 
 async function verifyAdmin(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, slug, description, commissionRate, commissionType, cookieDuration, currency, autoApprove, minPayoutCents, payoutFrequency, termsUrl, logoUrl, brandColor } = body;
+    const { name, slug, description, commissionRate, commissionType, cookieDuration, currency, autoApprove, minPayoutCents, payoutFrequency, payoutWeekday, payoutDayOfMonth, termsUrl, logoUrl, brandColor } = body;
 
     if (!name || !slug) {
       return NextResponse.json({ error: 'Name and slug are required' }, { status: 400 });
@@ -63,6 +64,8 @@ export async function POST(request: NextRequest) {
         autoApprove: autoApprove || false,
         minPayoutCents: minPayoutCents || 100000,
         payoutFrequency: payoutFrequency || 'MONTHLY',
+        payoutWeekday: normalizeWeekday(payoutWeekday, 1),
+        payoutDayOfMonth: normalizeDayOfMonth(payoutDayOfMonth, 1),
         termsUrl: termsUrl || null,
         logoUrl: logoUrl || null,
         brandColor: brandColor || '#10b981',
@@ -77,6 +80,8 @@ export async function POST(request: NextRequest) {
           where: { id: settings.id },
           data: {
             payoutFrequency: program.payoutFrequency,
+            payoutWeekday: program.payoutWeekday,
+            payoutDayOfMonth: program.payoutDayOfMonth,
             cookieDuration: program.cookieDuration,
           },
         });
@@ -116,6 +121,8 @@ export async function PUT(request: NextRequest) {
       'autoApprove',
       'minPayoutCents',
       'payoutFrequency',
+      'payoutWeekday',
+      'payoutDayOfMonth',
       'termsUrl',
       'logoUrl',
       'brandColor',
@@ -123,6 +130,13 @@ export async function PUT(request: NextRequest) {
     const updates: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (key in body && body[key] !== undefined) updates[key] = body[key];
+    }
+
+    if (updates.payoutWeekday !== undefined) {
+      updates.payoutWeekday = normalizeWeekday(updates.payoutWeekday, 1);
+    }
+    if (updates.payoutDayOfMonth !== undefined) {
+      updates.payoutDayOfMonth = normalizeDayOfMonth(updates.payoutDayOfMonth, 1);
     }
 
     if (Object.keys(updates).length === 0) {
@@ -147,13 +161,15 @@ export async function PUT(request: NextRequest) {
       });
     });
 
-    if (program.isDefault && (program.payoutFrequency || program.cookieDuration)) {
+    if (program.isDefault && (program.payoutFrequency || program.cookieDuration || program.payoutWeekday != null)) {
       const settings = await prisma.programSettings.findFirst();
       if (settings) {
         await prisma.programSettings.update({
           where: { id: settings.id },
           data: {
             payoutFrequency: program.payoutFrequency,
+            payoutWeekday: program.payoutWeekday,
+            payoutDayOfMonth: program.payoutDayOfMonth,
             cookieDuration: program.cookieDuration,
           },
         });
