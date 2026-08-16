@@ -1,33 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { extractTrackingKey, isValidTrackingKey, trackJson, trackOptionsResponse } from '@/lib/tracking-auth';
 
 /**
  * POST /api/track/conversion - Track conversions/sales
  */
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = req.headers.get('X-API-Key') || req.headers.get('x-api-key');
-    
+    const apiKey = extractTrackingKey(req);
+
     if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: 'API key is required' },
-        { status: 401 }
-      );
+      return trackJson({ success: false, error: 'API key is required' }, 401);
     }
 
-    // Verify API key
-    const integration = await prisma.integrationSettings.findFirst({
-      where: {
-        publicKey: apiKey,
-        isActive: true,
-      },
-    });
-
-    if (!integration) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid or inactive API key' },
-        { status: 401 }
-      );
+    if (!(await isValidTrackingKey(apiKey))) {
+      return trackJson({ success: false, error: 'Invalid or inactive API key' }, 401);
     }
 
     const body = await req.json();
@@ -44,10 +31,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!referralCode) {
-      return NextResponse.json(
-        { success: false, error: 'Referral code is required' },
-        { status: 400 }
-      );
+      return trackJson({ success: false, error: 'Referral code is required' }, 400);
     }
 
     // Find affiliate by referral code
@@ -66,17 +50,11 @@ export async function POST(req: NextRequest) {
     });
 
     if (!affiliate) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid referral code' },
-        { status: 404 }
-      );
+      return trackJson({ success: false, error: 'Invalid referral code' }, 404);
     }
 
     if (affiliate.user.status !== 'ACTIVE') {
-      return NextResponse.json(
-        { success: false, error: 'Affiliate is not active' },
-        { status: 403 }
-      );
+      return trackJson({ success: false, error: 'Affiliate is not active' }, 403);
     }
 
     // Check if referral with this email already exists
@@ -145,7 +123,7 @@ export async function POST(req: NextRequest) {
       amount: amountCents / 100,
     });
 
-    return NextResponse.json({
+    return trackJson({
       success: true,
       message: 'Conversion tracked successfully',
       conversion: {
@@ -160,21 +138,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('POST /api/track/conversion error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to track conversion' },
-      { status: 500 }
-    );
+    return trackJson({ success: false, error: 'Failed to track conversion' }, 500);
   }
 }
 
-// Handle OPTIONS for CORS
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
-    },
-  });
+  return trackOptionsResponse();
 }

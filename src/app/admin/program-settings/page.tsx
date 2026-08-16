@@ -104,8 +104,10 @@ export default function ProgramSettingsPage() {
   });
   const [savingRule, setSavingRule] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
 
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const trackingSnippet = `<script src="${appUrl}/scripts/refferq-tracker.js" data-api-url="${appUrl}"${publicKey ? ` data-api-key="${publicKey}"` : ''}></script>`;
 
   const handleCopySnippet = async (id: string, text: string) => {
     await navigator.clipboard.writeText(text);
@@ -115,7 +117,26 @@ export default function ProgramSettingsPage() {
 
   useEffect(() => {
     fetchSettings();
+    fetchPublicKey();
   }, []);
+
+  const fetchPublicKey = async () => {
+    try {
+      const res = await fetch('/api/admin/settings/integration');
+      const data = await res.json();
+      if (data.integration?.publicKey) {
+        setPublicKey(data.integration.publicKey);
+        return;
+      }
+      const gen = await fetch('/api/admin/integration/generate-key', { method: 'POST' });
+      const generated = await gen.json();
+      if (generated.success && generated.keys?.publicKey) {
+        setPublicKey(generated.keys.publicKey);
+      }
+    } catch (error) {
+      console.error('Failed to load tracking public key:', error);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -554,16 +575,25 @@ export default function ProgramSettingsPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label className="text-sm font-medium">1. Add this script before <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;/body&gt;</code> on every page</Label>
-                  <Button variant="ghost" size="sm" onClick={() => handleCopySnippet('script', `<script src="${appUrl}/scripts/refferq-tracker.js" data-api-url="${appUrl}"></script>`)}>
+                  <Button variant="ghost" size="sm" onClick={() => handleCopySnippet('script', trackingSnippet)}>
                     {copiedSnippet === 'script' ? <><CheckCircle2 className="mr-1 h-3.5 w-3.5 text-green-600" />Copied</> : <><Copy className="mr-1 h-3.5 w-3.5" />Copy</>}
                   </Button>
                 </div>
                 <div className="rounded-md bg-muted p-4 font-mono text-sm overflow-x-auto">
                   <span className="text-blue-600">&lt;script</span>
                   {' '}<span className="text-purple-600">src</span>=<span className="text-green-600">&quot;{appUrl}/scripts/refferq-tracker.js&quot;</span><br />
-                  {'  '}<span className="text-purple-600">data-api-url</span>=<span className="text-green-600">&quot;{appUrl}&quot;</span>
+                  {'  '}<span className="text-purple-600">data-api-url</span>=<span className="text-green-600">&quot;{appUrl}&quot;</span><br />
+                  {'  '}<span className="text-purple-600">data-api-key</span>=<span className="text-green-600">&quot;{publicKey || 'generating…'}&quot;</span>
                   <span className="text-blue-600">&gt;&lt;/script&gt;</span>
                 </div>
+                {publicKey && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <Input value={publicKey} readOnly className="font-mono text-xs" onFocus={(e) => e.target.select()} />
+                    <Button variant="outline" size="sm" onClick={() => handleCopySnippet('publicKey', publicKey)}>
+                      {copiedSnippet === 'publicKey' ? <><CheckCircle2 className="mr-1 h-3.5 w-3.5 text-green-600" />Copied</> : <><Copy className="mr-1 h-3.5 w-3.5" />Copy key</>}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <Separator />
