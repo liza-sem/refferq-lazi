@@ -143,7 +143,7 @@ export default function ReferralsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Referrals</h1>
-          <p className="text-muted-foreground">Sales from your links, confirmed by Stripe</p>
+          <p className="text-muted-foreground">Share your link, and earn!</p>
         </div>
       </div>
 
@@ -213,7 +213,7 @@ export default function ReferralsPage() {
               <p className="font-medium">No referrals found</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {referrals.length === 0
-                  ? 'Share your link. Sales show up here after Stripe confirms them. Email hello@lazi.studio if something looks wrong.'
+                  ? 'Share your link, and earn! Email hello@lazi.studio if something looks wrong.'
                   : 'Try adjusting your filters'}
               </p>
             </div>

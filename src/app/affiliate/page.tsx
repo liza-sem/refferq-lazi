@@ -205,7 +205,7 @@ export default function AffiliateDashboard() {
         <p className="text-xs uppercase tracking-wide text-status-sage">
           {stats?.announcement || `Earn ${stats?.commissionRate ?? 20}% on paid customers`}
         </p>
-        <p className="mt-1 text-base">Share your link. Stripe confirms the sale.</p>
+        <p className="mt-1 text-base">Share your link, and earn!</p>
         <p className="mt-1 text-xs text-muted-foreground">
           Email hello@lazi.studio if something looks wrong.
         </p>
