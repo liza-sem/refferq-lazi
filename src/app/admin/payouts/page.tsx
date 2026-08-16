@@ -68,6 +68,7 @@ export default function PayoutsPage() {
     autoPayoutDripSize: number;
     lastAutoPayoutAt: string | null;
     paypalConfigured: boolean;
+    paypalMode: 'sandbox' | 'live';
     commissionHoldDays: number;
     minPayoutCents: number;
     eligibleAffiliates: number;
@@ -88,6 +89,7 @@ export default function PayoutsPage() {
           autoPayoutDripSize: data.config.autoPayoutDripSize,
           lastAutoPayoutAt: data.config.lastAutoPayoutAt,
           paypalConfigured: data.config.paypalConfigured,
+          paypalMode: data.config.paypalMode === 'live' ? 'live' : 'sandbox',
           commissionHoldDays: data.config.commissionHoldDays,
           minPayoutCents: data.config.minPayoutCents,
           eligibleAffiliates: data.stats?.eligibleAffiliates || 0,
@@ -165,24 +167,38 @@ export default function PayoutsPage() {
       {autoStatus && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Automatic PayPal payouts</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">Automatic PayPal payouts</CardTitle>
+              <Badge variant={autoStatus.paypalMode === 'live' ? 'destructive' : 'secondary'}>
+                {autoStatus.paypalMode === 'live' ? 'Live' : 'Sandbox'}
+              </Badge>
+            </div>
             <CardDescription>
               {autoStatus.autoPayoutEnabled
                 ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run after a ${autoStatus.commissionHoldDays}-day hold.`
                 : 'Off — turn this on in Program Settings.'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Last run:{' '}
-            {autoStatus.lastAutoPayoutAt
-              ? new Date(autoStatus.lastAutoPayoutAt).toLocaleString()
-              : 'not yet'}
-            {' · '}
-            PayPal {autoStatus.paypalConfigured ? 'connected' : 'keys missing'}
-            {' · '}
-            {autoStatus.eligibleAffiliates} waiting
-            {' · '}
-            min {currencySymbol}{(autoStatus.minPayoutCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Last run:{' '}
+              {autoStatus.lastAutoPayoutAt
+                ? new Date(autoStatus.lastAutoPayoutAt).toLocaleString()
+                : 'not yet'}
+              {' · '}
+              PayPal {autoStatus.paypalConfigured ? 'connected' : 'keys missing'}
+              {' · '}
+              {autoStatus.eligibleAffiliates} waiting
+              {' · '}
+              min {currencySymbol}{(autoStatus.minPayoutCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </p>
+            {autoStatus.paypalMode !== 'live' ? (
+              <p>
+                Sandbox is on. Test payouts go to PayPal’s sandbox, not real money. Keep it this way until you paste Live keys and set <span className="font-mono">PAYPAL_MODE=live</span>.
+              </p>
+            ) : (
+              <p>Live mode sends real PayPal payouts. Switch back to sandbox in Dokploy if you are still testing.</p>
+            )}
           </CardContent>
         </Card>
       )}

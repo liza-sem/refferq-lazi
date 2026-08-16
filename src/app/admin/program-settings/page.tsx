@@ -119,6 +119,10 @@ export default function ProgramSettingsPage() {
   const [savingRule, setSavingRule] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
+  const [paypalStatus, setPaypalStatus] = useState<{
+    paypalConfigured: boolean;
+    paypalMode: 'sandbox' | 'live';
+  } | null>(null);
 
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const trackingSnippet = `<script src="${appUrl}/scripts/refferq-tracker.js" data-api-url="${appUrl}"${publicKey ? ` data-api-key="${publicKey}"` : ''}></script>`;
@@ -132,7 +136,23 @@ export default function ProgramSettingsPage() {
   useEffect(() => {
     fetchSettings();
     fetchPublicKey();
+    fetchPaypalStatus();
   }, []);
+
+  const fetchPaypalStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/payouts/auto');
+      const data = await res.json();
+      if (data.success && data.config) {
+        setPaypalStatus({
+          paypalConfigured: Boolean(data.config.paypalConfigured),
+          paypalMode: data.config.paypalMode === 'live' ? 'live' : 'sandbox',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch PayPal status:', error);
+    }
+  };
 
   const fetchPublicKey = async () => {
     try {
@@ -437,12 +457,30 @@ export default function ProgramSettingsPage() {
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
             Automatic PayPal payouts
+            {paypalStatus && (
+              <Badge variant={paypalStatus.paypalMode === 'live' ? 'destructive' : 'secondary'}>
+                {paypalStatus.paypalMode === 'live' ? 'Live' : 'Sandbox'}
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>
             After the hold period, cron pays matured commissions one affiliate at a time so a mass pay does not hit your PayPal balance.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
+          {paypalStatus && paypalStatus.paypalMode !== 'live' && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
+              Sandbox must stay on until you are ready to send real money. Test payouts use PayPal’s sandbox API, not live balances.
+              {paypalStatus && !paypalStatus.paypalConfigured
+                ? ' Add sandbox Client ID and Secret in Dokploy to run a test.'
+                : ''}
+            </div>
+          )}
+          {paypalStatus?.paypalMode === 'live' && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+              Live mode is on. Automatic payouts send real PayPal transfers. Set <span className="font-mono">PAYPAL_MODE=sandbox</span> in Dokploy to go back to testing.
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4 rounded-md border p-4">
             <div>
               <p className="text-sm font-medium">Auto-payout is {settings.autoPayoutEnabled !== false ? 'on' : 'off'}</p>

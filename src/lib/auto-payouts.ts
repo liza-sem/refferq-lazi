@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { logAuditAction } from '@/lib/audit';
 import { emailService } from '@/lib/email';
 import { isValidPaypalEmail, paypalEmailFromDetails } from '@/lib/onboarding';
-import { isPaypalConfigured, sendPaypalPayout } from '@/lib/paypal';
+import { isPaypalConfigured, paypalMode, sendPaypalPayout } from '@/lib/paypal';
 
 const DEFAULT_DRIP_SIZE = 2;
 const MAX_DRIP_SIZE = 10;
@@ -448,7 +448,7 @@ export async function getAutoPayoutStatus() {
       payoutFrequency: settings?.payoutFrequency || 'MONTHLY',
       lastAutoPayoutAt: settings?.lastAutoPayoutAt?.toISOString() || null,
       paypalConfigured: isPaypalConfigured(),
-      paypalMode: process.env.PAYPAL_MODE === 'live' ? 'live' : 'sandbox',
+      paypalMode: paypalMode(),
     },
     stats: {
       eligibleAffiliates: eligibleAffiliateIds.size,

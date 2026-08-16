@@ -18,12 +18,19 @@ type PayPalPayoutResponse = {
   details?: Array<{ issue?: string; description?: string }>;
 };
 
+export type PaypalMode = 'sandbox' | 'live';
+
 export function isPaypalConfigured(): boolean {
   return Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
 }
 
+/** Live only when PAYPAL_MODE is exactly `live`. Missing/anything else is sandbox. */
+export function paypalMode(): PaypalMode {
+  return process.env.PAYPAL_MODE === 'live' ? 'live' : 'sandbox';
+}
+
 export function paypalApiBase(): string {
-  return process.env.PAYPAL_MODE === 'live' ? LIVE_API : SANDBOX_API;
+  return paypalMode() === 'live' ? LIVE_API : SANDBOX_API;
 }
 
 function formatPaypalAmount(amountCents: number): string {

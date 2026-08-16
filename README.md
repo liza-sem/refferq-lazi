@@ -302,7 +302,7 @@ For detailed deployment instructions, see [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 
 After `commissionHoldDays`, a cron matures PENDING commissions and pays affiliates via the PayPal Payouts API. Each run pays at most a few affiliates (drip size, default 2) so a mass pay does not hit your PayPal balance.
 
-Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE=live|sandbox`, and `CRON_SECRET`. Enable Payouts on the REST app in the [PayPal Developer dashboard](https://developer.paypal.com/dashboard/applications).
+Start in **sandbox**: set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` from a Sandbox REST app, `PAYPAL_MODE=sandbox` (the default if unset), and `CRON_SECRET`. Enable Payouts on the app in the [PayPal Developer dashboard](https://developer.paypal.com/dashboard/applications) (Sandbox tab). Switch to live later by replacing those keys with Live credentials and setting `PAYPAL_MODE=live`.
 
 Dokploy or Hostinger cron every 15–60 minutes:
 
