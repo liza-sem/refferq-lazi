@@ -47,7 +47,6 @@ import {
   FolderOpen,
   FileText,
   UsersRound,
-  Layers,
 } from 'lucide-react';
 
 const mainNavItems = [
@@ -62,7 +61,6 @@ const mainNavItems = [
 const marketingNavItems = [
   { title: 'Coupons', url: '/admin/coupons', icon: Ticket },
   { title: 'Resources', url: '/admin/resources', icon: FolderOpen },
-  { title: 'Programs', url: '/admin/programs', icon: Layers, badge: 'NEW' },
 ];
 
 const configNavItems = [
@@ -74,7 +72,7 @@ const configNavItems = [
   { title: 'API Analytics', url: '/admin/api-analytics', icon: Activity },
 ];
 
-function AdminSidebar() {
+function AdminSidebar({ brandName, logo, accentColor }: { brandName: string; logo?: string; accentColor: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -90,12 +88,16 @@ function AdminSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-3 px-2 py-1.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <span className="text-lg">🎯</span>
-              </div>
+              {logo ? (
+                <img src={logo} alt={brandName} className="h-10 w-10 rounded-xl object-contain" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm" style={{ backgroundColor: accentColor }}>
+                  <span className="text-lg font-bold">{brandName.charAt(0)}</span>
+                </div>
+              )}
               <div className="flex flex-col">
-                <span className="text-sm font-bold">Refferq</span>
-                <span className="text-xs text-muted-foreground">Admin Dashboard</span>
+                <span className="text-sm font-bold">{brandName}</span>
+                <span className="text-xs text-muted-foreground">Admin</span>
               </div>
             </div>
           </SidebarMenuItem>
@@ -219,6 +221,19 @@ function AdminSidebar() {
 
 function AdminShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const [brand, setBrand] = React.useState<{ companyName?: string; programName?: string; companyLogo?: string; brandButtonColor?: string }>({});
+
+  React.useEffect(() => {
+    fetch('/api/affiliate/branding')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings) setBrand(data.settings);
+      })
+      .catch(() => {});
+  }, []);
+
+  const brandName = brand.companyName || brand.programName || 'LAZI';
+  const accentColor = brand.brandButtonColor || '#111111';
 
   if (loading) {
     return (
@@ -253,7 +268,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <AdminSidebar />
+      <AdminSidebar brandName={brandName} logo={brand.companyLogo} accentColor={accentColor} />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />

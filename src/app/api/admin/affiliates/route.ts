@@ -139,10 +139,13 @@ export async function POST(request: NextRequest) {
     });
 
     // Create affiliate profile
+    const { getOrCreateDefaultPartnerGroup } = await import('@/lib/default-partner-group');
+    const defaultGroup = await getOrCreateDefaultPartnerGroup();
     const affiliate = await prisma.affiliate.create({
       data: {
         userId: newUser.id,
         referralCode: `AF${Date.now()}${(await import('crypto')).randomBytes(3).toString('hex').toUpperCase().slice(0, 4)}`,
+        partnerGroupId: defaultGroup.id,
         balanceCents: 0,
         payoutDetails: {
           paymentMethod: 'PayPal',

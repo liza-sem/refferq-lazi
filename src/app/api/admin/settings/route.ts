@@ -31,17 +31,24 @@ export async function GET(request: NextRequest) {
       programSettings = await prisma.programSettings.create({
         data: {
           programId: `prg_${Date.now()}`,
-          productName: 'BsBot',
-          programName: "BsBot's Affiliate Program",
-          websiteUrl: 'https://kyns.com',
+          productName: 'LAZI',
+          programName: 'LAZI Partner Program',
+          websiteUrl: 'https://lazi.studio',
           currency: 'USD',
-          portalSubdomain: 'bsbot.tolt.io',
+          portalSubdomain: 'referrals.lazi.studio',
+          companyName: 'LAZI',
+          brandButtonColor: '#111111',
+          brandBackgroundColor: '#111111',
+          brandTextColor: '#ffffff',
           minimumPayoutThreshold: 0,
           payoutTerm: 'NET-15',
           commissionHoldDays: 30
         }
       });
     }
+
+    const { backfillMissingPartnerGroups } = await import('@/lib/default-partner-group');
+    await backfillMissingPartnerGroups();
 
     // Get all commission rules
     const commissionRules = await prisma.commissionRule.findMany({
@@ -104,10 +111,14 @@ export async function PUT(request: NextRequest) {
         data: {
           programId: `prg_${Date.now()}`,
           productName: 'BsBot',
-          programName: "BsBot's Affiliate Program",
-          websiteUrl: 'https://kyns.com',
+          programName: 'LAZI Partner Program',
+          websiteUrl: 'https://lazi.studio',
           currency: 'USD',
-          portalSubdomain: 'bsbot.tolt.io'
+          portalSubdomain: 'referrals.lazi.studio',
+          companyName: 'LAZI',
+          brandButtonColor: '#111111',
+          brandBackgroundColor: '#111111',
+          brandTextColor: '#ffffff',
         }
       });
     }
@@ -115,9 +126,10 @@ export async function PUT(request: NextRequest) {
     // Update program settings — only allow specific fields (prevent mass assignment)
     const allowedFields = [
       'programName', 'productName', 'websiteUrl', 'currency', 'portalSubdomain',
-      'companyName', 'companyLogo', 'primaryColor', 'secondaryColor',
-      'cookieDuration', 'minimumPayout', 'payoutFrequency', 'autoApprove',
-      'commissionType', 'commissionValue', 'brandingEnabled', 'commissionHoldDays'
+      'companyName', 'companyLogo', 'favicon', 'portalAnnouncement',
+      'brandButtonColor', 'brandBackgroundColor', 'brandTextColor',
+      'cookieDuration', 'minimumPayoutThreshold', 'payoutTerm', 'payoutFrequency',
+      'commissionHoldDays',
     ];
     const sanitizedData: Record<string, any> = {};
     for (const key of allowedFields) {

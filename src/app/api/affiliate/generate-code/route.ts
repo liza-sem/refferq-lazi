@@ -47,10 +47,13 @@ export async function POST(request: NextRequest) {
     if (!affiliate) {
       const referralCode = generateReferralCode(user.name);
       
+      const { getOrCreateDefaultPartnerGroup } = await import('@/lib/default-partner-group');
+      const defaultGroup = await getOrCreateDefaultPartnerGroup();
       affiliate = await prisma.affiliate.create({
         data: {
           userId: user.id,
           referralCode,
+          partnerGroupId: defaultGroup.id,
           payoutDetails: {},
           balanceCents: 0
         }

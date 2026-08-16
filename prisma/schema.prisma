@@ -223,6 +223,7 @@ model ProgramSettings {
   commissionHoldDays        Int      @default(30) @map("commission_hold_days")
   minPayoutCents            Int      @default(100000) @map("min_payout_cents")
   companyName               String?  @map("company_name")
+  portalAnnouncement        String?  @map("portal_announcement")
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 

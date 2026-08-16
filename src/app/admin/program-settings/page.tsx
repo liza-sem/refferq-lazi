@@ -60,7 +60,10 @@ import {
   ExternalLink,
   Zap,
   Clock,
+  Image,
+  Megaphone,
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ProgramSettings {
   id: string;
@@ -73,6 +76,13 @@ interface ProgramSettings {
   minimumPayoutThreshold: number;
   payoutTerm: string;
   commissionHoldDays: number;
+  companyName: string;
+  companyLogo: string;
+  favicon: string;
+  portalAnnouncement: string;
+  brandButtonColor: string;
+  brandBackgroundColor: string;
+  brandTextColor: string;
   commissionRules: CommissionRule[];
 }
 
@@ -169,6 +179,13 @@ export default function ProgramSettingsPage() {
           minimumPayoutThreshold: settings.minimumPayoutThreshold,
           payoutTerm: settings.payoutTerm,
           commissionHoldDays: settings.commissionHoldDays,
+          companyName: settings.companyName,
+          companyLogo: settings.companyLogo,
+          favicon: settings.favicon,
+          portalAnnouncement: settings.portalAnnouncement,
+          brandButtonColor: settings.brandButtonColor,
+          brandBackgroundColor: settings.brandBackgroundColor,
+          brandTextColor: settings.brandTextColor,
         }),
       });
       if (res.ok) {
@@ -400,6 +417,92 @@ export default function ProgramSettingsPage() {
             <p className="text-xs text-muted-foreground">
               Program ID: <span className="font-mono">{settings.programId}</span>
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Image className="h-5 w-5" />
+            Portal branding
+          </CardTitle>
+          <CardDescription>
+            Title, favicon, colors, and the announcement on the marketer dashboard
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="companyName">Portal title</Label>
+              <Input
+                id="companyName"
+                value={settings.companyName || ''}
+                onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                placeholder="LAZI"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="favicon">Favicon URL</Label>
+              <Input
+                id="favicon"
+                value={settings.favicon || ''}
+                onChange={(e) => setSettings({ ...settings, favicon: e.target.value })}
+                placeholder="https://lazi.studio/favicon.ico"
+              />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="companyLogo">Logo URL</Label>
+            <Input
+              id="companyLogo"
+              value={settings.companyLogo || ''}
+              onChange={(e) => setSettings({ ...settings, companyLogo: e.target.value })}
+              placeholder="https://lazi.studio/logo.png"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="portalAnnouncement" className="flex items-center gap-2">
+              <Megaphone className="h-4 w-4" />
+              Dashboard announcement
+            </Label>
+            <Textarea
+              id="portalAnnouncement"
+              value={settings.portalAnnouncement || ''}
+              onChange={(e) => setSettings({ ...settings, portalAnnouncement: e.target.value })}
+              placeholder="Earn 20% commission on all paid customers"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">Shown on the marketer dashboard banner. Leave blank to use the default commission line.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-2">
+              <Label htmlFor="brandButtonColor">Accent color</Label>
+              <Input
+                id="brandButtonColor"
+                type="color"
+                value={settings.brandButtonColor || '#111111'}
+                onChange={(e) => setSettings({ ...settings, brandButtonColor: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="brandBackgroundColor">Background color</Label>
+              <Input
+                id="brandBackgroundColor"
+                type="color"
+                value={settings.brandBackgroundColor || '#111111'}
+                onChange={(e) => setSettings({ ...settings, brandBackgroundColor: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="brandTextColor">Text color</Label>
+              <Input
+                id="brandTextColor"
+                type="color"
+                value={settings.brandTextColor || '#ffffff'}
+                onChange={(e) => setSettings({ ...settings, brandTextColor: e.target.value })}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

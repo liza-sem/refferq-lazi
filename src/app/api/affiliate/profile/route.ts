@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        affiliate: true
+        affiliate: { include: { partnerGroup: true } }
       }
     });
 
@@ -32,12 +32,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const affiliate = user.affiliate as any;
+    let affiliate = user.affiliate as any;
     if (!affiliate) {
       return NextResponse.json(
         { error: 'Affiliate profile not found' },
         { status: 404 }
       );
+    }
+
+    if (!affiliate.partnerGroupId) {
+      const { assignDefaultPartnerGroup } = await import('@/lib/default-partner-group');
+      affiliate = await assignDefaultPartnerGroup(affiliate.id);
+      affiliate = await prisma.affiliate.findUnique({
+        where: { id: affiliate.id },
+        include: { partnerGroup: true },
+      });
     }
 
     // Get affiliate statistics
@@ -110,6 +119,7 @@ export async function GET(request: NextRequest) {
     const referralLink = affiliate.referralCode
       ? publicReferralLink(settings?.websiteUrl, affiliate.referralCode)
       : '';
+    const commissionRate = affiliate.partnerGroup?.commissionRate ?? 20;
 
     return NextResponse.json({
       success: true,
@@ -121,9 +131,11 @@ export async function GET(request: NextRequest) {
       },
       affiliate: affiliate,
       referralLink,
+      announcement: settings?.portalAnnouncement || '',
       stats: {
         ...stats,
         referralLink,
+        commissionRate,
       },
       referrals: mappedReferrals,
       conversions,

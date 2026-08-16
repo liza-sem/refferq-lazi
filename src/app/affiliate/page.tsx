@@ -53,6 +53,8 @@ interface AffiliateStats {
   referralCode: string;
   currencySymbol: string;
   nextMaturesAt: string | null;
+  commissionRate: number;
+  announcement: string;
 }
 
 interface Referral {
@@ -99,6 +101,8 @@ export default function AffiliateDashboard() {
           referralCode: data.affiliate?.referralCode || '',
           currencySymbol: data.currencySymbol || '$',
           nextMaturesAt: data.stats?.nextMaturesAt || null,
+          commissionRate: data.stats?.commissionRate ?? 20,
+          announcement: data.announcement || '',
         });
         setReferrals(data.referrals || []);
         setCurrencySymbol(data.currencySymbol || '$');
@@ -192,8 +196,10 @@ export default function AffiliateDashboard() {
                 <span className="text-2xl font-bold">{currencySymbol}</span>
               </div>
               <div>
-                <p className="text-sm text-white/90 font-medium tracking-wide">Earn 20% commission on all paid customers</p>
-                <p className="text-xl font-bold mt-1 tracking-tight">Start referring today and grow your wealth!</p>
+                <p className="text-sm text-white/90 font-medium tracking-wide">
+                  {stats?.announcement || `Earn ${stats?.commissionRate ?? 20}% commission on all paid customers`}
+                </p>
+                <p className="text-xl font-bold mt-1 tracking-tight">Share your link. Stripe confirms the sale.</p>
               </div>
             </div>
             <p className="text-sm text-white/80 max-w-xs text-right hidden sm:block">

@@ -3,10 +3,19 @@ import { Toaster } from '@/components/ui/sonner';
 import { db } from '@/lib/prisma';
 import './globals.css';
 
-export const metadata = {
-  title: 'Refferq - Modern Affiliate Marketing Platform',
-  description: 'Next-generation affiliate marketing platform with comprehensive tracking, commission management, and payout automation.',
-};
+export async function generateMetadata() {
+  try {
+    const settings = await db.getPlatformSettings();
+    const name = settings?.companyName || settings?.programName || 'LAZI';
+    return {
+      title: `${name} Partner Portal`,
+      description: settings?.programName || 'Partner portal',
+      icons: settings?.favicon ? { icon: settings.favicon } : undefined,
+    };
+  } catch {
+    return { title: 'LAZI Partner Portal' };
+  }
+}
 
 export default async function RootLayout({
   children,

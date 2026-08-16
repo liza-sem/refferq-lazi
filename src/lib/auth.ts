@@ -74,10 +74,13 @@ class AuthService {
 
         const company = data.company?.trim();
         const country = data.country?.trim();
+        const { getOrCreateDefaultPartnerGroup } = await import('@/lib/default-partner-group');
+        const defaultGroup = await getOrCreateDefaultPartnerGroup();
         await prisma.affiliate.create({
           data: {
             userId: user.id,
             referralCode,
+            partnerGroupId: defaultGroup.id,
             payoutDetails: {
               ...(company ? { company } : {}),
               ...(country ? { country } : {}),

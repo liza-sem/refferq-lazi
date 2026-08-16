@@ -43,7 +43,10 @@ import {
 
 interface BrandSettings {
   companyName?: string;
+  programName?: string;
   companyLogo?: string;
+  favicon?: string;
+  portalAnnouncement?: string;
   brandBackgroundColor?: string;
   brandButtonColor?: string;
   brandTextColor?: string;
@@ -72,7 +75,7 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
   };
 
   const accentColor = brand.brandButtonColor || '#059669';
-  const brandName = brand.companyName || 'Refferq';
+  const brandName = brand.companyName || brand.programName || 'LAZI';
 
   return (
     <Sidebar variant="inset">
@@ -89,7 +92,7 @@ function AffiliateSidebar({ brand }: { brand: BrandSettings }) {
               )}
               <div className="flex flex-col">
                 <span className="text-sm font-bold">{brandName}</span>
-                <span className="text-xs text-muted-foreground">Affiliate Portal</span>
+                <span className="text-xs text-muted-foreground">Partner Portal</span>
               </div>
             </div>
           </SidebarMenuItem>
