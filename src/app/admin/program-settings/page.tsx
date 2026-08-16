@@ -60,6 +60,7 @@ import {
   ExternalLink,
   Zap,
   Clock,
+  Wallet,
   Image,
   Megaphone,
 } from 'lucide-react';
@@ -76,6 +77,9 @@ interface ProgramSettings {
   minimumPayoutThreshold: number;
   payoutTerm: string;
   commissionHoldDays: number;
+  autoPayoutEnabled: boolean;
+  autoPayoutDripSize: number;
+  lastAutoPayoutAt: string | null;
   companyName: string;
   companyLogo: string;
   favicon: string;
@@ -153,7 +157,12 @@ export default function ProgramSettingsPage() {
       const res = await fetch('/api/admin/settings');
       const data = await res.json();
       if (data.success) {
-        setSettings(data.settings);
+        setSettings({
+          ...data.settings,
+          autoPayoutEnabled: data.settings.autoPayoutEnabled !== false,
+          autoPayoutDripSize: data.settings.autoPayoutDripSize ?? 2,
+          lastAutoPayoutAt: data.settings.lastAutoPayoutAt ?? null,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error);
@@ -179,6 +188,8 @@ export default function ProgramSettingsPage() {
           minimumPayoutThreshold: settings.minimumPayoutThreshold,
           payoutTerm: settings.payoutTerm,
           commissionHoldDays: settings.commissionHoldDays,
+          autoPayoutEnabled: settings.autoPayoutEnabled !== false,
+          autoPayoutDripSize: settings.autoPayoutDripSize || 2,
           companyName: settings.companyName,
           companyLogo: settings.companyLogo,
           favicon: settings.favicon,
@@ -417,6 +428,59 @@ export default function ProgramSettingsPage() {
             <p className="text-xs text-muted-foreground">
               Program ID: <span className="font-mono">{settings.programId}</span>
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5" />
+            Automatic PayPal payouts
+          </CardTitle>
+          <CardDescription>
+            After the hold period, cron pays matured commissions one affiliate at a time so a mass pay does not hit your PayPal balance.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <div className="flex items-center justify-between gap-4 rounded-md border p-4">
+            <div>
+              <p className="text-sm font-medium">Auto-payout is {settings.autoPayoutEnabled !== false ? 'on' : 'off'}</p>
+              <p className="text-xs text-muted-foreground">
+                Last run:{' '}
+                {settings.lastAutoPayoutAt
+                  ? new Date(settings.lastAutoPayoutAt).toLocaleString()
+                  : 'not yet — add a cron to /api/cron/payouts'}
+              </p>
+            </div>
+            <Switch
+              checked={settings.autoPayoutEnabled !== false}
+              onCheckedChange={(checked) => setSettings({ ...settings, autoPayoutEnabled: checked })}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="autoPayoutDripSize">Drip size (affiliates per cron run)</Label>
+              <Input
+                id="autoPayoutDripSize"
+                type="number"
+                min={1}
+                max={10}
+                value={settings.autoPayoutDripSize ?? 2}
+                onChange={(e) =>
+                  setSettings({ ...settings, autoPayoutDripSize: parseInt(e.target.value) || 2 })
+                }
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Default 2. Keep this small so payouts trickle instead of one large batch.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label>Hold days still apply</Label>
+              <p className="text-sm text-muted-foreground">
+                Commissions stay PENDING for {settings.commissionHoldDays} day{settings.commissionHoldDays === 1 ? '' : 's'} so refunds can claw back before PayPal is sent. Shorten the hold above if you want faster payouts.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

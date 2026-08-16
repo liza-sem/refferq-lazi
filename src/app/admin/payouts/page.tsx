@@ -63,10 +63,40 @@ export default function PayoutsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [currencySymbol, setCurrencySymbol] = useState('$');
+  const [autoStatus, setAutoStatus] = useState<{
+    autoPayoutEnabled: boolean;
+    autoPayoutDripSize: number;
+    lastAutoPayoutAt: string | null;
+    paypalConfigured: boolean;
+    commissionHoldDays: number;
+    minPayoutCents: number;
+    eligibleAffiliates: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchPayouts();
+    fetchAutoStatus();
   }, []);
+
+  const fetchAutoStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/payouts/auto');
+      const data = await res.json();
+      if (data.success && data.config) {
+        setAutoStatus({
+          autoPayoutEnabled: data.config.autoPayoutEnabled,
+          autoPayoutDripSize: data.config.autoPayoutDripSize,
+          lastAutoPayoutAt: data.config.lastAutoPayoutAt,
+          paypalConfigured: data.config.paypalConfigured,
+          commissionHoldDays: data.config.commissionHoldDays,
+          minPayoutCents: data.config.minPayoutCents,
+          eligibleAffiliates: data.stats?.eligibleAffiliates || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch auto-payout status:', error);
+    }
+  };
 
   const fetchPayouts = async () => {
     try {
@@ -131,6 +161,31 @@ export default function PayoutsPage() {
         <h1 className="text-2xl font-bold tracking-tight">Payouts</h1>
         <p className="text-muted-foreground">Manage partner commission payouts</p>
       </div>
+
+      {autoStatus && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Automatic PayPal payouts</CardTitle>
+            <CardDescription>
+              {autoStatus.autoPayoutEnabled
+                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run after a ${autoStatus.commissionHoldDays}-day hold.`
+                : 'Off — turn this on in Program Settings.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Last run:{' '}
+            {autoStatus.lastAutoPayoutAt
+              ? new Date(autoStatus.lastAutoPayoutAt).toLocaleString()
+              : 'not yet'}
+            {' · '}
+            PayPal {autoStatus.paypalConfigured ? 'connected' : 'keys missing'}
+            {' · '}
+            {autoStatus.eligibleAffiliates} waiting
+            {' · '}
+            min {currencySymbol}{(autoStatus.minPayoutCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>

@@ -137,6 +137,8 @@ model Payout {
   method          String?
   status          PayoutStatus @default(PENDING)
   notes           String?
+  recipientEmail  String?      @map("recipient_email")
+  paypalBatchId   String?      @map("paypal_batch_id")
   processedAt     DateTime?    @map("processed_at")
   createdBy       String       @map("created_by")
   createdAt       DateTime     @default(now()) @map("created_at")
@@ -219,6 +221,9 @@ model ProgramSettings {
   requireBusinessEmail      Boolean  @default(false) @map("require_business_email")
   enablePostbacks           Boolean  @default(false) @map("enable_postbacks")
   autoApprovePayouts        Boolean  @default(false) @map("auto_approve_payouts")
+  autoPayoutEnabled         Boolean  @default(true) @map("auto_payout_enabled")
+  autoPayoutDripSize        Int      @default(2) @map("auto_payout_drip_size")
+  lastAutoPayoutAt          DateTime? @map("last_auto_payout_at")
   payoutFrequency           String   @default("MONTHLY") @map("payout_frequency")
   commissionHoldDays        Int      @default(30) @map("commission_hold_days")
   minPayoutCents            Int      @default(100000) @map("min_payout_cents")

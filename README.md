@@ -298,6 +298,21 @@ The easiest way to deploy Refferq is using [Vercel](https://vercel.com):
 
 For detailed deployment instructions, see [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 
+### Automatic PayPal payouts
+
+After `commissionHoldDays`, a cron matures PENDING commissions and pays affiliates via the PayPal Payouts API. Each run pays at most a few affiliates (drip size, default 2) so a mass pay does not hit your PayPal balance.
+
+Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE=live|sandbox`, and `CRON_SECRET`. Enable Payouts on the REST app in the [PayPal Developer dashboard](https://developer.paypal.com/dashboard/applications).
+
+Dokploy or Hostinger cron every 15–60 minutes:
+
+```bash
+curl -sS -X POST https://referrals.lazi.studio/api/cron/payouts \
+  -H "x-cron-secret: $CRON_SECRET"
+```
+
+Hold days, minimum payout, drip size, and the auto-payout toggle live in Program Settings.
+
 ---
 
 ## 📚 Documentation

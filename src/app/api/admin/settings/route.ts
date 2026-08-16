@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
           brandTextColor: '#ffffff',
           minimumPayoutThreshold: 0,
           payoutTerm: 'NET-15',
-          commissionHoldDays: 30
+          commissionHoldDays: 30,
+          autoPayoutEnabled: true,
+          autoPayoutDripSize: 2,
         }
       });
     }
@@ -129,13 +131,19 @@ export async function PUT(request: NextRequest) {
       'companyName', 'companyLogo', 'favicon', 'portalAnnouncement',
       'brandButtonColor', 'brandBackgroundColor', 'brandTextColor',
       'cookieDuration', 'minimumPayoutThreshold', 'payoutTerm', 'payoutFrequency',
-      'commissionHoldDays',
+      'commissionHoldDays', 'minPayoutCents', 'autoPayoutEnabled', 'autoPayoutDripSize',
     ];
     const sanitizedData: Record<string, any> = {};
     for (const key of allowedFields) {
       if (key in body && body[key] !== undefined) {
         sanitizedData[key] = body[key];
       }
+    }
+    if (typeof sanitizedData.minimumPayoutThreshold === 'number' && sanitizedData.minPayoutCents === undefined) {
+      sanitizedData.minPayoutCents = sanitizedData.minimumPayoutThreshold;
+    }
+    if (typeof sanitizedData.autoPayoutDripSize === 'number') {
+      sanitizedData.autoPayoutDripSize = Math.min(10, Math.max(1, Math.floor(sanitizedData.autoPayoutDripSize)));
     }
 
     const updatedSettings = await prisma.programSettings.update({
