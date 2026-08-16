@@ -6,6 +6,8 @@ const TEXT = '#111111';
 const MUTED = '#737373';
 const SANS = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
 
+export const EMAIL_WORDMARK = 'LAZI STUDIO PARTNERS';
+
 export type LaziEmailDetail = { label: string; value: string };
 
 export type LaziEmailLayoutInput = {
@@ -22,7 +24,7 @@ export type LaziEmailLayoutInput = {
 };
 
 export function wrapLaziEmail(input: LaziEmailLayoutInput): string {
-  const wordmark = input.wordmark || 'LAZI';
+  const wordmark = input.wordmark || EMAIL_WORDMARK;
   const paragraphs = [
     ...(input.intro ? [input.intro] : []),
     ...(input.paragraphs || []),
@@ -253,7 +255,7 @@ export function defaultBodies(): Record<string, string> {
       ],
       ctaLabel: 'Open partner dashboard',
       ctaUrl: dash,
-      wordmark: '{{companyName}}',
+      wordmark: EMAIL_WORDMARK,
     }),
     OTP: wrapLaziEmail({
       preheader: 'Your login code.',
@@ -267,7 +269,7 @@ export function defaultBodies(): Record<string, string> {
       ctaLabel: 'Sign in',
       ctaUrl: dash,
       footer: 'If you did not request this code, you can ignore this email.',
-      wordmark: '{{companyName}}',
+      wordmark: EMAIL_WORDMARK,
     }),
     APPROVAL: wrapLaziEmail({
       preheader: 'Your partner account is approved.',
@@ -279,7 +281,7 @@ export function defaultBodies(): Record<string, string> {
       ],
       ctaLabel: 'Open partner dashboard',
       ctaUrl: dash,
-      wordmark: '{{companyName}}',
+      wordmark: EMAIL_WORDMARK,
     }),
     REJECTION: wrapLaziEmail({
       preheader: 'An update on your application.',
@@ -292,7 +294,7 @@ export function defaultBodies(): Record<string, string> {
       ],
       ctaLabel: 'Contact us',
       ctaUrl: dash,
-      wordmark: '{{companyName}}',
+      wordmark: EMAIL_WORDMARK,
     }),
     SALE_EARNED: wrapLaziEmail({
       preheader: 'A referred sale just came through.',
@@ -309,7 +311,7 @@ export function defaultBodies(): Record<string, string> {
       ],
       ctaLabel: 'View dashboard',
       ctaUrl: dash,
-      wordmark: '{{companyName}}',
+      wordmark: EMAIL_WORDMARK,
     }),
     PAYOUT: wrapLaziEmail({
       preheader: 'We sent your commission payout.',
@@ -324,7 +326,7 @@ export function defaultBodies(): Record<string, string> {
       ],
       ctaLabel: 'View dashboard',
       ctaUrl: dash,
-      wordmark: '{{companyName}}',
+      wordmark: EMAIL_WORDMARK,
     }),
     TIER_UPGRADED: wrapLaziEmail({
       preheader: 'You moved up a partner tier.',
@@ -340,7 +342,7 @@ export function defaultBodies(): Record<string, string> {
       ],
       ctaLabel: 'View dashboard',
       ctaUrl: dash,
-      wordmark: '{{companyName}}',
+      wordmark: EMAIL_WORDMARK,
     }),
   };
 }

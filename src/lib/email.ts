@@ -1,5 +1,5 @@
 import { resend, sendTransactionalEmail } from './plunk';
-import { wrapLaziEmail, lookupTypesFor } from './email-brand';
+import { wrapLaziEmail, lookupTypesFor, EMAIL_WORDMARK } from './email-brand';
 import { getProgramBrand } from './default-email-templates';
 import { commissionPercent } from './commission-rate';
 import { formatMoney } from './money';
@@ -161,7 +161,7 @@ class EmailService {
     <html>
     <head>
       <meta charset="utf-8">
-      <title>Welcome to Refferq</title>
+      <title>Welcome to LAZI STUDIO PARTNERS</title>
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
@@ -172,7 +172,7 @@ class EmailService {
     </head>
     <body>
       <div class="header">
-        <h1>Welcome to Refferq! 🎉</h1>
+        <h1>LAZI STUDIO PARTNERS</h1>
       </div>
       <div class="content">
         <h2>Hello ${this.escapeHtml(data.name)}!</h2>
@@ -212,11 +212,11 @@ class EmailService {
         
         <p>If you have any questions, please don't hesitate to contact our support team.</p>
         
-        <p>Best regards,<br>The Refferq Team</p>
+        <p>Best regards,<br>LAZI STUDIO PARTNERS</p>
       </div>
       <div class="footer">
         <p>This email was sent to ${this.escapeHtml(data.email)}</p>
-        <p>© ${new Date().getFullYear()} Refferq. All rights reserved.</p>
+        <p>© ${new Date().getFullYear()} LAZI STUDIO PARTNERS. All rights reserved.</p>
       </div>
     </body>
     </html>
@@ -290,6 +290,7 @@ class EmailService {
     </head>
     <body>
       <div class="header">
+        <p style="letter-spacing:0.22em;text-transform:uppercase;font-weight:600;margin:0 0 12px 0;">LAZI STUDIO PARTNERS</p>
         <h1>Referral ${statusText} ${emoji}</h1>
       </div>
       <div class="content">
@@ -314,7 +315,7 @@ class EmailService {
           <a href="${process.env.NEXT_PUBLIC_APP_URL}/affiliate" class="button">View Dashboard</a>
         </div>
         
-        <p>Best regards,<br>The Refferq Team</p>
+        <p>Best regards,<br>LAZI STUDIO PARTNERS</p>
       </div>
     </body>
     </html>
@@ -526,7 +527,7 @@ class EmailService {
           ctaLabel: 'Sign in',
           ctaUrl: brand.loginUrl,
           footer: 'If you did not request this code, you can ignore this email.',
-          wordmark: brand.companyName,
+          wordmark: EMAIL_WORDMARK,
         }),
     });
   }
@@ -606,7 +607,7 @@ class EmailService {
     return this.sendTemplatedEmail({
       to: email,
       templateType: 'PASSWORD_RESET',
-      fallbackSubject: 'Password Reset Request - Refferq',
+      fallbackSubject: 'Password Reset Request - LAZI STUDIO PARTNERS',
       variables: { resetUrl },
       generateFallbackHtml: () => `
       <!DOCTYPE html>
@@ -659,7 +660,7 @@ class EmailService {
     return this.sendTemplatedEmail({
       to: email,
       templateType: 'EMAIL_VERIFICATION',
-      fallbackSubject: 'Verify Your Email Address - Refferq',
+      fallbackSubject: 'Verify Your Email Address - LAZI STUDIO PARTNERS',
       variables: { verificationUrl },
       generateFallbackHtml: () => `
       <!DOCTYPE html>
@@ -869,7 +870,7 @@ class EmailService {
           details: [{ label: 'Amount', value: this.escapeHtml(formatted) }],
           ctaLabel: 'View dashboard',
           ctaUrl: brand.dashboardUrl,
-          wordmark: brand.companyName,
+          wordmark: EMAIL_WORDMARK,
         }),
     });
   }
@@ -922,7 +923,7 @@ class EmailService {
           ],
           ctaLabel: 'View dashboard',
           ctaUrl: brand.dashboardUrl,
-          wordmark: brand.companyName,
+          wordmark: EMAIL_WORDMARK,
         }),
     });
   }
@@ -969,7 +970,7 @@ class EmailService {
           ],
           ctaLabel: 'View dashboard',
           ctaUrl: brand.dashboardUrl,
-          wordmark: brand.companyName,
+          wordmark: EMAIL_WORDMARK,
         }),
     });
   }
@@ -983,12 +984,12 @@ class EmailService {
     const html = `
       <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
-          <h1 style="color: #ffffff; font-size: 22px; margin: 0;">Refferq Notification</h1>
+          <h1 style="color: #ffffff; font-size: 22px; margin: 0;">LAZI STUDIO PARTNERS</h1>
         </div>
         <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
           <p style="color: #374151; font-size: 15px; line-height: 1.6;">${this.escapeHtml(data.body)}</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-          <p style="color: #9ca3af; font-size: 12px; text-align: center;">This is an automated notification from Refferq.</p>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center;">This is an automated notification from LAZI STUDIO PARTNERS.</p>
         </div>
       </div>
     `;

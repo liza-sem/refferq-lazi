@@ -1,5 +1,12 @@
 import { prisma } from './prisma';
-import { EMAIL_TEMPLATE_CATALOG, defaultBodies } from './email-brand';
+import { EMAIL_TEMPLATE_CATALOG, EMAIL_WORDMARK, defaultBodies } from './email-brand';
+
+function applyEmailWordmark(html: string): string {
+  return html.replace(
+    /(<td align="center" style="padding-bottom:20px;[^>]*>)\s*(?:\{\{companyName\}\}|LAZI|Refferq|Partner program)\s*(<\/td>)/i,
+    `$1\n            ${EMAIL_WORDMARK}\n          $2`
+  );
+}
 
 const SEED_TYPES = ['WELCOME', 'OTP', 'APPROVAL', 'SALE_EARNED', 'PAYOUT', 'TIER_UPGRADED'] as const;
 
@@ -18,6 +25,8 @@ export async function ensureDefaultEmailTemplates(): Promise<{ created: string[]
       },
     });
     if (existing) {
+      const nextBody = applyEmailWordmark(existing.body);
+      const wordmarkChanged = nextBody !== existing.body;
       if (type === 'SALE_EARNED') {
         const vars = Array.isArray(existing.variables) ? (existing.variables as string[]) : [];
         const nextVars = Array.from(new Set([...vars, 'leadId', 'reference']));
@@ -25,15 +34,20 @@ export async function ensureDefaultEmailTemplates(): Promise<{ created: string[]
           existing.body.includes('A sale you referred was confirmed') &&
           !existing.body.includes('{{leadId}}') &&
           !existing.body.includes('{{reference}}');
-        if (shouldRefreshBody || nextVars.length !== vars.length) {
+        if (shouldRefreshBody || nextVars.length !== vars.length || wordmarkChanged) {
           await prisma.emailTemplate.update({
             where: { id: existing.id },
             data: {
-              ...(shouldRefreshBody ? { body } : {}),
+              ...(shouldRefreshBody ? { body } : wordmarkChanged ? { body: nextBody } : {}),
               variables: nextVars,
             },
           });
         }
+      } else if (wordmarkChanged) {
+        await prisma.emailTemplate.update({
+          where: { id: existing.id },
+          data: { body: nextBody },
+        });
       }
       continue;
     }
@@ -58,12 +72,15 @@ export async function getProgramBrand() {
   const settings = await prisma.programSettings.findFirst({
     select: { companyName: true, productName: true, programName: true },
   });
-  const companyName =
+  const rawName =
     settings?.companyName?.trim() ||
     settings?.productName?.trim() ||
     settings?.programName?.trim() ||
-    'LAZI';
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://referrals.lazi.studio').replace(/\/$/, '');
+    EMAIL_WORDMARK;
+  const companyName = /^(LAZI|Refferq|Partner program)$/i.test(rawName)
+    ? EMAIL_WORDMARK
+    : rawName;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://partners.lazi.studio').replace(/\/$/, '');
   return {
     companyName,
     dashboardUrl: `${appUrl}/affiliate`,

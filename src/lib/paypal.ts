@@ -107,7 +107,7 @@ export async function sendPaypalPayout(input: {
     body: JSON.stringify({
       sender_batch_header: {
         sender_batch_id: input.senderBatchId,
-        email_subject: 'You have a payout from LAZI',
+        email_subject: 'You have a payout from LAZI STUDIO PARTNERS',
         email_message: 'You received a commission payout from the LAZI partner program.',
       },
       items: [

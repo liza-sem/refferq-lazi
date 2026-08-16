@@ -70,8 +70,8 @@ export async function POST(request: Request) {
       leadId: 'LD-A3K9',
       reference: 'LD-A3K9',
       referralCode: 'LAZI-ALEX',
-      companyName: 'LAZI',
-      dashboardUrl: 'https://referrals.lazi.studio/affiliate',
+      companyName: 'LAZI STUDIO PARTNERS',
+      dashboardUrl: 'https://partners.lazi.studio/affiliate',
       reason: 'Does not meet our criteria',
       partner_name: 'Alex',
       program_name: 'LAZI Partner Program',
@@ -81,8 +81,8 @@ export async function POST(request: Request) {
       referral_count: '5',
       payout_method: 'PayPal',
       partner_email: user.email,
-      signup_link: 'https://referrals.lazi.studio/register',
-      dashboard_link: 'https://referrals.lazi.studio/affiliate',
+      signup_link: 'https://partners.lazi.studio/register',
+      dashboard_link: 'https://partners.lazi.studio/affiliate',
     };
 
     // Replace all variables in subject and body

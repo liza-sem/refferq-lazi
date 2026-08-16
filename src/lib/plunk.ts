@@ -10,7 +10,11 @@ function plunkConfig() {
   const apiUrl = (process.env.PLUNK_API_URL || 'https://next-api.useplunk.com').replace(/\/$/, '');
   const secretKey = process.env.PLUNK_SECRET_KEY || '';
   const fromEmail = process.env.PLUNK_FROM_EMAIL || 'hello@lazi.studio';
-  const fromName = process.env.PLUNK_FROM_NAME || 'LAZI';
+  const rawFromName = (process.env.PLUNK_FROM_NAME || '').trim();
+  const fromName =
+    !rawFromName || /^(LAZI|Refferq|Partner program)$/i.test(rawFromName)
+      ? 'LAZI STUDIO PARTNERS'
+      : rawFromName;
 
   if (!secretKey) {
     throw new Error('PLUNK_SECRET_KEY environment variable is not set');
