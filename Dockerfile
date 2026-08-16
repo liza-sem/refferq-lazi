@@ -39,11 +39,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/docker/bootstrap-admin.cjs ./docker/bootstrap-admin.cjs
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
-# Prisma CLI + client for runtime db push / admin bootstrap
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+# Full node_modules so `prisma db push` and admin bootstrap have their deps
+COPY --from=builder /app/node_modules ./node_modules
 
 RUN chmod +x ./docker-entrypoint.sh && chown -R nextjs:nodejs /app
 
