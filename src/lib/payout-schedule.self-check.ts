@@ -4,6 +4,7 @@ import {
   commissionDueAt,
   isCommissionDue,
   nextPaydayOnOrAfter,
+  payoutCycleWindow,
   nextPayoutFromCommissions,
   perSaleDueAt,
 } from './payout-schedule';
@@ -69,5 +70,12 @@ const next = nextPayoutFromCommissions(
 );
 assert.equal(next.nextPayoutAt?.toISOString(), utc(2026, 0, 15).toISOString());
 assert.equal(next.nextPayoutCents, 5400);
+
+const cycleOnPayday = payoutCycleWindow(utc(2026, 7, 15), 'MONTHLY', payday15);
+assert.equal(cycleOnPayday.start.toISOString(), utc(2026, 7, 15).toISOString());
+assert.equal(cycleOnPayday.end.toISOString(), utc(2026, 8, 15).toISOString());
+const cycleAfterPayday = payoutCycleWindow(utc(2026, 7, 20), 'MONTHLY', payday15);
+assert.equal(cycleAfterPayday.start.toISOString(), utc(2026, 7, 15).toISOString());
+assert.equal(cycleAfterPayday.end.toISOString(), utc(2026, 8, 15).toISOString());
 
 console.log('payout-schedule.self-check ok');

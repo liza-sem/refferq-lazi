@@ -22,7 +22,7 @@ export class OTPService {
         };
       }
 
-      // Check user status
+      // Check user status — invited partners can log in to accept
       if (user.status === 'PENDING') {
         return {
           success: false,

@@ -37,6 +37,10 @@ import {
 } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
 import { humanPayoutStatus } from '@/lib/payout-status';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 interface Payout {
   id: string;
@@ -80,10 +84,33 @@ export default function PayoutsPage() {
     eligibleAffiliates: number;
     payableThisRun: number;
   } | null>(null);
+  const [eligible, setEligible] = useState<Array<{
+    affiliateId: string;
+    name: string;
+    email: string;
+    paypalEmail: string;
+    amountCents: number;
+    commissionCount: number;
+    belowThreshold: boolean;
+  }>>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [skipThreshold, setSkipThreshold] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [runAt, setRunAt] = useState('');
+  const [scheduledJobs, setScheduledJobs] = useState<Array<{
+    id: string;
+    runAt: string;
+    affiliateIds: unknown;
+    skipThreshold: boolean;
+    status: string;
+  }>>([]);
 
   useEffect(() => {
     fetchPayouts();
     fetchAutoStatus();
+    fetchEligible();
+    fetchScheduled();
   }, []);
 
   const fetchAutoStatus = async () => {
@@ -147,14 +174,120 @@ export default function PayoutsPage() {
     }
   };
 
+  const fetchEligible = async () => {
+    try {
+      const res = await fetch('/api/admin/payouts/eligible');
+      const data = await res.json();
+      if (data.success) {
+        setEligible(data.partners || []);
+        setSelectedIds([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch eligible partners:', error);
+    }
+  };
+
+  const fetchScheduled = async () => {
+    try {
+      const res = await fetch('/api/admin/payouts/schedule');
+      const data = await res.json();
+      if (data.success) setScheduledJobs(data.jobs || []);
+    } catch (error) {
+      console.error('Failed to fetch scheduled payouts:', error);
+    }
+  };
+
+  const visibleEligible = skipThreshold ? eligible : eligible.filter((p) => !p.belowThreshold);
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const handleManualPay = async () => {
+    if (selectedIds.length === 0) {
+      alert('Select at least one partner');
+      return;
+    }
+    if (!confirm(`Pay ${selectedIds.length} selected partner(s) via PayPal now?`)) return;
+    setPaying(true);
+    try {
+      const res = await fetch('/api/admin/payouts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ affiliateIds: selectedIds, skipThreshold }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Payout failed');
+        return;
+      }
+      alert(data.message);
+      await Promise.all([fetchPayouts(), fetchEligible(), fetchAutoStatus()]);
+    } catch (error) {
+      console.error('Manual payout failed:', error);
+      alert('Payout failed');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const tomorrowAt = (hour = 10) => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(hour, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleSchedule = async () => {
+    if (!runAt) {
+      alert('Pick a date and time');
+      return;
+    }
+    setScheduling(true);
+    try {
+      const res = await fetch('/api/admin/payouts/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runAt: new Date(runAt).toISOString(),
+          affiliateIds: selectedIds,
+          skipThreshold,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Could not schedule payout');
+        return;
+      }
+      alert(data.message);
+      setRunAt('');
+      await fetchScheduled();
+    } catch (error) {
+      console.error('Schedule failed:', error);
+      alert('Could not schedule payout');
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleCancelSchedule = async (id: string) => {
+    if (!confirm('Cancel this scheduled payout? Automatic payday will run as usual.')) return;
+    await fetch(`/api/admin/payouts/schedule?id=${id}`, { method: 'DELETE' });
+    await fetchScheduled();
+  };
+
   const handleExport = async () => {
     try {
-      const res = await fetch('/api/admin/payouts?format=csv');
+      const params = new URLSearchParams();
+      if (selectedIds.length > 0) params.set('affiliateIds', selectedIds.join(','));
+      if (skipThreshold) params.set('skipThreshold', '1');
+      const res = await fetch(`/api/admin/payouts/paypal-csv?${params.toString()}`);
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `payouts-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `paypal-payouts-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
@@ -241,6 +374,115 @@ export default function PayoutsPage() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Pay partners</CardTitle>
+          <CardDescription>
+            Select partners with matured unpaid commissions. Pay now, schedule an override of the automatic payday, or download a PayPal Payouts CSV.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch id="skipThreshold" checked={skipThreshold} onCheckedChange={setSkipThreshold} />
+              <Label htmlFor="skipThreshold">Ignore min payout threshold</Label>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setSelectedIds(visibleEligible.map((p) => p.affiliateId))}>
+              Select all eligible
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSelectedIds([])}>Clear</Button>
+          </div>
+
+          {visibleEligible.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No eligible partners right now.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10"></TableHead>
+                  <TableHead>Partner</TableHead>
+                  <TableHead>PayPal</TableHead>
+                  <TableHead>Eligible</TableHead>
+                  <TableHead>Sales</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleEligible.map((partner) => (
+                  <TableRow key={partner.affiliateId}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(partner.affiliateId)}
+                        onCheckedChange={() => toggleSelected(partner.affiliateId)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm font-medium">{partner.name}</p>
+                      <p className="text-xs text-muted-foreground">{partner.email}</p>
+                    </TableCell>
+                    <TableCell className="text-sm">{partner.paypalEmail}</TableCell>
+                    <TableCell className="font-medium">
+                      {formatMoney(partner.amountCents, currencySymbol)}
+                      {partner.belowThreshold ? (
+                        <span className="ml-2 text-xs text-muted-foreground">below min</span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-sm">{partner.commissionCount}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          <div className="flex flex-wrap items-end gap-3">
+            <Button onClick={handleManualPay} disabled={paying || selectedIds.length === 0}>
+              {paying ? 'Paying…' : `Pay selected (${selectedIds.length})`}
+            </Button>
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              PayPal CSV
+            </Button>
+          </div>
+
+          <div className="grid gap-3 rounded-md border p-4 md:grid-cols-3">
+            <div className="grid gap-2 md:col-span-2">
+              <Label htmlFor="runAt">Schedule override (replaces automatic payday for this cycle)</Label>
+              <Input id="runAt" type="datetime-local" value={runAt} onChange={(e) => setRunAt(e.target.value)} />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setRunAt(tomorrowAt(10))}>
+                Tomorrow 10:00
+              </Button>
+              <Button onClick={handleSchedule} disabled={scheduling || !runAt}>
+                {scheduling ? 'Saving…' : selectedIds.length > 0 ? 'Schedule selected' : 'Schedule all eligible'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground md:col-span-3">
+              Cron runs this at the chosen time instead of the automatic 15th (or whatever payday is set). Leave partners unselected to pay everyone eligible.
+            </p>
+          </div>
+
+          {scheduledJobs.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Upcoming scheduled payouts</p>
+              {scheduledJobs.map((job) => (
+                <div key={job.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>
+                    {new Date(job.runAt).toLocaleString()} · {job.status}
+                    {Array.isArray(job.affiliateIds) && job.affiliateIds.length > 0
+                      ? ` · ${job.affiliateIds.length} partner(s)`
+                      : ' · all eligible'}
+                    {job.skipThreshold ? ' · ignore threshold' : ''}
+                  </span>
+                  {job.status === 'PENDING' ? (
+                    <Button variant="ghost" size="sm" onClick={() => handleCancelSchedule(job.id)}>Cancel</Button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -292,7 +534,7 @@ export default function PayoutsPage() {
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
-                Export CSV
+                PayPal CSV
               </Button>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40">

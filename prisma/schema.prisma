@@ -162,6 +162,22 @@ model Payout {
   @@map("payouts")
 }
 
+model ScheduledPayoutJob {
+  id            String    @id @default(cuid())
+  runAt         DateTime  @map("run_at")
+  affiliateIds  Json      @default("[]") @map("affiliate_ids")
+  skipThreshold Boolean   @default(false) @map("skip_threshold")
+  status        String    @default("PENDING")
+  createdBy     String    @map("created_by")
+  processedAt   DateTime? @map("processed_at")
+  result        Json      @default("{}")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, runAt])
+  @@map("scheduled_payout_jobs")
+}
+
 model CommissionRule {
   id         String             @id @default(cuid())
   name       String
@@ -401,6 +417,7 @@ enum UserStatus {
   INACTIVE
   SUSPENDED
   PENDING
+  INVITED
 }
 
 enum ReferralStatus {

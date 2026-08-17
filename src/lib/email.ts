@@ -492,6 +492,33 @@ class EmailService {
     `;
   }
 
+  async sendPartnerInviteEmail(data: {
+    name: string;
+    email: string;
+    inviteUrl: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const brand = await getProgramBrand();
+    const html = wrapLaziEmail({
+      preheader: 'Join the LAZI partner program.',
+      kicker: 'Invitation',
+      heading: 'You are invited',
+      intro: `Hi ${this.escapeHtml(data.name)},`,
+      paragraphs: [
+        `You have been invited to join the ${this.escapeHtml(brand.companyName)} partner program.`,
+        'Open the link below, then we will email you a login code to finish joining.',
+      ],
+      ctaLabel: 'Accept invite',
+      ctaUrl: data.inviteUrl,
+      footer: 'If you were not expecting this, you can ignore this email.',
+      wordmark: EMAIL_WORDMARK,
+    });
+    return this.sendEmail({
+      to: data.email,
+      subject: `You are invited to the ${brand.companyName} partner program`,
+      html,
+    });
+  }
+
   async sendWelcomeEmail(data: WelcomeEmailData): Promise<{ success: boolean; message: string }> {
     const referralCode = data.referralCode?.trim() || '';
     const publicReferralLink = data.publicReferralLink?.trim() || '';
@@ -542,7 +569,8 @@ class EmailService {
         select: { websiteUrl: true },
       });
       const link = publicReferralLink(settings?.websiteUrl, referralCode);
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://partners.lazi.studio').replace(/\/$/, '');
+      const { partnerAppUrl } = await import('./app-url');
+      const appUrl = partnerAppUrl();
       const result = await this.sendWelcomeEmail({
         name: user.name,
         email: user.email,

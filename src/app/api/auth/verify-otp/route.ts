@@ -4,6 +4,7 @@ import { SignJWT } from 'jose';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { isPaypalOnboardingComplete } from '@/lib/onboarding';
 import { emailService } from '@/lib/email';
+import { prisma } from '@/lib/prisma';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET!
@@ -42,6 +43,14 @@ export async function POST(request: NextRequest) {
     }
 
     const user = result.user!;
+
+    if (user.status === 'INVITED') {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: 'ACTIVE' },
+      });
+      user.status = 'ACTIVE';
+    }
 
     if (user.role === 'AFFILIATE') {
       void emailService.sendWelcomeOnce(user.id).catch((err) => {

@@ -10,6 +10,7 @@ import { getProgramDefaults } from '@/lib/program-defaults';
 import {
   commissionEligibleAt,
   isCommissionDue,
+  payoutCycleWindow,
   payoutFrequencyLabel,
   payoutTermExplanation,
   resolvePayoutSchedule,
@@ -57,6 +58,273 @@ function minPayoutCentsFromSettings(settings: {
     return Math.max(0, settings.minimumPayoutThreshold);
   }
   return Math.max(0, settings.minPayoutCents || 0);
+}
+
+export type EligiblePayoutPartner = {
+  affiliateId: string;
+  name: string;
+  email: string;
+  paypalEmail: string;
+  referralCode: string;
+  amountCents: number;
+  commissionCount: number;
+  belowThreshold: boolean;
+};
+
+function parseAffiliateIdList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
+}
+
+export async function listEligiblePayoutPartners(opts?: {
+  affiliateIds?: string[];
+  skipThreshold?: boolean;
+  includeBelowThreshold?: boolean;
+  requirePaypalEmail?: boolean;
+}): Promise<{
+  partners: EligiblePayoutPartner[];
+  minPayoutCents: number;
+  currency: string;
+}> {
+  const settings = await prisma.programSettings.findFirst();
+  const minPayoutCents = minPayoutCentsFromSettings(settings);
+  const currency = settings?.currency || 'USD';
+  const now = new Date();
+  const ids = opts?.affiliateIds?.filter(Boolean);
+  const requirePaypal = opts?.requirePaypalEmail !== false;
+
+  const approved = await prisma.commission.findMany({
+    where: {
+      ...maturedUnpaidWhere(now),
+      affiliate: {
+        user: { status: 'ACTIVE' },
+        ...(ids && ids.length > 0 ? { id: { in: ids } } : {}),
+      },
+    },
+    include: {
+      affiliate: {
+        select: {
+          id: true,
+          referralCode: true,
+          payoutDetails: true,
+          user: { select: { name: true, email: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const grouped = new Map<string, EligiblePayoutPartner>();
+  for (const commission of approved) {
+    const paypalEmail = paypalEmailFromDetails(commission.affiliate.payoutDetails);
+    if (requirePaypal && !isValidPaypalEmail(paypalEmail)) continue;
+    let entry = grouped.get(commission.affiliateId);
+    if (!entry) {
+      entry = {
+        affiliateId: commission.affiliateId,
+        name: commission.affiliate.user.name,
+        email: commission.affiliate.user.email,
+        paypalEmail: paypalEmail || commission.affiliate.user.email,
+        referralCode: commission.affiliate.referralCode,
+        amountCents: 0,
+        commissionCount: 0,
+        belowThreshold: false,
+      };
+      grouped.set(commission.affiliateId, entry);
+    }
+    entry.amountCents += commission.amountCents;
+    entry.commissionCount += 1;
+  }
+
+  const partners = [...grouped.values()].map((row) => ({
+    ...row,
+    belowThreshold: row.amountCents < minPayoutCents,
+  })).filter((row) => {
+    if (opts?.skipThreshold || opts?.includeBelowThreshold) return true;
+    return !row.belowThreshold;
+  });
+
+  partners.sort((a, b) => b.amountCents - a.amountCents);
+  return { partners, minPayoutCents, currency };
+}
+
+export async function runSelectedPaypalPayouts(input: {
+  actorId: string;
+  affiliateIds?: string[];
+  skipThreshold?: boolean;
+}): Promise<{
+  processed: number;
+  failed: number;
+  skipped: number;
+  totalAmountCents: number;
+  results: Array<{ affiliateId: string; name: string; amountCents?: number; payoutId?: string; status: string; error?: string }>;
+}> {
+  const { partners } = await listEligiblePayoutPartners({
+    affiliateIds: input.affiliateIds,
+    skipThreshold: input.skipThreshold,
+    requirePaypalEmail: true,
+  });
+
+  const results: Array<{ affiliateId: string; name: string; amountCents?: number; payoutId?: string; status: string; error?: string }> = [];
+  let processed = 0;
+  let failed = 0;
+  let skipped = 0;
+  let totalAmountCents = 0;
+
+  for (const partner of partners) {
+    const paid = await runManualPaypalPayout({
+      actorId: input.actorId,
+      affiliateId: partner.affiliateId,
+      skipHold: false,
+      enforceMin: !input.skipThreshold,
+    });
+    if (!paid.success) {
+      if (paid.error?.includes('already claimed') || paid.error?.includes('No unpaid') || paid.error?.includes('No matured') || paid.error?.includes('No approved')) {
+        skipped += 1;
+      } else {
+        failed += 1;
+      }
+      results.push({
+        affiliateId: partner.affiliateId,
+        name: partner.name,
+        status: 'FAILED',
+        error: paid.error,
+      });
+      continue;
+    }
+    processed += 1;
+    totalAmountCents += paid.amountCents || 0;
+    results.push({
+      affiliateId: partner.affiliateId,
+      name: partner.name,
+      amountCents: paid.amountCents,
+      payoutId: paid.payoutId,
+      status: 'SENT',
+    });
+  }
+
+  return { processed, failed, skipped, totalAmountCents, results };
+}
+
+async function pendingScheduledOverride(now: Date): Promise<{
+  due: Array<{ id: string; affiliateIds: string[]; skipThreshold: boolean }>;
+  skipAuto: boolean;
+}> {
+  const defaults = await getProgramDefaults();
+  const cycle = payoutCycleWindow(now, defaults.payoutFrequency, {
+    weekday: defaults.payoutWeekday,
+    dayOfMonth: defaults.payoutDayOfMonth,
+  });
+
+  const jobs = await prisma.scheduledPayoutJob.findMany({
+    where: {
+      status: { in: ['PENDING', 'RUNNING', 'COMPLETED'] },
+      runAt: { gte: cycle.start, lt: cycle.end },
+    },
+    orderBy: { runAt: 'asc' },
+  });
+
+  const due = jobs
+    .filter((job) => job.status === 'PENDING' && job.runAt.getTime() <= now.getTime())
+    .map((job) => ({
+      id: job.id,
+      affiliateIds: parseAffiliateIdList(job.affiliateIds),
+      skipThreshold: job.skipThreshold,
+    }));
+
+  return { due, skipAuto: jobs.length > 0 };
+}
+
+export async function createScheduledPayoutJob(input: {
+  actorId: string;
+  runAt: Date;
+  affiliateIds?: string[];
+  skipThreshold?: boolean;
+}) {
+  if (Number.isNaN(input.runAt.getTime()) || input.runAt.getTime() < Date.now() - 60_000) {
+    throw new Error('Pick a date and time in the future.');
+  }
+  return prisma.scheduledPayoutJob.create({
+    data: {
+      runAt: input.runAt,
+      affiliateIds: input.affiliateIds || [],
+      skipThreshold: Boolean(input.skipThreshold),
+      status: 'PENDING',
+      createdBy: input.actorId,
+    },
+  });
+}
+
+export async function listScheduledPayoutJobs() {
+  return prisma.scheduledPayoutJob.findMany({
+    where: { status: { in: ['PENDING', 'RUNNING'] } },
+    orderBy: { runAt: 'asc' },
+    take: 20,
+  });
+}
+
+export async function cancelScheduledPayoutJob(id: string) {
+  const job = await prisma.scheduledPayoutJob.findUnique({ where: { id } });
+  if (!job || job.status !== 'PENDING') {
+    return { success: false as const, error: 'That scheduled payout is not pending.' };
+  }
+  await prisma.scheduledPayoutJob.update({
+    where: { id },
+    data: { status: 'CANCELED', processedAt: new Date() },
+  });
+  return { success: true as const };
+}
+
+async function runDueScheduledJobs(actorId: string): Promise<{
+  ran: boolean;
+  processed: number;
+  failed: number;
+  skipped: number;
+  totalAmountCents: number;
+  results: PayoutRunResult['results'];
+}> {
+  const { due } = await pendingScheduledOverride(new Date());
+  if (due.length === 0) {
+    return { ran: false, processed: 0, failed: 0, skipped: 0, totalAmountCents: 0, results: [] };
+  }
+
+  let processed = 0;
+  let failed = 0;
+  let skipped = 0;
+  let totalAmountCents = 0;
+  const results: PayoutRunResult['results'] = [];
+
+  for (const job of due) {
+    await prisma.scheduledPayoutJob.update({
+      where: { id: job.id },
+      data: { status: 'RUNNING' },
+    });
+    const paid = await runSelectedPaypalPayouts({
+      actorId,
+      affiliateIds: job.affiliateIds.length > 0 ? job.affiliateIds : undefined,
+      skipThreshold: job.skipThreshold,
+    });
+    processed += paid.processed;
+    failed += paid.failed;
+    skipped += paid.skipped;
+    totalAmountCents += paid.totalAmountCents;
+    results.push(...paid.results);
+    await prisma.scheduledPayoutJob.update({
+      where: { id: job.id },
+      data: {
+        status: 'COMPLETED',
+        processedAt: new Date(),
+        result: {
+          processed: paid.processed,
+          failed: paid.failed,
+          skipped: paid.skipped,
+          totalAmountCents: paid.totalAmountCents,
+        },
+      },
+    });
+  }
+
+  return { ran: true, processed, failed, skipped, totalAmountCents, results };
 }
 
 async function markLastRun(settingsId?: string) {
@@ -506,25 +774,26 @@ export async function runAutoPayouts(input: {
 
   const refresh = await refreshOpenPaypalPayouts(input.actorId);
   const recovered = await recoverUnsentPayouts(input.actorId);
+  const scheduled = await runDueScheduledJobs(input.actorId);
+  const { skipAuto } = await pendingScheduledOverride(new Date());
 
-  if (!autoPayoutEnabled) {
+  if (!autoPayoutEnabled || skipAuto || scheduled.ran) {
     const last = await markLastRun(settings?.id);
+    const recoveredSent = recovered.filter((r) => r.status.startsWith('RECOVERED'));
     return {
       matured: 0,
-      processed: recovered.filter((r) => r.status.startsWith('RECOVERED')).length,
-      skipped: 0,
-      failed: recovered.filter((r) => r.status === 'FAILED').length,
+      processed: recoveredSent.length + scheduled.processed,
+      skipped: scheduled.skipped,
+      failed: recovered.filter((r) => r.status === 'FAILED').length + scheduled.failed,
       refreshed: refresh.refreshed,
       confirmed: refresh.confirmed,
       released: refresh.released,
-      totalAmountCents: recovered
-        .filter((r) => r.status.startsWith('RECOVERED'))
-        .reduce((sum, r) => sum + (r.amountCents || 0), 0),
+      totalAmountCents: recoveredSent.reduce((sum, r) => sum + (r.amountCents || 0), 0) + scheduled.totalAmountCents,
       paypalConfigured: true,
       autoPayoutEnabled,
       dripSize,
       lastAutoPayoutAt: last.toISOString(),
-      results: [...refresh.results, ...recovered],
+      results: [...refresh.results, ...recovered, ...scheduled.results],
     };
   }
   const programDefaults = await getProgramDefaults();

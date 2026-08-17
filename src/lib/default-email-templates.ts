@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { partnerAppUrl } from './app-url';
 import { EMAIL_TEMPLATE_CATALOG, EMAIL_WORDMARK, defaultBodies } from './email-brand';
 
 function applyEmailWordmark(html: string): string {
@@ -80,7 +81,7 @@ export async function getProgramBrand() {
   const companyName = /^(LAZI|Refferq|Partner program)$/i.test(rawName)
     ? EMAIL_WORDMARK
     : rawName;
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://partners.lazi.studio').replace(/\/$/, '');
+  const appUrl = partnerAppUrl();
   return {
     companyName,
     dashboardUrl: `${appUrl}/affiliate`,

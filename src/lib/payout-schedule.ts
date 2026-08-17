@@ -321,6 +321,42 @@ export function nextPaydayOnOrAfter(
   }
 }
 
+/** Current mass-payout cycle: last payday on or before `from`, through the next payday. */
+export function payoutCycleWindow(
+  from: Date,
+  frequency: PayoutFrequency,
+  payday: PayoutPayday,
+): { start: Date; end: Date } {
+  const startDay = utcDay(from);
+  const next = nextPaydayOnOrAfter(startDay, frequency, payday);
+  if (next.getTime() === startDay.getTime()) {
+    return {
+      start: next,
+      end: nextPaydayOnOrAfter(addUtcDays(next, 1), frequency, payday),
+    };
+  }
+  switch (frequency) {
+    case 'WEEKLY':
+      return { start: addUtcDays(next, -7), end: next };
+    case 'BIWEEKLY': {
+      const start = next.getUTCDate() === 15
+        ? new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), 1))
+        : new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() - 1, 15));
+      return { start, end: next };
+    }
+    case 'MONTHLY':
+      return {
+        start: monthDay(next.getUTCFullYear(), next.getUTCMonth() - 1, payday.dayOfMonth),
+        end: next,
+      };
+    case 'QUARTERLY':
+      return {
+        start: monthDay(next.getUTCFullYear(), next.getUTCMonth() - 3, payday.dayOfMonth),
+        end: next,
+      };
+  }
+}
+
 export function perSaleDueAt(eligibleAt: Date, frequency: PayoutFrequency): Date {
   const start = utcDay(eligibleAt);
   switch (frequency) {

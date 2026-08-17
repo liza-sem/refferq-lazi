@@ -21,7 +21,6 @@ import {
 } from '@/lib/payout-schedule';
 
 export type PayoutSettingsValue = {
-  cookieDuration: number;
   commissionHoldDays: number;
   payoutType: string;
   payoutFrequency: string;
@@ -46,20 +45,6 @@ export function PayoutSettingsFields({
       <p className="text-sm text-muted-foreground">
         Mass payout pays every partner on the same calendar day. Per sale pays each commission on a cadence counted from when that sale became eligible.
       </p>
-
-      <div className="grid gap-2">
-        <Label htmlFor="referralWindow">Referral window (days)</Label>
-        <Input
-          id="referralWindow"
-          type="number"
-          min={1}
-          value={value.cookieDuration || 30}
-          onChange={(e) => onChange({ cookieDuration: Math.max(1, parseInt(e.target.value, 10) || 30) })}
-        />
-        <p className="text-xs text-muted-foreground">
-          How long a ?ref= click or cookie attributes a sale. This is not hold and not payday.
-        </p>
-      </div>
 
       <div className="grid gap-2">
         <Label htmlFor="holdDays">Hold days</Label>

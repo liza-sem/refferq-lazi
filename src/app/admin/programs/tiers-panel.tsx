@@ -23,11 +23,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Layers, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { commissionPercent } from '@/lib/commission-rate';
-import { PAYOUT_FREQUENCY_OPTIONS, payoutTermExplanation } from '@/lib/payout-schedule';
-import { PayoutPaydaySelect } from '@/components/PayoutPaydaySelect';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 
 export interface PartnerTier {
   id: string;
@@ -281,7 +276,6 @@ export function PartnerTiersPanel() {
                 <TableRow>
                   <TableHead>Tier</TableHead>
                   <TableHead>Commission</TableHead>
-                  <TableHead>Payout term</TableHead>
                   <TableHead>Rank</TableHead>
                   <TableHead>Partners</TableHead>
                   <TableHead>Auto-assignment</TableHead>
@@ -301,14 +295,6 @@ export function PartnerTiersPanel() {
                       )}
                     </TableCell>
                     <TableCell>{commissionPercent(tier.commissionRate)}%</TableCell>
-                    <TableCell>
-                      {tier.payoutFrequency
-                        ? payoutTermExplanation(tier.payoutFrequency, {
-                          weekday: tier.payoutWeekday ?? 1,
-                          dayOfMonth: tier.payoutDayOfMonth ?? 15,
-                        })
-                        : <span className="text-xs text-muted-foreground">Program default</span>}
-                    </TableCell>
                     <TableCell className="tabular-nums">{tier.sortOrder}</TableCell>
                     <TableCell className="tabular-nums">{tier.memberCount}</TableCell>
                     <TableCell>
@@ -365,38 +351,9 @@ export function PartnerTiersPanel() {
                 rows={2}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Commission rate (%)</Label>
-                <Input type="number" min="0" max="100" step="0.1" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Payout term</Label>
-                <Select value={form.payoutFrequency} onValueChange={(v) => setForm({ ...form, payoutFrequency: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="INHERIT">Program default</SelectItem>
-                    {PAYOUT_FREQUENCY_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">How often PayPal is sent. Blank uses the program default.</p>
-                <PayoutPaydaySelect
-                  frequency={form.payoutFrequency}
-                  weekday={form.payoutWeekday}
-                  dayOfMonth={form.payoutDayOfMonth}
-                  onWeekdayChange={(v) => setForm({ ...form, payoutWeekday: v })}
-                  onDayOfMonthChange={(v) => setForm({ ...form, payoutDayOfMonth: v })}
-                  allowInherit
-                  inheritWeekdayLabel="Program default"
-                  inheritDayLabel="Program default"
-                  hintPayday={{
-                    weekday: form.payoutWeekday === 'INHERIT' ? 1 : parseInt(form.payoutWeekday, 10) || 1,
-                    dayOfMonth: form.payoutDayOfMonth === 'INHERIT' ? 15 : parseInt(form.payoutDayOfMonth, 10) || 15,
-                  }}
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label>Commission rate (%)</Label>
+              <Input type="number" min="0" max="100" step="0.1" value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} />
             </div>
             <div className="grid gap-2">
               <Label>Rank</Label>

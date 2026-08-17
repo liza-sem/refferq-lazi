@@ -20,13 +20,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Layers, Plus, Star, Percent, Clock, Globe, Edit, Trash2,
+  Layers, Plus, Star, Percent, Globe, Edit, Trash2,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PartnerTiersPanel } from './tiers-panel';
-import { formatMoney } from '@/lib/money';
-import { symbolForCurrency } from '@/lib/currency';
-import { PayoutSettingsFields } from '@/components/PayoutSettingsFields';
 
 interface Program {
   id: string;
@@ -114,14 +111,8 @@ export default function ProgramsPage() {
       const body: any = {
         name: form.name, slug: form.slug, description: form.description || null,
         commissionRate: parseFloat(form.commissionRate), commissionType: form.commissionType,
-        cookieDuration: parseInt(form.cookieDuration), currency: form.currency,
-        autoApprove: form.autoApprove, minPayoutCents: parseInt(form.minPayoutCents, 10) || 0,
-        payoutType: form.payoutType,
-        payoutFrequency: form.payoutFrequency,
-        payoutWeekday: parseInt(form.payoutWeekday, 10),
-        payoutDayOfMonth: parseInt(form.payoutDayOfMonth, 10),
-        allowPartnerPayNow: form.allowPartnerPayNow,
-        commissionHoldDays: parseInt(form.commissionHoldDays, 10) || 0,
+        currency: form.currency,
+        autoApprove: form.autoApprove,
         termsUrl: form.termsUrl || null, logoUrl: form.logoUrl || null,
         brandColor: form.brandColor || null,
       };
@@ -180,9 +171,6 @@ export default function ProgramsPage() {
       await fetchPrograms();
     } catch (error) { console.error('Failed to delete program:', error); }
   };
-
-  const formatCurrency = (cents: number, currency: string = 'USD') =>
-    formatMoney(cents, symbolForCurrency(currency));
 
   const stats = {
     total: programs.length,
@@ -253,7 +241,7 @@ export default function ProgramsPage() {
       <Card>
         <CardHeader>
           <CardTitle>All Programs</CardTitle>
-          <CardDescription>Configure commission rates, cookie durations, and payout rules per program</CardDescription>
+          <CardDescription>Configure commission rates per program. Hold, cadence, payday, and threshold live in Program Settings → Payouts.</CardDescription>
         </CardHeader>
         <CardContent>
           {programs.length === 0 ? (
@@ -268,9 +256,6 @@ export default function ProgramsPage() {
                 <TableRow>
                   <TableHead>Program</TableHead>
                   <TableHead>Commission</TableHead>
-                  <TableHead>Window</TableHead>
-                  <TableHead>Min payout</TableHead>
-                  <TableHead>Payout term</TableHead>
                   <TableHead>Auto-Approve</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -298,14 +283,6 @@ export default function ProgramsPage() {
                         <span className="text-xs text-muted-foreground">{p.commissionType}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        {p.cookieDuration}d
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatCurrency(p.minPayoutCents, p.currency)}</TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs">{p.payoutFrequency}</Badge></TableCell>
                     <TableCell>
                       <Badge variant={p.autoApprove ? 'default' : 'outline'} className="text-xs">
                         {p.autoApprove ? 'Yes' : 'Manual'}
@@ -392,29 +369,6 @@ export default function ProgramsPage() {
                 </Select>
               </div>
             </div>
-            <PayoutSettingsFields
-              value={{
-                cookieDuration: parseInt(form.cookieDuration, 10) || 30,
-                commissionHoldDays: parseInt(form.commissionHoldDays, 10) || 0,
-                payoutType: form.payoutType || 'MASS',
-                payoutFrequency: form.payoutFrequency || 'MONTHLY',
-                payoutWeekday: parseInt(form.payoutWeekday, 10) || 1,
-                payoutDayOfMonth: parseInt(form.payoutDayOfMonth, 10) || 15,
-                allowPartnerPayNow: Boolean(form.allowPartnerPayNow),
-                minimumPayoutThreshold: parseInt(form.minPayoutCents, 10) || 0,
-              }}
-              onChange={(patch) => setForm({
-                ...form,
-                ...(patch.cookieDuration != null ? { cookieDuration: String(patch.cookieDuration) } : {}),
-                ...(patch.commissionHoldDays != null ? { commissionHoldDays: String(patch.commissionHoldDays) } : {}),
-                ...(patch.payoutType ? { payoutType: patch.payoutType } : {}),
-                ...(patch.payoutFrequency ? { payoutFrequency: patch.payoutFrequency } : {}),
-                ...(patch.payoutWeekday != null ? { payoutWeekday: String(patch.payoutWeekday) } : {}),
-                ...(patch.payoutDayOfMonth != null ? { payoutDayOfMonth: String(patch.payoutDayOfMonth) } : {}),
-                ...(patch.allowPartnerPayNow != null ? { allowPartnerPayNow: patch.allowPartnerPayNow } : {}),
-                ...(patch.minimumPayoutThreshold != null ? { minPayoutCents: String(patch.minimumPayoutThreshold) } : {}),
-              })}
-            />
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Brand Color</Label>

@@ -44,7 +44,6 @@ import {
   Activity,
   Ticket,
   FolderOpen,
-  FileText,
   UsersRound,
   Layers,
 } from 'lucide-react';
@@ -55,7 +54,6 @@ const mainNavItems = [
   { title: 'Partners', url: '/admin/partners', icon: Users },
   { title: 'Customers', url: '/admin/customers', icon: UserCheck },
   { title: 'Payouts', url: '/admin/payouts', icon: Wallet },
-  { title: 'Invoices', url: '/admin/invoices', icon: FileText },
   { title: 'Emails', url: '/admin/emails', icon: Mail },
 ];
 
