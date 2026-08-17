@@ -30,7 +30,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
-import { formatHoldUntil, nextPayoutHint, inPayoutHint } from '@/lib/payout-copy';
+import { formatPayoutWhen } from '@/lib/payout-schedule';
 
 interface AffiliateStats {
   unpaidBalanceCents: number;
@@ -42,6 +42,7 @@ interface AffiliateStats {
   nextPayoutAt: string | null;
   nextMaturesAt: string | null;
   referredCount: number;
+  referredSalesCents: number;
   totalClicks: number;
   referralLink: string;
   referralCode: string;
@@ -93,6 +94,7 @@ export default function AffiliateDashboard() {
           nextPayoutAt: data.stats?.nextPayoutAt || null,
           nextMaturesAt: data.stats?.nextMaturesAt || null,
           referredCount: data.stats?.referredCount ?? 0,
+          referredSalesCents: data.stats?.referredSalesCents ?? 0,
           totalClicks: data.stats?.totalClicks || 0,
           referralLink: data.referralLink || data.stats?.referralLink || '',
           referralCode: data.affiliate?.referralCode || '',
@@ -156,44 +158,18 @@ export default function AffiliateDashboard() {
     return <DashboardSkeleton />;
   }
 
-  const pending = stats?.pendingHoldCents || 0;
-  const available = stats?.availableCents || 0;
-  const inPayout = stats?.inPayoutCents || 0;
   const paidOut = stats?.paidOutCents || 0;
-  const nextCents = stats?.nextPayoutCents || 0;
-  const nextAt = stats?.nextPayoutAt || null;
-  const referred = stats?.referredCount || 0;
+  const unpaid = (stats?.unpaidBalanceCents ?? 0) + (stats?.inPayoutCents || 0);
+  const referredSales = stats?.referredSalesCents || 0;
   const clicks = stats?.totalClicks || 0;
-  const holdHint = formatHoldUntil(stats?.nextMaturesAt || null);
-  const nextHint = nextPayoutHint(nextCents, nextAt);
-  const sentHint = inPayoutHint(inPayout, currencySymbol);
+  const nextAt = stats?.nextPayoutAt || null;
+  const nextLine = nextAt ? `Next payout ${formatPayoutWhen(nextAt)}` : null;
 
-  const metrics: Array<{ title: string; value: string; hint?: string }> = [
-    {
-      title: 'Pending',
-      value: formatMoney(pending, currencySymbol),
-      hint: pending > 0 ? holdHint || 'Chargeback hold' : undefined,
-    },
-    inPayout > 0
-      ? {
-          title: 'In payout',
-          value: formatMoney(inPayout, currencySymbol),
-          hint: sentHint,
-        }
-      : {
-          title: 'Unpaid',
-          value: formatMoney(available, currencySymbol),
-          hint: available > 0 ? nextHint : undefined,
-        },
-    {
-      title: 'Paid out',
-      value: formatMoney(paidOut, currencySymbol),
-    },
-    {
-      title: 'Referred',
-      value: String(referred),
-      hint: clicks > 0 ? `${clicks} click${clicks === 1 ? '' : 's'}` : undefined,
-    },
+  const metrics: Array<{ title: string; value: string }> = [
+    { title: 'Visits', value: String(clicks) },
+    { title: 'Unpaid commissions', value: formatMoney(unpaid, currencySymbol) },
+    { title: 'Paid commissions', value: formatMoney(paidOut, currencySymbol) },
+    { title: 'Referred sales', value: formatMoney(referredSales, currencySymbol) },
   ];
 
   return (
@@ -224,12 +200,12 @@ export default function AffiliateDashboard() {
           <div key={metric.title}>
             <p className="text-sm text-muted-foreground">{metric.title}</p>
             <p className="mt-2 text-3xl font-medium tracking-tight">{metric.value}</p>
-            {metric.hint ? (
-              <p className="mt-1 text-xs text-muted-foreground">{metric.hint}</p>
-            ) : null}
           </div>
         ))}
       </div>
+      {nextLine ? (
+        <p className="-mt-6 text-xs text-muted-foreground">{nextLine}</p>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-4">

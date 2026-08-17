@@ -8,6 +8,7 @@ import { matureCommissionsByIds } from '@/lib/mature-commissions';
 import { isCommissionMatured, maturedUnpaidWhere, resolveHoldDays } from '@/lib/commission-hold';
 import { getProgramDefaults } from '@/lib/program-defaults';
 import {
+  commissionEligibleAt,
   isCommissionDue,
   payoutFrequencyLabel,
   payoutTermExplanation,
@@ -223,6 +224,69 @@ async function failPayoutAndRelease(input: {
   });
 }
 
+const CANCELABLE_STATUSES = ['PENDING', 'PROCESSING', 'FAILED'] as const;
+
+export async function cancelPayout(input: {
+  actorId: string;
+  payoutId: string;
+}): Promise<{ success: boolean; error?: string; payoutId: string }> {
+  const payout = await prisma.payout.findUnique({
+    where: { id: input.payoutId },
+    select: {
+      id: true,
+      status: true,
+      affiliateId: true,
+      amountCents: true,
+      paypalStatus: true,
+    },
+  });
+
+  if (!payout) {
+    return { success: false, error: 'Payout not found', payoutId: input.payoutId };
+  }
+  if (payout.status === 'COMPLETED') {
+    return { success: false, error: 'Paid payouts cannot be cancelled.', payoutId: payout.id };
+  }
+  if (payout.status === 'CANCELED') {
+    return { success: true, payoutId: payout.id };
+  }
+  if (!(CANCELABLE_STATUSES as readonly string[]).includes(payout.status)) {
+    return { success: false, error: 'This payout cannot be cancelled.', payoutId: payout.id };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.commission.updateMany({
+      where: { payoutId: payout.id },
+      data: {
+        status: 'APPROVED',
+        payoutId: null,
+        paidAt: null,
+      },
+    });
+    await tx.payout.update({
+      where: { id: payout.id },
+      data: {
+        status: 'CANCELED',
+        paypalStatus: payout.paypalStatus || 'CANCELED',
+        notes: 'Cancelled by admin — will not retry',
+      },
+    });
+  });
+
+  await logAuditAction({
+    actorId: input.actorId,
+    action: 'PAYOUT_CANCELED',
+    objectType: 'PAYOUT',
+    objectId: payout.id,
+    payload: {
+      affiliateId: payout.affiliateId,
+      amountCents: payout.amountCents,
+    },
+  });
+
+  return { success: true, payoutId: payout.id };
+}
+
 type RefreshPayout = {
   id: string;
   affiliateId: string;
@@ -336,7 +400,7 @@ async function refreshOpenPaypalPayouts(actorId: string) {
   return { refreshed: open.length, confirmed, released, results };
 }
 
-/** PROCESSING rows with no batch id never reached PayPal — retry send, but do not mark paid yet. */
+/** PROCESSING with no batch id: crash-recover if fresh, otherwise cancel so cron does not retry PayPal forever. */
 async function recoverUnsentPayouts(actorId: string) {
   const stuck = await prisma.payout.findMany({
     where: { status: 'PROCESSING', method: 'PAYPAL', paypalBatchId: null },
@@ -349,8 +413,22 @@ async function recoverUnsentPayouts(actorId: string) {
   });
 
   const recovered: PayoutRunResult['results'] = [];
+  const staleMs = 10 * 60 * 1000;
 
   for (const payout of stuck) {
+    const stale = Date.now() - payout.createdAt.getTime() > staleMs;
+    if (stale) {
+      await cancelPayout({ actorId, payoutId: payout.id });
+      recovered.push({
+        affiliateId: payout.affiliateId,
+        name: payout.affiliate.user.name,
+        amountCents: payout.amountCents,
+        payoutId: payout.id,
+        status: 'CANCELED',
+      });
+      continue;
+    }
+
     const email = payout.recipientEmail;
     if (!email || !isValidPaypalEmail(email)) continue;
 
@@ -378,11 +456,12 @@ async function recoverUnsentPayouts(actorId: string) {
         status: sent.duplicate ? 'RECOVERED_DUPLICATE' : 'RECOVERED',
       });
     } catch (error) {
+      await cancelPayout({ actorId, payoutId: payout.id });
       recovered.push({
         affiliateId: payout.affiliateId,
         name: payout.affiliate.user.name,
         payoutId: payout.id,
-        status: 'FAILED',
+        status: 'CANCELED',
         error: (error as Error).message,
       });
     }
@@ -494,9 +573,10 @@ export async function runAutoPayouts(input: {
     const { frequency, payday } = resolvePayoutSchedule(
       commission.affiliate.partnerGroup,
       programDefaults,
+      programDefaults.payoutType,
     );
-    const approvedAt = commission.approvedAt || commission.createdAt;
-    if (!isCommissionDue(approvedAt, frequency, payday, now, lastRun)) continue;
+    const eligibleAt = commissionEligibleAt(commission);
+    if (!isCommissionDue(eligibleAt, frequency, payday, programDefaults.payoutType, now, lastRun)) continue;
 
     let entry = grouped.get(commission.affiliateId);
     if (!entry) {
@@ -509,14 +589,14 @@ export async function runAutoPayouts(input: {
         amountCents: 0,
         frequency,
         payday,
-        oldestPayableAt: approvedAt,
+        oldestPayableAt: eligibleAt,
         commissions: [],
       };
       grouped.set(commission.affiliateId, entry);
     }
     entry.commissions.push(commission);
     entry.amountCents += commission.amountCents;
-    if (approvedAt < entry.oldestPayableAt) entry.oldestPayableAt = approvedAt;
+    if (eligibleAt < entry.oldestPayableAt) entry.oldestPayableAt = eligibleAt;
   }
 
   const aboveMin = [...grouped.values()]
@@ -663,6 +743,7 @@ export async function runManualPaypalPayout(input: {
   affiliateId: string;
   commissionIds?: string[];
   skipHold?: boolean;
+  enforceMin?: boolean;
 }): Promise<ManualPayoutResult> {
   const paypalConfigured = isPaypalConfigured();
   const mode = paypalMode();
@@ -725,6 +806,13 @@ export async function runManualPaypalPayout(input: {
   }
   if (payableNow.length > 0 && amountCents < 1) {
     blockers.push('Payout amount must be at least $0.01.');
+  }
+  if (input.enforceMin) {
+    const settings = await prisma.programSettings.findFirst();
+    const minPayoutCents = minPayoutCentsFromSettings(settings);
+    if (payableNow.length > 0 && amountCents < minPayoutCents) {
+      blockers.push(`Below the min payout threshold (${(minPayoutCents / 100).toFixed(2)}).`);
+    }
   }
 
   if (blockers.length > 0) {
@@ -895,9 +983,10 @@ export async function getAutoPayoutStatus() {
     const { frequency, payday } = resolvePayoutSchedule(
       commission.affiliate.partnerGroup,
       programDefaults,
+      programDefaults.payoutType,
     );
-    const approvedAt = commission.approvedAt || commission.createdAt;
-    if (!isCommissionDue(approvedAt, frequency, payday, now, lastRun)) continue;
+    const eligibleAt = commissionEligibleAt(commission);
+    if (!isCommissionDue(eligibleAt, frequency, payday, programDefaults.payoutType, now, lastRun)) continue;
     const existing = grouped.get(commission.affiliateId);
     if (!existing) {
       grouped.set(commission.affiliateId, {
@@ -931,6 +1020,8 @@ export async function getAutoPayoutStatus() {
       commissionHoldDays: resolveHoldDays(settings?.commissionHoldDays),
       refundHoldDays: programDefaults.commissionHoldDays,
       cookieDuration: programDefaults.cookieDuration,
+      payoutType: programDefaults.payoutType,
+      allowPartnerPayNow: programDefaults.allowPartnerPayNow,
       payoutFrequency: programDefaults.payoutFrequency,
       payoutFrequencyLabel: payoutFrequencyLabel(programDefaults.payoutFrequency),
       payoutWeekday: programDefaults.payoutWeekday,
@@ -938,7 +1029,7 @@ export async function getAutoPayoutStatus() {
       paydayLabel: payoutTermExplanation(programDefaults.payoutFrequency, {
         weekday: programDefaults.payoutWeekday,
         dayOfMonth: programDefaults.payoutDayOfMonth,
-      }),
+      }, programDefaults.payoutType),
       lastAutoPayoutAt: settings?.lastAutoPayoutAt?.toISOString() || null,
       paypalConfigured: isPaypalConfigured(),
       paypalMode: paypalMode(),

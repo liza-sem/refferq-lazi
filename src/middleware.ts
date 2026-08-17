@@ -7,6 +7,15 @@ const JWT_SECRET = new TextEncoder().encode(
 );
 
 export async function middleware(request: NextRequest) {
+    const host = (request.headers.get('host') || '').split(':')[0];
+    if (host === 'referrals.lazi.studio') {
+        const url = request.nextUrl.clone();
+        url.hostname = 'partners.lazi.studio';
+        url.protocol = 'https:';
+        url.port = '';
+        return NextResponse.redirect(url, 308);
+    }
+
     const { pathname } = request.nextUrl;
 
     // 1. Define protected routes
@@ -84,10 +93,6 @@ export async function middleware(request: NextRequest) {
 // See "Matching Paths" below to learn more
 export const config = {
     matcher: [
-        '/admin/:path*',
-        '/affiliate/:path*',
-        '/api/admin/:path*',
-        '/api/affiliate/:path*',
-        '/api/auth/me',
+        '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 };

@@ -57,7 +57,7 @@ export function PayoutPaydaySelect({
   if (paydayNeedsWeekday(frequency)) {
     return (
       <div className="grid gap-2">
-        <Label>Payday</Label>
+        <Label>On which day</Label>
         <Select value={weekday} onValueChange={onWeekdayChange}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -77,7 +77,7 @@ export function PayoutPaydaySelect({
   if (paydayNeedsDayOfMonth(frequency)) {
     return (
       <div className="grid gap-2">
-        <Label>Payday</Label>
+        <Label>On which day</Label>
         <Select value={dayOfMonth} onValueChange={onDayOfMonthChange}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>

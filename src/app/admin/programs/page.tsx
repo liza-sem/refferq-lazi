@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PartnerTiersPanel } from './tiers-panel';
 import { formatMoney } from '@/lib/money';
 import { symbolForCurrency } from '@/lib/currency';
-import { PayoutPaydaySelect } from '@/components/PayoutPaydaySelect';
+import { PayoutSettingsFields } from '@/components/PayoutSettingsFields';
 
 interface Program {
   id: string;
@@ -41,9 +41,12 @@ interface Program {
   isDefault: boolean;
   autoApprove: boolean;
   minPayoutCents: number;
+  payoutType?: string;
   payoutFrequency: string;
   payoutWeekday?: number;
   payoutDayOfMonth?: number;
+  allowPartnerPayNow?: boolean;
+  commissionHoldDays?: number;
   termsUrl?: string;
   logoUrl?: string;
   brandColor?: string;
@@ -52,8 +55,9 @@ interface Program {
 
 const emptyForm = {
   name: '', slug: '', description: '', commissionRate: '20', commissionType: 'PERCENTAGE',
-  cookieDuration: '30', currency: 'USD', autoApprove: false, minPayoutCents: '100000',
-  payoutFrequency: 'MONTHLY', payoutWeekday: '1', payoutDayOfMonth: '15',
+  cookieDuration: '30', currency: 'USD', autoApprove: false, minPayoutCents: '0',
+  payoutType: 'MASS', payoutFrequency: 'MONTHLY', payoutWeekday: '1', payoutDayOfMonth: '15',
+  allowPartnerPayNow: false, commissionHoldDays: '30',
   termsUrl: '', logoUrl: '', brandColor: '#6366f1',
 };
 
@@ -91,10 +95,13 @@ export default function ProgramsPage() {
       name: p.name, slug: p.slug, description: p.description || '',
       commissionRate: String(p.commissionRate), commissionType: p.commissionType,
       cookieDuration: String(p.cookieDuration), currency: p.currency,
-      autoApprove: p.autoApprove, minPayoutCents: String(p.minPayoutCents),
+      autoApprove: p.autoApprove, minPayoutCents: String(p.minPayoutCents ?? 0),
+      payoutType: p.payoutType || 'MASS',
       payoutFrequency: p.payoutFrequency,
       payoutWeekday: String(p.payoutWeekday ?? 1),
       payoutDayOfMonth: String(p.payoutDayOfMonth ?? 15),
+      allowPartnerPayNow: Boolean(p.allowPartnerPayNow),
+      commissionHoldDays: String(p.commissionHoldDays ?? 30),
       termsUrl: p.termsUrl || '',
       logoUrl: p.logoUrl || '', brandColor: p.brandColor || '#6366f1',
     });
@@ -108,10 +115,13 @@ export default function ProgramsPage() {
         name: form.name, slug: form.slug, description: form.description || null,
         commissionRate: parseFloat(form.commissionRate), commissionType: form.commissionType,
         cookieDuration: parseInt(form.cookieDuration), currency: form.currency,
-        autoApprove: form.autoApprove, minPayoutCents: parseInt(form.minPayoutCents),
+        autoApprove: form.autoApprove, minPayoutCents: parseInt(form.minPayoutCents, 10) || 0,
+        payoutType: form.payoutType,
         payoutFrequency: form.payoutFrequency,
         payoutWeekday: parseInt(form.payoutWeekday, 10),
         payoutDayOfMonth: parseInt(form.payoutDayOfMonth, 10),
+        allowPartnerPayNow: form.allowPartnerPayNow,
+        commissionHoldDays: parseInt(form.commissionHoldDays, 10) || 0,
         termsUrl: form.termsUrl || null, logoUrl: form.logoUrl || null,
         brandColor: form.brandColor || null,
       };
@@ -258,8 +268,8 @@ export default function ProgramsPage() {
                 <TableRow>
                   <TableHead>Program</TableHead>
                   <TableHead>Commission</TableHead>
-                  <TableHead>Cookie</TableHead>
-                  <TableHead>Min Payout</TableHead>
+                  <TableHead>Window</TableHead>
+                  <TableHead>Min payout</TableHead>
                   <TableHead>Payout term</TableHead>
                   <TableHead>Auto-Approve</TableHead>
                   <TableHead>Status</TableHead>
@@ -370,13 +380,6 @@ export default function ProgramsPage() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label>Cookie duration (days)</Label>
-                <Input type="number" value={form.cookieDuration} onChange={e => setForm({...form, cookieDuration: e.target.value})} />
-                <p className="text-xs text-muted-foreground">Attribution window — how long a ?ref= click still counts. Not when you pay.</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
                 <Label>Currency</Label>
                 <Select value={form.currency} onValueChange={v => setForm({...form, currency: v})}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -388,35 +391,30 @@ export default function ProgramsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label>Min Payout (cents)</Label>
-                <Input type="number" value={form.minPayoutCents} onChange={e => setForm({...form, minPayoutCents: e.target.value})} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Payout term</Label>
-                <Select value={form.payoutFrequency} onValueChange={v => setForm({...form, payoutFrequency: v})}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="WEEKLY">Weekly</SelectItem>
-                    <SelectItem value="BIWEEKLY">Bi-Weekly</SelectItem>
-                    <SelectItem value="MONTHLY">Monthly</SelectItem>
-                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">How often PayPal is sent for tiers that do not override.</p>
-                <PayoutPaydaySelect
-                  frequency={form.payoutFrequency}
-                  weekday={form.payoutWeekday}
-                  dayOfMonth={form.payoutDayOfMonth}
-                  onWeekdayChange={(v) => setForm({ ...form, payoutWeekday: v })}
-                  onDayOfMonthChange={(v) => setForm({ ...form, payoutDayOfMonth: v })}
-                  hintPayday={{
-                    weekday: parseInt(form.payoutWeekday, 10) || 1,
-                    dayOfMonth: parseInt(form.payoutDayOfMonth, 10) || 15,
-                  }}
-                />
-              </div>
             </div>
+            <PayoutSettingsFields
+              value={{
+                cookieDuration: parseInt(form.cookieDuration, 10) || 30,
+                commissionHoldDays: parseInt(form.commissionHoldDays, 10) || 0,
+                payoutType: form.payoutType || 'MASS',
+                payoutFrequency: form.payoutFrequency || 'MONTHLY',
+                payoutWeekday: parseInt(form.payoutWeekday, 10) || 1,
+                payoutDayOfMonth: parseInt(form.payoutDayOfMonth, 10) || 15,
+                allowPartnerPayNow: Boolean(form.allowPartnerPayNow),
+                minimumPayoutThreshold: parseInt(form.minPayoutCents, 10) || 0,
+              }}
+              onChange={(patch) => setForm({
+                ...form,
+                ...(patch.cookieDuration != null ? { cookieDuration: String(patch.cookieDuration) } : {}),
+                ...(patch.commissionHoldDays != null ? { commissionHoldDays: String(patch.commissionHoldDays) } : {}),
+                ...(patch.payoutType ? { payoutType: patch.payoutType } : {}),
+                ...(patch.payoutFrequency ? { payoutFrequency: patch.payoutFrequency } : {}),
+                ...(patch.payoutWeekday != null ? { payoutWeekday: String(patch.payoutWeekday) } : {}),
+                ...(patch.payoutDayOfMonth != null ? { payoutDayOfMonth: String(patch.payoutDayOfMonth) } : {}),
+                ...(patch.allowPartnerPayNow != null ? { allowPartnerPayNow: patch.allowPartnerPayNow } : {}),
+                ...(patch.minimumPayoutThreshold != null ? { minPayoutCents: String(patch.minimumPayoutThreshold) } : {}),
+              })}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Brand Color</Label>

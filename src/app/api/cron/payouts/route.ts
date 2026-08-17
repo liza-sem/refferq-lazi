@@ -11,11 +11,10 @@ import { evaluateAllAffiliateTiers } from '@/lib/partner-tier-automation';
  *   curl -sS -X POST https://partners.lazi.studio/api/cron/payouts \
  *     -H "x-cron-secret: $CRON_SECRET"
  *
- * Each run matures due commissions (chargeback hold elapsed), refreshes open
- * PayPal payouts, then pays at most dripSize affiliates whose payday is today
- * (or was missed since the last run). Only APPROVED rows with maturesAt ≤ now
- * are paid. Same-day approvals after a run wait until the next payday.
- * Commissions stay unpaid until PayPal SUCCESS.
+ * Each run matures due commissions (hold elapsed), refreshes open
+ * PayPal payouts, then pays at most dripSize affiliates who are due
+ * under the program payout type. Canceled payouts are never retried.
+ * PROCESSING rows with no PayPal batch older than 10 minutes are cancelled.
  */
 async function handle(request: NextRequest) {
   const auth = await authorizeCronOrAdmin(request);

@@ -23,10 +23,29 @@ export const WEEKDAY_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 0, label: 'Sunday' },
 ];
 
-export const DAY_OF_MONTH_OPTIONS: Array<{ value: number; label: string }> = Array.from(
-  { length: 28 },
-  (_, i) => ({ value: i + 1, label: ordinal(i + 1) }),
-);
+/** 0 = last calendar day of the month (monthly / quarterly). */
+export const LAST_DAY_OF_MONTH = 0;
+
+export const DAY_OF_MONTH_OPTIONS: Array<{ value: number; label: string }> = [
+  ...Array.from({ length: 28 }, (_, i) => ({ value: i + 1, label: ordinal(i + 1) })),
+  { value: LAST_DAY_OF_MONTH, label: 'Last' },
+];
+
+export const PAYOUT_TYPES = ['MASS', 'PER_SALE'] as const;
+export type PayoutType = (typeof PAYOUT_TYPES)[number];
+
+export const PAYOUT_TYPE_OPTIONS: Array<{ value: PayoutType; label: string; help: string }> = [
+  {
+    value: 'MASS',
+    label: 'Mass payout',
+    help: 'Everyone with eligible commissions is paid on the same calendar day.',
+  },
+  {
+    value: 'PER_SALE',
+    label: 'Per sale',
+    help: 'Each commission pays on a cadence counted from when that sale became eligible.',
+  },
+];
 
 export type PayoutPayday = {
   weekday: number;
@@ -83,8 +102,19 @@ export function normalizeWeekday(value: unknown, fallback = DEFAULT_PAYOUT_WEEKD
   return n;
 }
 
+export function normalizePayoutType(value: string | null | undefined): PayoutType {
+  const raw = (value || '').trim().toUpperCase().replace(/[-_\s]/g, '');
+  if (raw === 'PERSALE' || raw === 'ONSALE' || raw === 'ONSCHEDULE') return 'PER_SALE';
+  return 'MASS';
+}
+
+export function isMassPayout(value: string | null | undefined): boolean {
+  return normalizePayoutType(value) === 'MASS';
+}
+
 export function normalizeDayOfMonth(value: unknown, fallback = DEFAULT_PAYOUT_DAY_OF_MONTH): number {
   const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+  if (n === LAST_DAY_OF_MONTH) return LAST_DAY_OF_MONTH;
   if (!Number.isInteger(n) || n < 1 || n > 28) return fallback;
   return n;
 }
@@ -101,6 +131,7 @@ export function parseOptionalDayOfMonth(value: unknown): number | null | undefin
   if (value === undefined) return undefined;
   if (value === null || value === '' || value === 'INHERIT') return null;
   const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+  if (n === LAST_DAY_OF_MONTH) return LAST_DAY_OF_MONTH;
   if (!Number.isInteger(n) || n < 1 || n > 28) return null;
   return n;
 }
@@ -144,12 +175,23 @@ export function resolvePayday(input: {
 export function resolvePayoutSchedule(
   tier: PaydayFields | null | undefined,
   program: PaydayFields | null | undefined,
-): { frequency: PayoutFrequency; payday: PayoutPayday } {
+  payoutType: string | null | undefined = 'MASS',
+): { frequency: PayoutFrequency; payday: PayoutPayday; payoutType: PayoutType } {
+  const type = normalizePayoutType(payoutType);
+  if (type === 'MASS') {
+    return {
+      payoutType: type,
+      frequency: normalizePayoutFrequency(program?.payoutFrequency),
+      payday: resolvePayday({
+        programWeekday: program?.payoutWeekday,
+        programDayOfMonth: program?.payoutDayOfMonth,
+      }),
+    };
+  }
   return {
+    payoutType: type,
     frequency: resolvePayoutFrequency(tier?.payoutFrequency, program?.payoutFrequency),
     payday: resolvePayday({
-      tierWeekday: tier?.payoutWeekday,
-      tierDayOfMonth: tier?.payoutDayOfMonth,
       programWeekday: program?.payoutWeekday,
       programDayOfMonth: program?.payoutDayOfMonth,
     }),
@@ -170,11 +212,29 @@ export function paydayNeedsDayOfMonth(frequency: string | null | undefined): boo
   return normalized === 'MONTHLY' || normalized === 'QUARTERLY';
 }
 
+function dayOfMonthLabel(day: number): string {
+  if (day === LAST_DAY_OF_MONTH) return 'last day';
+  return ordinal(day);
+}
+
 export function payoutTermExplanation(
   frequency: string | null | undefined,
   payday?: PayoutPayday | null,
+  payoutType: string | null | undefined = 'MASS',
 ): string {
   const normalized = normalizePayoutFrequency(frequency);
+  if (normalizePayoutType(payoutType) === 'PER_SALE') {
+    switch (normalized) {
+      case 'WEEKLY':
+        return 'Pays 7 days after each sale becomes eligible';
+      case 'BIWEEKLY':
+        return 'Pays 14 days after each sale becomes eligible';
+      case 'MONTHLY':
+        return 'Pays 1 month after each sale becomes eligible';
+      case 'QUARTERLY':
+        return 'Pays 3 months after each sale becomes eligible';
+    }
+  }
   const day = payday || { weekday: DEFAULT_PAYOUT_WEEKDAY, dayOfMonth: DEFAULT_PAYOUT_DAY_OF_MONTH };
   switch (normalized) {
     case 'WEEKLY':
@@ -182,9 +242,9 @@ export function payoutTermExplanation(
     case 'BIWEEKLY':
       return 'Pays on the 1st and 15th';
     case 'MONTHLY':
-      return `Pays on the ${ordinal(day.dayOfMonth)} of each month`;
+      return `Pays on the ${dayOfMonthLabel(day.dayOfMonth)} of each month`;
     case 'QUARTERLY':
-      return `Pays on the ${ordinal(day.dayOfMonth)} of January, April, July, and October`;
+      return `Pays on the ${dayOfMonthLabel(day.dayOfMonth)} of January, April, July, and October`;
   }
 }
 
@@ -204,6 +264,21 @@ function utcDay(date: Date): Date {
 
 function addUtcDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function addUtcMonths(date: Date, months: number): Date {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + months;
+  const day = date.getUTCDate();
+  const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(day, last)));
+}
+
+function monthDay(year: number, month: number, dayOfMonth: number): Date {
+  if (dayOfMonth === LAST_DAY_OF_MONTH) {
+    return new Date(Date.UTC(year, month + 1, 0));
+  }
+  return new Date(Date.UTC(year, month, dayOfMonth));
 }
 
 /** Next occurrence of this payday on or after `from` (UTC calendar). */
@@ -230,49 +305,73 @@ export function nextPaydayOnOrAfter(
     case 'MONTHLY': {
       const year = start.getUTCFullYear();
       const month = start.getUTCMonth();
-      const day = start.getUTCDate();
-      if (day <= payday.dayOfMonth) return new Date(Date.UTC(year, month, payday.dayOfMonth));
-      return new Date(Date.UTC(year, month + 1, payday.dayOfMonth));
+      const thisMonth = monthDay(year, month, payday.dayOfMonth);
+      if (start.getTime() <= thisMonth.getTime()) return thisMonth;
+      return monthDay(year, month + 1, payday.dayOfMonth);
     }
     case 'QUARTERLY': {
       const year = start.getUTCFullYear();
       const quarterMonths = [0, 3, 6, 9];
       for (const quarterMonth of quarterMonths) {
-        const candidate = new Date(Date.UTC(year, quarterMonth, payday.dayOfMonth));
+        const candidate = monthDay(year, quarterMonth, payday.dayOfMonth);
         if (candidate.getTime() >= start.getTime()) return candidate;
       }
-      return new Date(Date.UTC(year + 1, 0, payday.dayOfMonth));
+      return monthDay(year + 1, 0, payday.dayOfMonth);
     }
   }
 }
 
-/**
- * When this commission becomes payable: the program/tier payday
- * on or after the approval’s UTC calendar day (not +N days from the sale).
- */
+export function perSaleDueAt(eligibleAt: Date, frequency: PayoutFrequency): Date {
+  const start = utcDay(eligibleAt);
+  switch (frequency) {
+    case 'WEEKLY':
+      return addUtcDays(start, 7);
+    case 'BIWEEKLY':
+      return addUtcDays(start, 14);
+    case 'MONTHLY':
+      return addUtcMonths(start, 1);
+    case 'QUARTERLY':
+      return addUtcMonths(start, 3);
+  }
+}
+
+export function commissionEligibleAt(row: {
+  maturesAt?: Date | null;
+  approvedAt?: Date | null;
+  createdAt: Date;
+}): Date {
+  return row.maturesAt || row.approvedAt || row.createdAt;
+}
+
+/** When this commission becomes payable under the current payout type. */
 export function commissionDueAt(
-  approvedAt: Date,
+  eligibleAt: Date,
   frequency: PayoutFrequency,
   payday: PayoutPayday,
+  payoutType: string | null | undefined = 'MASS',
 ): Date {
-  return nextPaydayOnOrAfter(approvedAt, frequency, payday);
+  if (normalizePayoutType(payoutType) === 'PER_SALE') {
+    return perSaleDueAt(eligibleAt, frequency);
+  }
+  return nextPaydayOnOrAfter(eligibleAt, frequency, payday);
 }
 
 export function isCommissionDue(
-  approvedAt: Date,
+  eligibleAt: Date,
   frequency: PayoutFrequency,
   payday: PayoutPayday,
+  payoutType: string | null | undefined = 'MASS',
   now = new Date(),
   lastRun: Date | null = null,
 ): boolean {
-  const dueAt = commissionDueAt(approvedAt, frequency, payday);
+  const dueAt = commissionDueAt(eligibleAt, frequency, payday, payoutType);
   const today = utcDay(now);
   if (dueAt.getTime() < today.getTime()) return true;
   if (dueAt.getTime() > today.getTime()) return false;
   if (
     lastRun
     && utcDay(lastRun).getTime() === today.getTime()
-    && approvedAt.getTime() >= lastRun.getTime()
+    && eligibleAt.getTime() >= lastRun.getTime()
   ) {
     return false;
   }
@@ -283,31 +382,40 @@ export type UnpaidCommissionForPayout = {
   amountCents: number;
   approvedAt: Date | null;
   createdAt: Date;
+  maturesAt?: Date | null;
 };
 
-/** All unpaid commissions pay on the program/tier payday. */
 export function nextPayoutFromCommissions(
   commissions: UnpaidCommissionForPayout[],
   frequency: PayoutFrequency,
   payday: PayoutPayday,
   now = new Date(),
   lastRun: Date | null = null,
+  payoutType: string | null | undefined = 'MASS',
 ): { nextPayoutAt: Date | null; nextPayoutCents: number } {
-  if (commissions.length === 0) {
-    return { nextPayoutAt: null, nextPayoutCents: 0 };
-  }
-
-  const nextPayoutCents = commissions.reduce((sum, row) => sum + row.amountCents, 0);
+  const type = normalizePayoutType(payoutType);
   const today = utcDay(now);
   const lastRunToday = Boolean(lastRun && utcDay(lastRun).getTime() === today.getTime());
-  const allApprovedAfterTodaysRun = lastRunToday && commissions.every((row) => {
-    const approvedAt = row.approvedAt || row.createdAt;
-    return approvedAt.getTime() >= (lastRun as Date).getTime();
-  });
 
-  const from = allApprovedAfterTodaysRun ? addUtcDays(today, 1) : now;
-  return {
-    nextPayoutAt: nextPaydayOnOrAfter(from, frequency, payday),
-    nextPayoutCents,
-  };
+  if (type === 'PER_SALE') {
+    if (commissions.length === 0) {
+      return { nextPayoutAt: null, nextPayoutCents: 0 };
+    }
+    const nextPayoutCents = commissions.reduce((sum, row) => sum + row.amountCents, 0);
+    let earliest: Date | null = null;
+    for (const row of commissions) {
+      const due = perSaleDueAt(commissionEligibleAt(row), frequency);
+      if (!earliest || due.getTime() < earliest.getTime()) earliest = due;
+    }
+    if (!earliest) return { nextPayoutAt: null, nextPayoutCents };
+    if (earliest.getTime() < today.getTime() || (earliest.getTime() === today.getTime() && lastRunToday)) {
+      return { nextPayoutAt: lastRunToday ? addUtcDays(today, 1) : today, nextPayoutCents };
+    }
+    return { nextPayoutAt: earliest, nextPayoutCents };
+  }
+
+  const from = lastRunToday ? addUtcDays(today, 1) : now;
+  const nextPayoutAt = nextPaydayOnOrAfter(from, frequency, payday);
+  const nextPayoutCents = commissions.reduce((sum, row) => sum + row.amountCents, 0);
+  return { nextPayoutAt, nextPayoutCents };
 }

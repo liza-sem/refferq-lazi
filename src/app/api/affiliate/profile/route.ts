@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
 import { isValidPaypalEmail } from '@/lib/onboarding';
 import { commissionPercent } from '@/lib/commission-rate';
-import { approvedCustomerWhere, realLeadWhere } from '@/lib/program-metrics';
+import { approvedCustomerWhere, confirmedPurchaseWhere, realLeadWhere } from '@/lib/program-metrics';
 import { toAffiliateLead } from '@/lib/lead-privacy';
 import { backfillReferralPublicIds } from '@/lib/lead-public-id';
 import {
@@ -104,14 +104,19 @@ export async function GET(request: NextRequest) {
     const totalCommissions = commissions.length;
     const pendingCommissionsCount = pendingCommissionsList.length;
     const totalConversions = conversions.length;
-    const [totalClicks, referredCount] = await Promise.all([
+    const [totalClicks, referredCount, referredSalesAgg] = await Promise.all([
       prisma.referralClick.count({
         where: { affiliateId: affiliate.id },
       }),
       prisma.referral.count({
         where: { affiliateId: affiliate.id, ...approvedCustomerWhere },
       }),
+      prisma.conversion.aggregate({
+        where: { affiliateId: affiliate.id, ...confirmedPurchaseWhere },
+        _sum: { amountCents: true },
+      }),
     ]);
+    const referredSalesCents = referredSalesAgg._sum.amountCents || 0;
     const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
 
     const settings = await prisma.programSettings.findFirst();
@@ -119,6 +124,7 @@ export async function GET(request: NextRequest) {
     const { frequency: payoutFrequency, payday } = resolvePayoutSchedule(
       affiliate.partnerGroup,
       settings,
+      (settings as { payoutType?: string } | null)?.payoutType,
     );
     const approvedUnpaid = commissions.filter((c) => !c.payoutId && isCommissionMatured(c));
     const nextPayout = nextPayoutFromCommissions(
@@ -127,6 +133,7 @@ export async function GET(request: NextRequest) {
       payday,
       new Date(),
       settings?.lastAutoPayoutAt || null,
+      (settings as { payoutType?: string } | null)?.payoutType,
     );
     const nextPayoutAt = nextPayout.nextPayoutAt;
     const nextPayoutCents = nextPayout.nextPayoutCents;
@@ -156,6 +163,7 @@ export async function GET(request: NextRequest) {
       pendingCommissions: pendingCommissionsCount,
       totalConversions,
       referredCount,
+      referredSalesCents,
       totalClicks,
       conversionRate
     };

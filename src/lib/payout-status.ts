@@ -19,7 +19,7 @@ const PAYPAL_FAILED = new Set([
 
 export type PaypalPayoutOutcome = 'paid' | 'in_flight' | 'failed';
 
-export type HumanPayoutStatus = 'Unpaid' | 'Sent to PayPal' | 'Paid' | 'Failed';
+export type HumanPayoutStatus = 'Unpaid' | 'Sent to PayPal' | 'Paid' | 'Failed' | 'Cancelled';
 
 export const PAYPAL_CONFIRM_HINT =
   'PayPal usually confirms in minutes. Unclaimed can take longer.';
@@ -44,6 +44,7 @@ export function humanPayoutStatus(
   _paypalStatus?: string | null,
 ): HumanPayoutStatus {
   if (payoutStatus === 'COMPLETED') return 'Paid';
+  if (payoutStatus === 'CANCELED' || payoutStatus === 'CANCELLED') return 'Cancelled';
   if (payoutStatus === 'FAILED') return 'Failed';
   if (payoutStatus === 'PROCESSING') return 'Sent to PayPal';
   if (payoutStatus === 'PENDING') return 'Unpaid';

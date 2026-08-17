@@ -32,7 +32,6 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  ArrowUpRight,
   Ban,
   Download,
 } from 'lucide-react';
@@ -59,12 +58,14 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   PROCESSING: { label: 'Sent to PayPal', variant: 'outline', icon: Loader2 },
   COMPLETED: { label: 'Paid', variant: 'default', icon: CheckCircle2 },
   FAILED: { label: 'Failed', variant: 'destructive', icon: XCircle },
+  CANCELED: { label: 'Cancelled', variant: 'outline', icon: Ban },
 };
 
 export default function PayoutsPage() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [autoStatus, setAutoStatus] = useState<{
     autoPayoutEnabled: boolean;
@@ -121,6 +122,28 @@ export default function PayoutsPage() {
       console.error('Failed to fetch payouts:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancel = async (payoutId: string) => {
+    if (!confirm('Cancel this payout? It will stop retrying. Unpaid commissions go back to the partner.')) return;
+    setCancellingId(payoutId);
+    try {
+      const res = await fetch('/api/admin/payouts/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payoutId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || 'Could not cancel payout');
+        return;
+      }
+      await fetchPayouts();
+    } catch (error) {
+      console.error('Failed to cancel payout:', error);
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -184,7 +207,7 @@ export default function PayoutsPage() {
             </div>
             <CardDescription>
               {autoStatus.autoPayoutEnabled
-                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run whose payday is today (or was missed since the last run). ${autoStatus.paydayLabel || autoStatus.payoutFrequencyLabel} by default. Set the day on Programs or Partner tiers.`
+                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run using the payout type on Program Settings. ${autoStatus.paydayLabel || autoStatus.payoutFrequencyLabel}.`
                 : 'Off — turn this on in Program Settings.'}
             </CardDescription>
           </CardHeader>
@@ -204,7 +227,7 @@ export default function PayoutsPage() {
             </p>
             {autoStatus.refundHoldDays > 0 && (
               <p>
-                Refund hold is {autoStatus.refundHoldDays} day{autoStatus.refundHoldDays === 1 ? '' : 's'} after a sale (not the cookie, not the payout term). Test a partner from their profile with Create payout — that skips the term wait.
+                Hold is {autoStatus.refundHoldDays} day{autoStatus.refundHoldDays === 1 ? '' : 's'} after a confirmed sale. Cancel an in-flight payout to stop retries.
               </p>
             )}
             {autoStatus.paypalMode !== 'live' ? (
@@ -281,6 +304,7 @@ export default function PayoutsPage() {
                   <SelectItem value="PROCESSING">Sent to PayPal</SelectItem>
                   <SelectItem value="COMPLETED">Paid</SelectItem>
                   <SelectItem value="FAILED">Failed</SelectItem>
+                  <SelectItem value="CANCELED">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -304,6 +328,7 @@ export default function PayoutsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Requested</TableHead>
                   <TableHead>Processed</TableHead>
+                  <TableHead className="text-right"> </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -342,6 +367,18 @@ export default function PayoutsPage() {
                             year: 'numeric',
                           })
                           : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {['PENDING', 'PROCESSING', 'FAILED'].includes(payout.status) ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCancel(payout.id)}
+                            disabled={cancellingId === payout.id}
+                          >
+                            {cancellingId === payout.id ? 'Cancelling…' : 'Cancel'}
+                          </Button>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   );

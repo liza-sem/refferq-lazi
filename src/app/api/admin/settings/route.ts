@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
           brandTextColor: '#ffffff',
           minimumPayoutThreshold: 0,
           payoutTerm: 'NET-15',
+          payoutType: 'MASS',
           payoutFrequency: 'MONTHLY',
           payoutDayOfMonth: 15,
           commissionHoldDays: 30,
@@ -133,7 +134,7 @@ export async function PUT(request: NextRequest) {
       'companyName', 'companyLogo', 'favicon', 'portalAnnouncement',
       'brandButtonColor', 'brandBackgroundColor', 'brandTextColor',
       'cookieDuration', 'minimumPayoutThreshold', 'payoutTerm', 'payoutFrequency',
-      'payoutWeekday', 'payoutDayOfMonth',
+      'payoutWeekday', 'payoutDayOfMonth', 'payoutType', 'allowPartnerPayNow',
       'commissionHoldDays', 'minPayoutCents', 'autoPayoutEnabled', 'autoPayoutDripSize',
     ];
     const sanitizedData: Record<string, any> = {};
@@ -151,6 +152,13 @@ export async function PUT(request: NextRequest) {
     if (typeof sanitizedData.payoutFrequency === 'string') {
       const { normalizePayoutFrequency } = await import('@/lib/payout-schedule');
       sanitizedData.payoutFrequency = normalizePayoutFrequency(sanitizedData.payoutFrequency);
+    }
+    if (typeof sanitizedData.payoutType === 'string') {
+      const { normalizePayoutType } = await import('@/lib/payout-schedule');
+      sanitizedData.payoutType = normalizePayoutType(sanitizedData.payoutType);
+      if (sanitizedData.payoutType === 'MASS') {
+        sanitizedData.allowPartnerPayNow = false;
+      }
     }
     if (sanitizedData.payoutWeekday !== undefined) {
       const { normalizeWeekday } = await import('@/lib/payout-schedule');
@@ -177,17 +185,25 @@ export async function PUT(request: NextRequest) {
 
     if (
       sanitizedData.payoutFrequency
+      || sanitizedData.payoutType
       || sanitizedData.cookieDuration
       || sanitizedData.payoutWeekday !== undefined
       || sanitizedData.payoutDayOfMonth !== undefined
+      || sanitizedData.allowPartnerPayNow !== undefined
+      || sanitizedData.commissionHoldDays !== undefined
+      || sanitizedData.minimumPayoutThreshold !== undefined
     ) {
       await prisma.program.updateMany({
         where: { isDefault: true },
         data: {
           ...(typeof sanitizedData.payoutFrequency === 'string' ? { payoutFrequency: sanitizedData.payoutFrequency } : {}),
+          ...(typeof sanitizedData.payoutType === 'string' ? { payoutType: sanitizedData.payoutType } : {}),
           ...(typeof sanitizedData.payoutWeekday === 'number' ? { payoutWeekday: sanitizedData.payoutWeekday } : {}),
           ...(typeof sanitizedData.payoutDayOfMonth === 'number' ? { payoutDayOfMonth: sanitizedData.payoutDayOfMonth } : {}),
           ...(typeof sanitizedData.cookieDuration === 'number' ? { cookieDuration: sanitizedData.cookieDuration } : {}),
+          ...(typeof sanitizedData.allowPartnerPayNow === 'boolean' ? { allowPartnerPayNow: sanitizedData.allowPartnerPayNow } : {}),
+          ...(typeof sanitizedData.commissionHoldDays === 'number' ? { commissionHoldDays: sanitizedData.commissionHoldDays } : {}),
+          ...(typeof sanitizedData.minPayoutCents === 'number' ? { minPayoutCents: sanitizedData.minPayoutCents } : {}),
         },
       });
     }

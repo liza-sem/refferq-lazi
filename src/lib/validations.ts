@@ -29,7 +29,7 @@ export const payoutSchema = z.object({
 // Payout Status Update Validation
 export const payoutUpdateSchema = z.object({
     id: z.string(),
-    status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']).optional(),
+    status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELED']).optional(),
     method: z.string().optional(),
     notes: z.string().optional(),
 });

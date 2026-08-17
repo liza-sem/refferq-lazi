@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
-import { normalizeDayOfMonth, normalizeWeekday } from '@/lib/payout-schedule';
+import { normalizeDayOfMonth, normalizePayoutType, normalizeWeekday } from '@/lib/payout-schedule';
 
 async function verifyAdmin(request: NextRequest) {
   try {
@@ -39,7 +39,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, slug, description, commissionRate, commissionType, cookieDuration, currency, autoApprove, minPayoutCents, payoutFrequency, payoutWeekday, payoutDayOfMonth, termsUrl, logoUrl, brandColor } = body;
+    const {
+      name, slug, description, commissionRate, commissionType, cookieDuration, currency,
+      autoApprove, minPayoutCents, payoutType, payoutFrequency, payoutWeekday, payoutDayOfMonth,
+      allowPartnerPayNow, commissionHoldDays, termsUrl, logoUrl, brandColor,
+    } = body;
 
     if (!name || !slug) {
       return NextResponse.json({ error: 'Name and slug are required' }, { status: 400 });
@@ -62,10 +66,13 @@ export async function POST(request: NextRequest) {
         cookieDuration: cookieDuration || 30,
         currency: currency || 'USD',
         autoApprove: autoApprove || false,
-        minPayoutCents: minPayoutCents || 100000,
+        minPayoutCents: typeof minPayoutCents === 'number' ? Math.max(0, minPayoutCents) : 0,
+        payoutType: normalizePayoutType(payoutType),
         payoutFrequency: payoutFrequency || 'MONTHLY',
         payoutWeekday: normalizeWeekday(payoutWeekday),
         payoutDayOfMonth: normalizeDayOfMonth(payoutDayOfMonth),
+        allowPartnerPayNow: normalizePayoutType(payoutType) === 'PER_SALE' && Boolean(allowPartnerPayNow),
+        commissionHoldDays: typeof commissionHoldDays === 'number' ? Math.max(0, Math.floor(commissionHoldDays)) : 30,
         termsUrl: termsUrl || null,
         logoUrl: logoUrl || null,
         brandColor: brandColor || '#10b981',
@@ -79,10 +86,15 @@ export async function POST(request: NextRequest) {
         await prisma.programSettings.update({
           where: { id: settings.id },
           data: {
+            payoutType: program.payoutType,
             payoutFrequency: program.payoutFrequency,
             payoutWeekday: program.payoutWeekday,
             payoutDayOfMonth: program.payoutDayOfMonth,
             cookieDuration: program.cookieDuration,
+            allowPartnerPayNow: program.allowPartnerPayNow,
+            commissionHoldDays: program.commissionHoldDays,
+            minPayoutCents: program.minPayoutCents,
+            minimumPayoutThreshold: program.minPayoutCents,
           },
         });
       }
@@ -120,9 +132,12 @@ export async function PUT(request: NextRequest) {
       'isDefault',
       'autoApprove',
       'minPayoutCents',
+      'payoutType',
       'payoutFrequency',
       'payoutWeekday',
       'payoutDayOfMonth',
+      'allowPartnerPayNow',
+      'commissionHoldDays',
       'termsUrl',
       'logoUrl',
       'brandColor',
@@ -137,6 +152,10 @@ export async function PUT(request: NextRequest) {
     }
     if (updates.payoutDayOfMonth !== undefined) {
       updates.payoutDayOfMonth = normalizeDayOfMonth(updates.payoutDayOfMonth);
+    }
+    if (updates.payoutType !== undefined) {
+      updates.payoutType = normalizePayoutType(String(updates.payoutType));
+      if (updates.payoutType === 'MASS') updates.allowPartnerPayNow = false;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -161,16 +180,21 @@ export async function PUT(request: NextRequest) {
       });
     });
 
-    if (program.isDefault && (program.payoutFrequency || program.cookieDuration || program.payoutWeekday != null)) {
+    if (program.isDefault) {
       const settings = await prisma.programSettings.findFirst();
       if (settings) {
         await prisma.programSettings.update({
           where: { id: settings.id },
           data: {
+            payoutType: program.payoutType,
             payoutFrequency: program.payoutFrequency,
             payoutWeekday: program.payoutWeekday,
             payoutDayOfMonth: program.payoutDayOfMonth,
             cookieDuration: program.cookieDuration,
+            allowPartnerPayNow: program.allowPartnerPayNow,
+            commissionHoldDays: program.commissionHoldDays,
+            minPayoutCents: program.minPayoutCents,
+            minimumPayoutThreshold: program.minPayoutCents,
           },
         });
       }

@@ -59,13 +59,12 @@ import {
   Copy,
   ExternalLink,
   Zap,
-  Clock,
   Wallet,
   Image,
   Megaphone,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { PayoutPaydaySelect } from '@/components/PayoutPaydaySelect';
+import { PayoutSettingsFields } from '@/components/PayoutSettingsFields';
 
 interface ProgramSettings {
   id: string;
@@ -80,6 +79,8 @@ interface ProgramSettings {
   payoutFrequency: string;
   payoutWeekday: number;
   payoutDayOfMonth: number;
+  payoutType: string;
+  allowPartnerPayNow: boolean;
   cookieDuration: number;
   commissionHoldDays: number;
   autoPayoutEnabled: boolean;
@@ -190,6 +191,8 @@ export default function ProgramSettingsPage() {
           payoutFrequency: data.settings.payoutFrequency || 'MONTHLY',
           payoutWeekday: data.settings.payoutWeekday ?? 1,
           payoutDayOfMonth: data.settings.payoutDayOfMonth ?? 15,
+          payoutType: data.settings.payoutType || 'MASS',
+          allowPartnerPayNow: Boolean(data.settings.allowPartnerPayNow),
           cookieDuration: data.settings.cookieDuration ?? 30,
           commissionHoldDays: data.settings.commissionHoldDays ?? 30,
         });
@@ -220,6 +223,8 @@ export default function ProgramSettingsPage() {
           payoutFrequency: settings.payoutFrequency,
           payoutWeekday: settings.payoutWeekday,
           payoutDayOfMonth: settings.payoutDayOfMonth,
+          payoutType: settings.payoutType,
+          allowPartnerPayNow: settings.allowPartnerPayNow,
           cookieDuration: settings.cookieDuration,
           commissionHoldDays: settings.commissionHoldDays,
           autoPayoutEnabled: settings.autoPayoutEnabled !== false,
@@ -413,17 +418,6 @@ export default function ProgramSettingsPage() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="minimumPayoutThreshold">Min Payout Threshold (cents)</Label>
-              <Input
-                id="minimumPayoutThreshold"
-                type="number"
-                value={settings.minimumPayoutThreshold}
-                onChange={(e) =>
-                  setSettings({ ...settings, minimumPayoutThreshold: parseInt(e.target.value) || 0 })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
               <Label htmlFor="payoutTerm">Invoice terms</Label>
               <Select
                 value={settings.payoutTerm}
@@ -439,57 +433,7 @@ export default function ProgramSettingsPage() {
                   <SelectItem value="NET-90">NET-90</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground">Accounting terms on invoices — not how often PayPal is sent.</p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="payoutFrequency">Payout term</Label>
-              <Select
-                value={settings.payoutFrequency || 'MONTHLY'}
-                onValueChange={(v) => setSettings({ ...settings, payoutFrequency: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="WEEKLY">Weekly</SelectItem>
-                  <SelectItem value="BIWEEKLY">Bi-weekly</SelectItem>
-                  <SelectItem value="MONTHLY">Monthly</SelectItem>
-                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] text-muted-foreground">How often PayPal is sent. Tiers can override the payday. Partners cannot.</p>
-              <PayoutPaydaySelect
-                frequency={settings.payoutFrequency || 'MONTHLY'}
-                weekday={String(settings.payoutWeekday ?? 1)}
-                dayOfMonth={String(settings.payoutDayOfMonth ?? 15)}
-                onWeekdayChange={(v) => setSettings({ ...settings, payoutWeekday: parseInt(v, 10) })}
-                onDayOfMonthChange={(v) => setSettings({ ...settings, payoutDayOfMonth: parseInt(v, 10) })}
-                hintPayday={{
-                  weekday: settings.payoutWeekday ?? 1,
-                  dayOfMonth: settings.payoutDayOfMonth ?? 15,
-                }}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="commissionHoldDays">Chargeback hold (days)</Label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="commissionHoldDays"
-                  type="number"
-                  className="pl-9"
-                  value={settings.commissionHoldDays}
-                  onChange={(e) =>
-                    setSettings({ ...settings, commissionHoldDays: parseInt(e.target.value) || 0 })
-                  }
-                  placeholder="30"
-                />
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                {settings.commissionHoldDays > 0
-                  ? 'Days after a sale before commission can pay, so Stripe chargebacks and refunds can claw back. This is not the referral cookie and not the payout term.'
-                  : '0 means no chargeback hold — each commission pays after its term from the approval date. Cookie duration (attribution) is separate.'}
-              </p>
+              <p className="text-xs text-muted-foreground">Accounting terms on invoices — not when PayPal is sent.</p>
             </div>
           </div>
           <div className="rounded-md bg-muted p-3">
@@ -497,6 +441,33 @@ export default function ProgramSettingsPage() {
               Program ID: <span className="font-mono">{settings.programId}</span>
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5" />
+            Payouts
+          </CardTitle>
+          <CardDescription>
+            Referral window, hold, payout type, and the minimum that must be unpaid before PayPal is sent.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PayoutSettingsFields
+            value={{
+              cookieDuration: settings.cookieDuration,
+              commissionHoldDays: settings.commissionHoldDays,
+              payoutType: settings.payoutType || 'MASS',
+              payoutFrequency: settings.payoutFrequency || 'MONTHLY',
+              payoutWeekday: settings.payoutWeekday ?? 1,
+              payoutDayOfMonth: settings.payoutDayOfMonth ?? 15,
+              allowPartnerPayNow: Boolean(settings.allowPartnerPayNow),
+              minimumPayoutThreshold: settings.minimumPayoutThreshold || 0,
+            }}
+            onChange={(patch) => setSettings({ ...settings, ...patch })}
+          />
         </CardContent>
       </Card>
 
@@ -512,7 +483,7 @@ export default function ProgramSettingsPage() {
             )}
           </CardTitle>
           <CardDescription>
-            Cron pays only matured commissions (past the chargeback hold) on the program payday. Monthly defaults to the 15th. A few affiliates per run, so a mass pay does not hit your PayPal balance.
+            Cron sends PayPal using the payout type above: eligible commissions (past hold, at or above the min payout threshold). A few affiliates per run.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
@@ -557,20 +528,8 @@ export default function ProgramSettingsPage() {
                   setSettings({ ...settings, autoPayoutDripSize: parseInt(e.target.value) || 2 })
                 }
               />
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Default 2. Keep this small so payouts trickle instead of one large batch.
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Label>
-                {settings.commissionHoldDays > 0
-                  ? 'Chargeback hold still applies to automatic payouts'
-                  : 'No chargeback hold — payouts wait the term after each approval'}
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                {settings.commissionHoldDays > 0
-                  ? `Commissions stay PENDING for ${settings.commissionHoldDays} day${settings.commissionHoldDays === 1 ? '' : 's'} after a sale so Stripe chargebacks can claw back. Cookie duration is separate (tracking). After approval, monthly pays on the program payday (default the 15th). Use Create payout on a partner to skip hold for a sandbox test.`
-                  : 'Chargeback hold is 0 days. Each commission pays on the program payday after it was approved. Cookie duration is separate (tracking). Use Create payout on a partner to send now instead of waiting out the term.'}
               </p>
             </div>
           </div>
@@ -859,7 +818,7 @@ export default function ProgramSettingsPage() {
               <Separator />
 
               <div className="grid gap-2">
-                <Label htmlFor="cookieDuration">Cookie duration (days)</Label>
+                <Label htmlFor="cookieDuration">Referral window (days)</Label>
                 <Input
                   id="cookieDuration"
                   type="number"
@@ -870,7 +829,7 @@ export default function ProgramSettingsPage() {
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  Attribution window — how long a ?ref= click still counts toward a sale. This is not when you pay partners.
+                  How long a ?ref= click or cookie attributes a sale. Same as Payouts above. This is not hold and not payday.
                 </p>
               </div>
               <div className="rounded-md border p-4 space-y-3">

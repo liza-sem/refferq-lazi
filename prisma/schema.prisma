@@ -236,11 +236,13 @@ model ProgramSettings {
   autoPayoutEnabled         Boolean  @default(true) @map("auto_payout_enabled")
   autoPayoutDripSize        Int      @default(2) @map("auto_payout_drip_size")
   lastAutoPayoutAt          DateTime? @map("last_auto_payout_at")
+  payoutType                String    @default("MASS") @map("payout_type")
   payoutFrequency           String   @default("MONTHLY") @map("payout_frequency")
   payoutWeekday             Int      @default(1) @map("payout_weekday")
   payoutDayOfMonth          Int      @default(15) @map("payout_day_of_month")
+  allowPartnerPayNow        Boolean  @default(false) @map("allow_partner_pay_now")
   commissionHoldDays        Int      @default(30) @map("commission_hold_days")
-  minPayoutCents            Int      @default(100000) @map("min_payout_cents")
+  minPayoutCents            Int      @default(0) @map("min_payout_cents")
   companyName               String?  @map("company_name")
   portalAnnouncement        String?  @map("portal_announcement")
   createdAt                 DateTime @default(now()) @map("created_at")
@@ -442,6 +444,7 @@ enum PayoutStatus {
   PROCESSING
   COMPLETED
   FAILED
+  CANCELED
 }
 
 enum CommissionRuleType {
@@ -683,11 +686,14 @@ model Program {
   currency          String   @default("USD")
   isActive          Boolean  @default(true) @map("is_active")
   isDefault         Boolean  @default(false) @map("is_default")
-  autoApprove       Boolean  @default(false) @map("auto_approve")
-  minPayoutCents    Int      @default(100000) @map("min_payout_cents") // $1,000
-  payoutFrequency   String   @default("MONTHLY") @map("payout_frequency")
-  payoutWeekday     Int      @default(1) @map("payout_weekday")
-  payoutDayOfMonth  Int      @default(15) @map("payout_day_of_month")
+  autoApprove          Boolean  @default(false) @map("auto_approve")
+  minPayoutCents       Int      @default(0) @map("min_payout_cents")
+  payoutType           String   @default("MASS") @map("payout_type")
+  payoutFrequency      String   @default("MONTHLY") @map("payout_frequency")
+  payoutWeekday        Int      @default(1) @map("payout_weekday")
+  payoutDayOfMonth     Int      @default(15) @map("payout_day_of_month")
+  allowPartnerPayNow   Boolean  @default(false) @map("allow_partner_pay_now")
+  commissionHoldDays   Int      @default(30) @map("commission_hold_days")
   termsUrl          String?  @map("terms_url")
   logoUrl           String?  @map("logo_url")
   brandColor        String   @default("#10b981") @map("brand_color")

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
-import { nextPayoutFromCommissions, payoutFrequencyLabel, resolvePayoutSchedule } from '@/lib/payout-schedule';
+import { nextPayoutFromCommissions, payoutFrequencyLabel, resolvePayoutSchedule, isMassPayout } from '@/lib/payout-schedule';
 import { owedCommissionWhere } from '@/lib/program-metrics';
 import { getCurrencySymbol } from '@/lib/currency';
 import { isCommissionMatured, resolveHoldDays } from '@/lib/commission-hold';
 import { humanPayoutStatus } from '@/lib/payout-status';
 import { isValidPaypalEmail, paypalEmailFromDetails } from '@/lib/onboarding';
+import { runManualPaypalPayout } from '@/lib/auto-payouts';
 
 async function loadAffiliate(request: NextRequest) {
   const userId = await getRequestUserId(request);
@@ -63,6 +64,8 @@ export async function GET(request: NextRequest) {
           payoutDayOfMonth: true,
           lastAutoPayoutAt: true,
           commissionHoldDays: true,
+          payoutType: true,
+          allowPartnerPayNow: true,
         },
       }),
       prisma.commission.findMany({
@@ -73,9 +76,11 @@ export async function GET(request: NextRequest) {
     ]);
 
     const minimumPayoutCents = settings?.minimumPayoutThreshold ?? settings?.minPayoutCents ?? 0;
+    const payoutType = (settings as { payoutType?: string } | null)?.payoutType;
     const { frequency: payoutFrequency, payday } = resolvePayoutSchedule(
       affiliate.partnerGroup,
       settings,
+      payoutType,
     );
     const holdDays = resolveHoldDays(settings?.commissionHoldDays);
     const now = new Date();
@@ -93,6 +98,7 @@ export async function GET(request: NextRequest) {
       payday,
       now,
       settings?.lastAutoPayoutAt || null,
+      payoutType,
     );
     const nextPayoutCents = nextPayout.nextPayoutCents;
     const inPayoutCents = payouts
@@ -132,6 +138,8 @@ export async function GET(request: NextRequest) {
       schedule: {
         minimumPayoutCents,
         payoutTerm: settings?.payoutTerm || 'NET-15',
+        payoutType: payoutType || 'MASS',
+        allowPartnerPayNow: !isMassPayout(payoutType) && Boolean((settings as { allowPartnerPayNow?: boolean } | null)?.allowPartnerPayNow),
         payoutFrequency,
         payoutFrequencyLabel: payoutFrequencyLabel(payoutFrequency),
         payoutWeekday: payday.weekday,
@@ -147,5 +155,44 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to fetch payouts' },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const loaded = await loadAffiliate(request);
+    if ('error' in loaded) return loaded.error;
+    const { user, affiliate } = loaded;
+
+    const settings = await prisma.programSettings.findFirst({
+      select: { payoutType: true, allowPartnerPayNow: true },
+    });
+    if (isMassPayout(settings?.payoutType) || !settings?.allowPartnerPayNow) {
+      return NextResponse.json({ error: 'Pay out now is not enabled.' }, { status: 403 });
+    }
+
+    const result = await runManualPaypalPayout({
+      actorId: user.id,
+      affiliateId: affiliate.id,
+      skipHold: false,
+      enforceMin: true,
+    });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Failed to send payout', blockers: result.blockers },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      payoutId: result.payoutId,
+      amountCents: result.amountCents,
+      message: 'Payout sent. PayPal usually confirms in minutes.',
+    });
+  } catch (error) {
+    console.error('Affiliate pay-now error:', error);
+    return NextResponse.json({ error: 'Failed to send payout' }, { status: 500 });
   }
 }

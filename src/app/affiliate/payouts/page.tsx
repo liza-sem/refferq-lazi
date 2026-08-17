@@ -57,10 +57,17 @@ export default function PayoutsPage() {
     payoutFrequency: 'MONTHLY',
     payoutWeekday: DEFAULT_PAYOUT_WEEKDAY,
     payoutDayOfMonth: DEFAULT_PAYOUT_DAY_OF_MONTH,
+    payoutType: 'MASS',
+    allowPartnerPayNow: false,
+    minimumPayoutCents: 0,
     commissionHoldDays: 30,
     nextPayoutAt: null as string | null,
     nextMaturesAt: null as string | null,
   });
+  const [payingNow, setPayingNow] = useState(false);
+  const [hasPaypalEmail, setHasPaypalEmail] = useState(false);
+  const [payoutInFlight, setPayoutInFlight] = useState(false);
+  const [payNowError, setPayNowError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) fetchPayouts();
@@ -79,11 +86,16 @@ export default function PayoutsPage() {
         setInPayoutCents(payData.inPayoutCents || 0);
         setPaidSoFarCents(payData.paidSoFarCents || 0);
         setCurrencySymbol(payData.currencySymbol || '$');
+        setHasPaypalEmail(Boolean(payData.hasPaypalEmail));
+        setPayoutInFlight(Boolean(payData.payoutInFlight));
         if (payData.schedule) {
           setSchedule({
             payoutFrequency: payData.schedule.payoutFrequency || 'MONTHLY',
             payoutWeekday: payData.schedule.payoutWeekday ?? DEFAULT_PAYOUT_WEEKDAY,
             payoutDayOfMonth: payData.schedule.payoutDayOfMonth ?? DEFAULT_PAYOUT_DAY_OF_MONTH,
+            payoutType: payData.schedule.payoutType || 'MASS',
+            allowPartnerPayNow: Boolean(payData.schedule.allowPartnerPayNow),
+            minimumPayoutCents: payData.schedule.minimumPayoutCents ?? 0,
             commissionHoldDays: payData.schedule.commissionHoldDays ?? 30,
             nextPayoutAt: payData.schedule.nextPayoutAt || null,
             nextMaturesAt: payData.schedule.nextMaturesAt || null,
@@ -94,6 +106,24 @@ export default function PayoutsPage() {
       console.error('Failed to fetch payouts:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePayNow = async () => {
+    setPayingNow(true);
+    setPayNowError(null);
+    try {
+      const res = await fetch('/api/affiliate/payouts', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPayNowError(data.error || 'Could not send payout');
+        return;
+      }
+      await fetchPayouts();
+    } catch (_e) {
+      setPayNowError('Could not send payout');
+    } finally {
+      setPayingNow(false);
     }
   };
 
@@ -183,11 +213,22 @@ export default function PayoutsPage() {
             {payoutScheduleLine(schedule.payoutFrequency, {
               weekday: schedule.payoutWeekday,
               dayOfMonth: schedule.payoutDayOfMonth,
-            })}
+            }, schedule.payoutType)}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {holdCopy(schedule.commissionHoldDays)}
           </p>
+          {schedule.allowPartnerPayNow && availableCents >= schedule.minimumPayoutCents && availableCents > 0 && !payoutInFlight ? (
+            <div className="mt-3">
+              <Button onClick={handlePayNow} disabled={payingNow || !hasPaypalEmail} size="sm">
+                {payingNow ? 'Sending…' : 'Pay out now'}
+              </Button>
+              {payNowError ? <p className="mt-1 text-xs text-destructive">{payNowError}</p> : null}
+              {!hasPaypalEmail ? (
+                <p className="mt-1 text-xs text-muted-foreground">Add a PayPal email in Settings first.</p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {payouts.length > 0 && (
           <Button variant="ghost" size="sm" onClick={exportCSV} className="gap-1.5 text-muted-foreground">

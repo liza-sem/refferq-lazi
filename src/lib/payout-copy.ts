@@ -33,8 +33,9 @@ export function inPayoutHint(cents: number, symbol = '$'): string | undefined {
 export function payoutScheduleLine(
   frequency: string | null | undefined,
   payday?: PayoutPayday | null,
+  payoutType?: string | null,
 ): string {
-  return payoutTermExplanation(frequency, payday);
+  return payoutTermExplanation(frequency, payday, payoutType);
 }
 
 /** Chargeback hold date, e.g. “Held until 15 Sep”. Not the payout term. */
@@ -48,6 +49,6 @@ export function formatHoldUntil(isoOrDate: string | Date | null | undefined): st
 }
 
 export function holdCopy(holdDays = 30): string {
-  const days = holdDays > 0 ? holdDays : 30;
-  return `Unpaid commissions are held for ${days} days, then paid on the program payday.`;
+  if (holdDays <= 0) return 'Commissions are eligible as soon as a sale is confirmed.';
+  return `Commissions are eligible ${holdDays} days after a confirmed sale.`;
 }
