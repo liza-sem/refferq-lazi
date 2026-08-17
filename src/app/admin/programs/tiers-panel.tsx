@@ -305,7 +305,7 @@ export function PartnerTiersPanel() {
                       {tier.payoutFrequency
                         ? payoutTermExplanation(tier.payoutFrequency, {
                           weekday: tier.payoutWeekday ?? 1,
-                          dayOfMonth: tier.payoutDayOfMonth ?? 1,
+                          dayOfMonth: tier.payoutDayOfMonth ?? 15,
                         })
                         : <span className="text-xs text-muted-foreground">Program default</span>}
                     </TableCell>
@@ -381,7 +381,7 @@ export function PartnerTiersPanel() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">How often PayPal is sent. Blank uses the program default. Partners can still pick their own payday.</p>
+                <p className="text-xs text-muted-foreground">How often PayPal is sent. Blank uses the program default.</p>
                 <PayoutPaydaySelect
                   frequency={form.payoutFrequency}
                   weekday={form.payoutWeekday}
@@ -393,7 +393,7 @@ export function PartnerTiersPanel() {
                   inheritDayLabel="Program default"
                   hintPayday={{
                     weekday: form.payoutWeekday === 'INHERIT' ? 1 : parseInt(form.payoutWeekday, 10) || 1,
-                    dayOfMonth: form.payoutDayOfMonth === 'INHERIT' ? 1 : parseInt(form.payoutDayOfMonth, 10) || 1,
+                    dayOfMonth: form.payoutDayOfMonth === 'INHERIT' ? 15 : parseInt(form.payoutDayOfMonth, 10) || 15,
                   }}
                 />
               </div>

@@ -8,8 +8,6 @@ import { toAffiliateLead } from '@/lib/lead-privacy';
 import { backfillReferralPublicIds } from '@/lib/lead-public-id';
 import {
   nextPayoutFromCommissions,
-  parseOptionalDayOfMonth,
-  parseOptionalWeekday,
   resolvePayoutSchedule,
 } from '@/lib/payout-schedule';
 import { isCommissionMatured, resolveHoldDays } from '@/lib/commission-hold';
@@ -119,7 +117,6 @@ export async function GET(request: NextRequest) {
     const settings = await prisma.programSettings.findFirst();
     const commissionHoldDays = resolveHoldDays(settings?.commissionHoldDays);
     const { frequency: payoutFrequency, payday } = resolvePayoutSchedule(
-      affiliate,
       affiliate.partnerGroup,
       settings,
     );
@@ -191,10 +188,6 @@ export async function GET(request: NextRequest) {
         notifySaleEarned: affiliate.notifySaleEarned,
         notifyPayouts: affiliate.notifyPayouts,
         notifyTierUpgraded: affiliate.notifyTierUpgraded,
-        payoutWeekday: affiliate.payoutWeekday,
-        payoutDayOfMonth: affiliate.payoutDayOfMonth,
-        defaultPayoutWeekday: affiliate.partnerGroup?.payoutWeekday ?? settings?.payoutWeekday ?? 1,
-        defaultPayoutDayOfMonth: affiliate.partnerGroup?.payoutDayOfMonth ?? settings?.payoutDayOfMonth ?? 1,
         payoutDetails: {
           paymentMethod: payoutDetails.paymentMethod || 'PayPal',
           paymentEmail: payoutDetails.paymentEmail || '',
@@ -266,7 +259,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, company, email, country, paymentEmail, notifySaleEarned, notifyPayouts, notifyTierUpgraded, payoutWeekday, payoutDayOfMonth } = body;
+    const { name, company, email, country, paymentEmail, notifySaleEarned, notifyPayouts, notifyTierUpgraded } = body;
 
     const userUpdateData: any = {};
     if (name && name.trim()) {
@@ -316,8 +309,6 @@ export async function PUT(request: NextRequest) {
           ...(typeof notifySaleEarned === 'boolean' ? { notifySaleEarned } : {}),
           ...(typeof notifyPayouts === 'boolean' ? { notifyPayouts } : {}),
           ...(typeof notifyTierUpgraded === 'boolean' ? { notifyTierUpgraded } : {}),
-          ...(payoutWeekday !== undefined ? { payoutWeekday: parseOptionalWeekday(payoutWeekday) ?? null } : {}),
-          ...(payoutDayOfMonth !== undefined ? { payoutDayOfMonth: parseOptionalDayOfMonth(payoutDayOfMonth) ?? null } : {}),
         }
       });
     }

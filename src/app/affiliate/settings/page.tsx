@@ -38,8 +38,6 @@ import {
 } from 'lucide-react';
 import { COUNTRIES, DEFAULT_COUNTRY } from '@/lib/countries';
 import { Switch } from '@/components/ui/switch';
-import { PayoutPaydaySelect } from '@/components/PayoutPaydaySelect';
-import { weekdayLabel } from '@/lib/payout-schedule';
 
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -59,11 +57,6 @@ export default function SettingsPage() {
     notifySaleEarned: true,
     notifyPayouts: true,
     notifyTierUpgraded: true,
-    payoutFrequency: 'MONTHLY',
-    payoutWeekday: 'INHERIT',
-    payoutDayOfMonth: 'INHERIT',
-    defaultPayoutWeekday: 1,
-    defaultPayoutDayOfMonth: 1,
   });
 
   useEffect(() => {
@@ -88,11 +81,6 @@ export default function SettingsPage() {
           notifySaleEarned: data.affiliate?.notifySaleEarned !== false,
           notifyPayouts: data.affiliate?.notifyPayouts !== false,
           notifyTierUpgraded: data.affiliate?.notifyTierUpgraded !== false,
-          payoutFrequency: data.stats?.payoutFrequency || 'MONTHLY',
-          payoutWeekday: data.affiliate?.payoutWeekday == null ? 'INHERIT' : String(data.affiliate.payoutWeekday),
-          payoutDayOfMonth: data.affiliate?.payoutDayOfMonth == null ? 'INHERIT' : String(data.affiliate.payoutDayOfMonth),
-          defaultPayoutWeekday: data.affiliate?.defaultPayoutWeekday ?? 1,
-          defaultPayoutDayOfMonth: data.affiliate?.defaultPayoutDayOfMonth ?? 1,
         });
       }
     } catch (error) {
@@ -295,38 +283,6 @@ export default function SettingsPage() {
               Your payment information is encrypted and stored securely. We will never share your details with third parties.
             </AlertDescription>
           </Alert>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="h-4 w-4" />
-            Pay me on
-          </CardTitle>
-          <CardDescription>
-            Monthly payouts use this day of the month. Default is the program day. The next cron uses whatever you save here.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PayoutPaydaySelect
-            frequency={settingsForm.payoutFrequency}
-            weekday={settingsForm.payoutWeekday}
-            dayOfMonth={settingsForm.payoutDayOfMonth}
-            onWeekdayChange={(v) => setSettingsForm({ ...settingsForm, payoutWeekday: v })}
-            onDayOfMonthChange={(v) => setSettingsForm({ ...settingsForm, payoutDayOfMonth: v })}
-            allowInherit
-            inheritWeekdayLabel={`Same as program (${weekdayLabel(settingsForm.defaultPayoutWeekday)})`}
-            inheritDayLabel={`Same as program (${settingsForm.defaultPayoutDayOfMonth})`}
-            hintPayday={{
-              weekday: settingsForm.payoutWeekday === 'INHERIT'
-                ? settingsForm.defaultPayoutWeekday
-                : parseInt(settingsForm.payoutWeekday, 10) || 1,
-              dayOfMonth: settingsForm.payoutDayOfMonth === 'INHERIT'
-                ? settingsForm.defaultPayoutDayOfMonth
-                : parseInt(settingsForm.payoutDayOfMonth, 10) || 1,
-            }}
-          />
         </CardContent>
       </Card>
 

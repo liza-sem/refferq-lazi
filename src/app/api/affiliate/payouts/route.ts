@@ -4,10 +4,9 @@ import { getRequestUserId } from '@/lib/request-user';
 import { nextPayoutFromCommissions, payoutFrequencyLabel, resolvePayoutSchedule } from '@/lib/payout-schedule';
 import { owedCommissionWhere } from '@/lib/program-metrics';
 import { getCurrencySymbol } from '@/lib/currency';
-import { isCommissionMatured, maturedUnpaidWhere, resolveHoldDays } from '@/lib/commission-hold';
+import { isCommissionMatured, resolveHoldDays } from '@/lib/commission-hold';
 import { humanPayoutStatus } from '@/lib/payout-status';
 import { isValidPaypalEmail, paypalEmailFromDetails } from '@/lib/onboarding';
-import { runManualPaypalPayout } from '@/lib/auto-payouts';
 
 async function loadAffiliate(request: NextRequest) {
   const userId = await getRequestUserId(request);
@@ -37,20 +36,6 @@ async function loadAffiliate(request: NextRequest) {
   }
 
   return { user, affiliate: user.affiliate };
-}
-
-function payNowDisabledReason(input: {
-  availableCents: number;
-  hasPaypalEmail: boolean;
-  payoutInFlight: boolean;
-  holdDays: number;
-}): string | null {
-  if (input.payoutInFlight) return 'A payout is already on the way.';
-  if (!input.hasPaypalEmail) return 'Add a PayPal email in Settings.';
-  if (input.availableCents <= 0) {
-    return `Nothing available yet. Sales are held for ${input.holdDays} day${input.holdDays === 1 ? '' : 's'}.`;
-  }
-  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -89,7 +74,6 @@ export async function GET(request: NextRequest) {
 
     const minimumPayoutCents = settings?.minimumPayoutThreshold ?? settings?.minPayoutCents ?? 0;
     const { frequency: payoutFrequency, payday } = resolvePayoutSchedule(
-      affiliate,
       affiliate.partnerGroup,
       settings,
     );
@@ -123,12 +107,6 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => ((a.maturesAt?.getTime() || 0) - (b.maturesAt?.getTime() || 0)))[0]?.maturesAt || null;
     const hasPaypalEmail = isValidPaypalEmail(paypalEmailFromDetails(affiliate.payoutDetails));
     const payoutInFlight = inPayoutCents > 0;
-    const disabledReason = payNowDisabledReason({
-      availableCents,
-      hasPaypalEmail,
-      payoutInFlight,
-      holdDays,
-    });
 
     return NextResponse.json({
       success: true,
@@ -151,8 +129,6 @@ export async function GET(request: NextRequest) {
       currencySymbol,
       hasPaypalEmail,
       payoutInFlight,
-      canPayNow: !disabledReason,
-      payNowDisabledReason: disabledReason,
       schedule: {
         minimumPayoutCents,
         payoutTerm: settings?.payoutTerm || 'NET-15',
@@ -170,71 +146,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'Failed to fetch payouts' },
       { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const loaded = await loadAffiliate(request);
-    if ('error' in loaded) return loaded.error;
-    const { user, affiliate } = loaded;
-
-    const settings = await prisma.programSettings.findFirst({
-      select: { commissionHoldDays: true },
-    });
-    const holdDays = resolveHoldDays(settings?.commissionHoldDays);
-    const hasPaypalEmail = isValidPaypalEmail(paypalEmailFromDetails(affiliate.payoutDetails));
-    const inFlight = await prisma.payout.findFirst({
-      where: { affiliateId: affiliate.id, status: 'PROCESSING' },
-      select: { id: true },
-    });
-    const now = new Date();
-    const matured = await prisma.commission.findMany({
-      where: { affiliateId: affiliate.id, ...maturedUnpaidWhere(now) },
-      select: { id: true, amountCents: true },
-    });
-    const availableCents = matured.reduce((sum, c) => sum + c.amountCents, 0);
-    const disabledReason = payNowDisabledReason({
-      availableCents,
-      hasPaypalEmail,
-      payoutInFlight: Boolean(inFlight),
-      holdDays,
-    });
-
-    if (disabledReason) {
-      return NextResponse.json({ success: false, error: disabledReason }, { status: 400 });
-    }
-
-    const result = await runManualPaypalPayout({
-      actorId: user.id,
-      affiliateId: affiliate.id,
-      commissionIds: matured.map((c) => c.id),
-      skipHold: false,
-      initiatedBy: 'partner',
-    });
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: result.error || 'Failed to send payout',
-          blockers: result.blockers,
-        },
-        { status: 400 },
-      );
-    }
-
-    return NextResponse.json({
-      ...result,
-      success: true,
-      message: 'Pay me now sent. PayPal usually confirms in minutes.',
-    });
-  } catch (error) {
-    console.error('Affiliate Pay me now error:', error);
-    return NextResponse.json(
-      { error: 'Failed to request payout' },
-      { status: 500 },
     );
   }
 }

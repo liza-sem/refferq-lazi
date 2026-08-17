@@ -238,7 +238,7 @@ model ProgramSettings {
   lastAutoPayoutAt          DateTime? @map("last_auto_payout_at")
   payoutFrequency           String   @default("MONTHLY") @map("payout_frequency")
   payoutWeekday             Int      @default(1) @map("payout_weekday")
-  payoutDayOfMonth          Int      @default(1) @map("payout_day_of_month")
+  payoutDayOfMonth          Int      @default(15) @map("payout_day_of_month")
   commissionHoldDays        Int      @default(30) @map("commission_hold_days")
   minPayoutCents            Int      @default(100000) @map("min_payout_cents")
   companyName               String?  @map("company_name")
@@ -687,7 +687,7 @@ model Program {
   minPayoutCents    Int      @default(100000) @map("min_payout_cents") // $1,000
   payoutFrequency   String   @default("MONTHLY") @map("payout_frequency")
   payoutWeekday     Int      @default(1) @map("payout_weekday")
-  payoutDayOfMonth  Int      @default(1) @map("payout_day_of_month")
+  payoutDayOfMonth  Int      @default(15) @map("payout_day_of_month")
   termsUrl          String?  @map("terms_url")
   logoUrl           String?  @map("logo_url")
   brandColor        String   @default("#10b981") @map("brand_color")

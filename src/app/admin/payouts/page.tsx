@@ -184,7 +184,7 @@ export default function PayoutsPage() {
             </div>
             <CardDescription>
               {autoStatus.autoPayoutEnabled
-                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run whose payday is today (or was missed since the last run). ${autoStatus.paydayLabel || autoStatus.payoutFrequencyLabel} by default; partners can pick their own day in Settings.`
+                ? `On — cron pays up to ${autoStatus.autoPayoutDripSize} affiliate${autoStatus.autoPayoutDripSize === 1 ? '' : 's'} per run whose payday is today (or was missed since the last run). ${autoStatus.paydayLabel || autoStatus.payoutFrequencyLabel} by default. Set the day on Programs or Partner tiers.`
                 : 'Off — turn this on in Program Settings.'}
             </CardDescription>
           </CardHeader>

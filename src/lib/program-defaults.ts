@@ -37,11 +37,9 @@ export async function getProgramDefaults(): Promise<{
     ),
     payoutWeekday: normalizeWeekday(
       fallbackProgram?.payoutWeekday ?? settings?.payoutWeekday,
-      1,
     ),
     payoutDayOfMonth: normalizeDayOfMonth(
       fallbackProgram?.payoutDayOfMonth ?? settings?.payoutDayOfMonth,
-      1,
     ),
     cookieDuration: settings?.cookieDuration ?? fallbackProgram?.cookieDuration ?? 30,
     commissionHoldDays: resolveHoldDays(settings?.commissionHoldDays),

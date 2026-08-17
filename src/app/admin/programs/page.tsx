@@ -53,7 +53,7 @@ interface Program {
 const emptyForm = {
   name: '', slug: '', description: '', commissionRate: '20', commissionType: 'PERCENTAGE',
   cookieDuration: '30', currency: 'USD', autoApprove: false, minPayoutCents: '100000',
-  payoutFrequency: 'MONTHLY', payoutWeekday: '1', payoutDayOfMonth: '1',
+  payoutFrequency: 'MONTHLY', payoutWeekday: '1', payoutDayOfMonth: '15',
   termsUrl: '', logoUrl: '', brandColor: '#6366f1',
 };
 
@@ -94,7 +94,7 @@ export default function ProgramsPage() {
       autoApprove: p.autoApprove, minPayoutCents: String(p.minPayoutCents),
       payoutFrequency: p.payoutFrequency,
       payoutWeekday: String(p.payoutWeekday ?? 1),
-      payoutDayOfMonth: String(p.payoutDayOfMonth ?? 1),
+      payoutDayOfMonth: String(p.payoutDayOfMonth ?? 15),
       termsUrl: p.termsUrl || '',
       logoUrl: p.logoUrl || '', brandColor: p.brandColor || '#6366f1',
     });
@@ -412,7 +412,7 @@ export default function ProgramsPage() {
                   onDayOfMonthChange={(v) => setForm({ ...form, payoutDayOfMonth: v })}
                   hintPayday={{
                     weekday: parseInt(form.payoutWeekday, 10) || 1,
-                    dayOfMonth: parseInt(form.payoutDayOfMonth, 10) || 1,
+                    dayOfMonth: parseInt(form.payoutDayOfMonth, 10) || 15,
                   }}
                 />
               </div>

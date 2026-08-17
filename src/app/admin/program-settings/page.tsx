@@ -189,7 +189,7 @@ export default function ProgramSettingsPage() {
           lastAutoPayoutAt: data.settings.lastAutoPayoutAt ?? null,
           payoutFrequency: data.settings.payoutFrequency || 'MONTHLY',
           payoutWeekday: data.settings.payoutWeekday ?? 1,
-          payoutDayOfMonth: data.settings.payoutDayOfMonth ?? 1,
+          payoutDayOfMonth: data.settings.payoutDayOfMonth ?? 15,
           cookieDuration: data.settings.cookieDuration ?? 30,
           commissionHoldDays: data.settings.commissionHoldDays ?? 30,
         });
@@ -457,16 +457,16 @@ export default function ProgramSettingsPage() {
                   <SelectItem value="QUARTERLY">Quarterly</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground">How often PayPal is sent. Tiers and partners can pick a different payday.</p>
+              <p className="text-[10px] text-muted-foreground">How often PayPal is sent. Tiers can override the payday. Partners cannot.</p>
               <PayoutPaydaySelect
                 frequency={settings.payoutFrequency || 'MONTHLY'}
                 weekday={String(settings.payoutWeekday ?? 1)}
-                dayOfMonth={String(settings.payoutDayOfMonth ?? 1)}
+                dayOfMonth={String(settings.payoutDayOfMonth ?? 15)}
                 onWeekdayChange={(v) => setSettings({ ...settings, payoutWeekday: parseInt(v, 10) })}
                 onDayOfMonthChange={(v) => setSettings({ ...settings, payoutDayOfMonth: parseInt(v, 10) })}
                 hintPayday={{
                   weekday: settings.payoutWeekday ?? 1,
-                  dayOfMonth: settings.payoutDayOfMonth ?? 1,
+                  dayOfMonth: settings.payoutDayOfMonth ?? 15,
                 }}
               />
             </div>
@@ -512,7 +512,7 @@ export default function ProgramSettingsPage() {
             )}
           </CardTitle>
           <CardDescription>
-            Cron pays only matured commissions (past the chargeback hold) on each partner’s payday. Monthly uses the day of month. A few affiliates per run, so a mass pay does not hit your PayPal balance.
+            Cron pays only matured commissions (past the chargeback hold) on the program payday. Monthly defaults to the 15th. A few affiliates per run, so a mass pay does not hit your PayPal balance.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
@@ -569,8 +569,8 @@ export default function ProgramSettingsPage() {
               </Label>
               <p className="text-sm text-muted-foreground">
                 {settings.commissionHoldDays > 0
-                  ? `Commissions stay PENDING for ${settings.commissionHoldDays} day${settings.commissionHoldDays === 1 ? '' : 's'} after a sale so Stripe chargebacks can claw back. Cookie duration is separate (tracking). After approval, monthly pays on the partner’s day. Partners can Pay me now only after a sale has matured. Use Create payout on a partner to skip hold for a sandbox test.`
-                  : 'Chargeback hold is 0 days. Each commission pays on the partner’s payday after it was approved. Cookie duration is separate (tracking). Use Create payout on a partner to send now instead of waiting out the term.'}
+                  ? `Commissions stay PENDING for ${settings.commissionHoldDays} day${settings.commissionHoldDays === 1 ? '' : 's'} after a sale so Stripe chargebacks can claw back. Cookie duration is separate (tracking). After approval, monthly pays on the program payday (default the 15th). Use Create payout on a partner to skip hold for a sandbox test.`
+                  : 'Chargeback hold is 0 days. Each commission pays on the program payday after it was approved. Cookie duration is separate (tracking). Use Create payout on a partner to send now instead of waiting out the term.'}
               </p>
             </div>
           </div>

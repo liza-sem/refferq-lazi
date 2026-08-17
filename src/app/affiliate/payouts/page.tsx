@@ -11,7 +11,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Table,
   TableBody,
@@ -20,17 +19,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertCircle, CheckCircle2, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
 import {
   formatHoldUntil,
+  holdCopy,
   nextPayoutHint,
-  payMeNowCopy,
   payoutScheduleLine,
   inPayoutHint,
   PAYPAL_CONFIRM_HINT,
 } from '@/lib/payout-copy';
 import { humanPayoutStatus } from '@/lib/payout-status';
+import { DEFAULT_PAYOUT_DAY_OF_MONTH, DEFAULT_PAYOUT_WEEKDAY } from '@/lib/payout-schedule';
 
 interface Payout {
   id: string;
@@ -47,20 +47,16 @@ export default function PayoutsPage() {
   const { user, loading: authLoading } = useAuth();
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState(false);
   const [pendingHoldCents, setPendingHoldCents] = useState(0);
   const [availableCents, setAvailableCents] = useState(0);
   const [nextPayoutCents, setNextPayoutCents] = useState(0);
   const [inPayoutCents, setInPayoutCents] = useState(0);
   const [paidSoFarCents, setPaidSoFarCents] = useState(0);
   const [currencySymbol, setCurrencySymbol] = useState('$');
-  const [canPayNow, setCanPayNow] = useState(false);
-  const [payNowDisabledReason, setPayNowDisabledReason] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [schedule, setSchedule] = useState({
     payoutFrequency: 'MONTHLY',
-    payoutWeekday: 1,
-    payoutDayOfMonth: 1,
+    payoutWeekday: DEFAULT_PAYOUT_WEEKDAY,
+    payoutDayOfMonth: DEFAULT_PAYOUT_DAY_OF_MONTH,
     commissionHoldDays: 30,
     nextPayoutAt: null as string | null,
     nextMaturesAt: null as string | null,
@@ -70,9 +66,9 @@ export default function PayoutsPage() {
     if (!authLoading && user) fetchPayouts();
   }, [authLoading, user]);
 
-  const fetchPayouts = async (silent = false) => {
+  const fetchPayouts = async () => {
     try {
-      if (!silent) setLoading(true);
+      setLoading(true);
       const payRes = await fetch('/api/affiliate/payouts');
       const payData = await payRes.json();
       if (payData.success) {
@@ -83,13 +79,11 @@ export default function PayoutsPage() {
         setInPayoutCents(payData.inPayoutCents || 0);
         setPaidSoFarCents(payData.paidSoFarCents || 0);
         setCurrencySymbol(payData.currencySymbol || '$');
-        setCanPayNow(Boolean(payData.canPayNow));
-        setPayNowDisabledReason(payData.payNowDisabledReason || null);
         if (payData.schedule) {
           setSchedule({
             payoutFrequency: payData.schedule.payoutFrequency || 'MONTHLY',
-            payoutWeekday: payData.schedule.payoutWeekday ?? 1,
-            payoutDayOfMonth: payData.schedule.payoutDayOfMonth ?? 1,
+            payoutWeekday: payData.schedule.payoutWeekday ?? DEFAULT_PAYOUT_WEEKDAY,
+            payoutDayOfMonth: payData.schedule.payoutDayOfMonth ?? DEFAULT_PAYOUT_DAY_OF_MONTH,
             commissionHoldDays: payData.schedule.commissionHoldDays ?? 30,
             nextPayoutAt: payData.schedule.nextPayoutAt || null,
             nextMaturesAt: payData.schedule.nextMaturesAt || null,
@@ -100,26 +94,6 @@ export default function PayoutsPage() {
       console.error('Failed to fetch payouts:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const requestPayNow = async () => {
-    if (!canPayNow || paying) return;
-    setPaying(true);
-    setNotification(null);
-    try {
-      const res = await fetch('/api/affiliate/payouts', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setNotification({ type: 'success', message: data.message || 'Pay me now sent.' });
-        await fetchPayouts(true);
-      } else {
-        setNotification({ type: 'error', message: data.error || 'Could not send payout.' });
-      }
-    } catch (_error) {
-      setNotification({ type: 'error', message: 'Could not send payout.' });
-    } finally {
-      setPaying(false);
     }
   };
 
@@ -190,7 +164,7 @@ export default function PayoutsPage() {
           hint: sentHint,
         }
       : {
-          title: 'Available',
+          title: 'Unpaid',
           value: formatMoney(availableCents, currencySymbol),
           hint: availableCents > 0 ? nextHint : undefined,
         },
@@ -202,17 +176,6 @@ export default function PayoutsPage() {
 
   return (
     <div className="space-y-12">
-      {notification && (
-        <Alert variant={notification.type === 'error' ? 'destructive' : 'default'} className="border-0 bg-secondary">
-          {notification.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription>{notification.message}</AlertDescription>
-        </Alert>
-      )}
-
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl tracking-tight">Payouts</h1>
@@ -223,29 +186,16 @@ export default function PayoutsPage() {
             })}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {payMeNowCopy(schedule.commissionHoldDays)}
+            {holdCopy(schedule.commissionHoldDays)}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            onClick={requestPayNow}
-            disabled={!canPayNow || paying}
-            title={payNowDisabledReason || 'Pay matured commissions now'}
-          >
-            {paying ? 'Sending…' : 'Pay me now'}
+        {payouts.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={exportCSV} className="gap-1.5 text-muted-foreground">
+            <Download className="h-4 w-4" />
+            Export
           </Button>
-          {payouts.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={exportCSV} className="gap-1.5 text-muted-foreground">
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          )}
-        </div>
+        )}
       </div>
-
-      {!canPayNow && payNowDisabledReason ? (
-        <p className="text-xs text-muted-foreground">{payNowDisabledReason}</p>
-      ) : null}
 
       <div className="grid gap-10 sm:grid-cols-3">
         {metrics.map((metric) => (

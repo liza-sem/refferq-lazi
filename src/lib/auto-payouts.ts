@@ -492,7 +492,6 @@ export async function runAutoPayouts(input: {
     }
 
     const { frequency, payday } = resolvePayoutSchedule(
-      commission.affiliate,
       commission.affiliate.partnerGroup,
       programDefaults,
     );
@@ -664,7 +663,6 @@ export async function runManualPaypalPayout(input: {
   affiliateId: string;
   commissionIds?: string[];
   skipHold?: boolean;
-  initiatedBy?: 'admin' | 'partner';
 }): Promise<ManualPayoutResult> {
   const paypalConfigured = isPaypalConfigured();
   const mode = paypalMode();
@@ -714,8 +712,7 @@ export async function runManualPaypalPayout(input: {
     blockers.push('No unpaid commissions.');
   }
 
-  const initiatedBy = input.initiatedBy === 'partner' ? 'partner' : 'admin';
-  const skipHold = initiatedBy === 'partner' ? false : input.skipHold !== false;
+  const skipHold = input.skipHold !== false;
   const pending = unpaid.filter((c) => c.status === 'PENDING');
   const now = new Date();
   const payableNow = skipHold
@@ -723,20 +720,8 @@ export async function runManualPaypalPayout(input: {
     : unpaid.filter((c) => isCommissionMatured(c, now));
   const amountCents = payableNow.reduce((sum, c) => sum + c.amountCents, 0);
 
-  if (initiatedBy === 'partner') {
-    const inFlight = await prisma.payout.findFirst({
-      where: { affiliateId: input.affiliateId, status: 'PROCESSING' },
-      select: { id: true },
-    });
-    if (inFlight) blockers.push('A payout is already on the way.');
-  }
-
   if (unpaid.length > 0 && payableNow.length === 0 && !skipHold) {
-    blockers.push(
-      initiatedBy === 'partner'
-        ? 'Nothing available yet. Sales are held for 30 days.'
-        : 'No matured commissions to pay. Immature sales stay on hold.',
-    );
+    blockers.push('No matured commissions to pay. Immature sales stay on hold.');
   }
   if (payableNow.length > 0 && amountCents < 1) {
     blockers.push('Payout amount must be at least $0.01.');
@@ -798,11 +783,9 @@ export async function runManualPaypalPayout(input: {
         status: 'PROCESSING',
         method: 'PAYPAL',
         recipientEmail: paypalEmail,
-        notes: initiatedBy === 'partner'
-          ? 'Partner Pay me now via PayPal'
-          : skipHold
-            ? 'Manual admin payout via PayPal (skipped refund hold / schedule)'
-            : 'Manual admin payout via PayPal',
+        notes: skipHold
+          ? 'Manual admin payout via PayPal (skipped refund hold / schedule)'
+          : 'Manual admin payout via PayPal',
         createdBy: input.actorId,
       },
     });
@@ -831,9 +814,7 @@ export async function runManualPaypalPayout(input: {
       receiverEmail: paypalEmail,
       amountCents: claimed.amountCents,
       currency,
-      note: initiatedBy === 'partner'
-        ? `LAZI commission payout ${claimed.payout.id}`
-        : `LAZI test payout ${claimed.payout.id}`,
+      note: `LAZI payout ${claimed.payout.id}`,
     });
 
     await recordPaypalInitiated({
@@ -897,8 +878,6 @@ export async function getAutoPayoutStatus() {
       affiliate: {
         select: {
           payoutDetails: true,
-          payoutWeekday: true,
-          payoutDayOfMonth: true,
           partnerGroup: { select: { payoutFrequency: true, payoutWeekday: true, payoutDayOfMonth: true } },
         },
       },
@@ -914,7 +893,6 @@ export async function getAutoPayoutStatus() {
     eligibleAffiliateIds.add(commission.affiliateId);
     totalPendingCents += commission.amountCents;
     const { frequency, payday } = resolvePayoutSchedule(
-      commission.affiliate,
       commission.affiliate.partnerGroup,
       programDefaults,
     );

@@ -8,7 +8,11 @@ export const PAYOUT_FREQUENCY_OPTIONS: Array<{ value: PayoutFrequency; label: st
   { value: 'QUARTERLY', label: 'Quarterly' },
 ];
 
-/** JS getUTCDay(): 0 Sunday … 6 Saturday. Default payday is Monday. */
+/** JS getUTCDay(): 0 Sunday … 6 Saturday. Default weekday is Monday. */
+export const DEFAULT_PAYOUT_WEEKDAY = 1;
+/** Monthly/quarterly default: the 15th. */
+export const DEFAULT_PAYOUT_DAY_OF_MONTH = 15;
+
 export const WEEKDAY_OPTIONS: Array<{ value: number; label: string }> = [
   { value: 1, label: 'Monday' },
   { value: 2, label: 'Tuesday' },
@@ -73,13 +77,13 @@ export function parseTierPayoutFrequency(value: unknown): string | null | undefi
   return raw;
 }
 
-export function normalizeWeekday(value: unknown, fallback = 1): number {
+export function normalizeWeekday(value: unknown, fallback = DEFAULT_PAYOUT_WEEKDAY): number {
   const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
   if (!Number.isInteger(n) || n < 0 || n > 6) return fallback;
   return n;
 }
 
-export function normalizeDayOfMonth(value: unknown, fallback = 1): number {
+export function normalizeDayOfMonth(value: unknown, fallback = DEFAULT_PAYOUT_DAY_OF_MONTH): number {
   const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
   if (!Number.isInteger(n) || n < 1 || n > 28) return fallback;
   return n;
@@ -122,8 +126,6 @@ function firstInt(
 }
 
 export function resolvePayday(input: {
-  affiliateWeekday?: number | null;
-  affiliateDayOfMonth?: number | null;
   tierWeekday?: number | null;
   tierDayOfMonth?: number | null;
   programWeekday?: number | null;
@@ -131,26 +133,21 @@ export function resolvePayday(input: {
 }): PayoutPayday {
   return {
     weekday: normalizeWeekday(
-      firstInt([input.affiliateWeekday, input.tierWeekday, input.programWeekday], 1),
-      1,
+      firstInt([input.tierWeekday, input.programWeekday], DEFAULT_PAYOUT_WEEKDAY),
     ),
     dayOfMonth: normalizeDayOfMonth(
-      firstInt([input.affiliateDayOfMonth, input.tierDayOfMonth, input.programDayOfMonth], 1),
-      1,
+      firstInt([input.tierDayOfMonth, input.programDayOfMonth], DEFAULT_PAYOUT_DAY_OF_MONTH),
     ),
   };
 }
 
 export function resolvePayoutSchedule(
-  affiliate: PaydayFields | null | undefined,
   tier: PaydayFields | null | undefined,
   program: PaydayFields | null | undefined,
 ): { frequency: PayoutFrequency; payday: PayoutPayday } {
   return {
     frequency: resolvePayoutFrequency(tier?.payoutFrequency, program?.payoutFrequency),
     payday: resolvePayday({
-      affiliateWeekday: affiliate?.payoutWeekday,
-      affiliateDayOfMonth: affiliate?.payoutDayOfMonth,
       tierWeekday: tier?.payoutWeekday,
       tierDayOfMonth: tier?.payoutDayOfMonth,
       programWeekday: program?.payoutWeekday,
@@ -178,7 +175,7 @@ export function payoutTermExplanation(
   payday?: PayoutPayday | null,
 ): string {
   const normalized = normalizePayoutFrequency(frequency);
-  const day = payday || { weekday: 1, dayOfMonth: 1 };
+  const day = payday || { weekday: DEFAULT_PAYOUT_WEEKDAY, dayOfMonth: DEFAULT_PAYOUT_DAY_OF_MONTH };
   switch (normalized) {
     case 'WEEKLY':
       return `Pays every ${weekdayLabel(day.weekday)}`;
@@ -191,15 +188,14 @@ export function payoutTermExplanation(
   }
 }
 
-/** UTC calendar day as “Friday 21 Aug”. */
+/** UTC calendar day as “15 Sep”. */
 export function formatPayoutWhen(isoOrDate: string | Date | null | undefined): string {
   if (!isoOrDate) return '';
   const date = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
   if (Number.isNaN(date.getTime())) return '';
-  const weekday = date.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
   const day = date.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'UTC' });
   const month = date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
-  return `${weekday} ${day} ${month}`;
+  return `${day} ${month}`;
 }
 
 function utcDay(date: Date): Date {
@@ -251,7 +247,7 @@ export function nextPaydayOnOrAfter(
 }
 
 /**
- * When this commission becomes payable: the partner’s next payday
+ * When this commission becomes payable: the program/tier payday
  * on or after the approval’s UTC calendar day (not +N days from the sale).
  */
 export function commissionDueAt(
@@ -289,7 +285,7 @@ export type UnpaidCommissionForPayout = {
   createdAt: Date;
 };
 
-/** All unpaid commissions pay on the partner’s next payday. */
+/** All unpaid commissions pay on the program/tier payday. */
 export function nextPayoutFromCommissions(
   commissions: UnpaidCommissionForPayout[],
   frequency: PayoutFrequency,

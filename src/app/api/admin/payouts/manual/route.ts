@@ -40,7 +40,6 @@ export async function GET(request: NextRequest) {
 
   const defaults = await getProgramDefaults();
   const { frequency, payday } = resolvePayoutSchedule(
-    affiliate,
     affiliate.partnerGroup,
     defaults,
   );

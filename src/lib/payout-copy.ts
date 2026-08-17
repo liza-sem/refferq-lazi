@@ -47,7 +47,7 @@ export function formatHoldUntil(isoOrDate: string | Date | null | undefined): st
   return `Held until ${day} ${month}`;
 }
 
-export function payMeNowCopy(holdDays = 30): string {
+export function holdCopy(holdDays = 30): string {
   const days = holdDays > 0 ? holdDays : 30;
-  return `Available after ${days} days. Monthly payout on your day, or Pay me now once a sale has matured.`;
+  return `Unpaid commissions are held for ${days} days, then paid on the program payday.`;
 }

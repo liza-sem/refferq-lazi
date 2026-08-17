@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
           minimumPayoutThreshold: 0,
           payoutTerm: 'NET-15',
           payoutFrequency: 'MONTHLY',
+          payoutDayOfMonth: 15,
           commissionHoldDays: 30,
           autoPayoutEnabled: true,
           autoPayoutDripSize: 2,
@@ -153,11 +154,11 @@ export async function PUT(request: NextRequest) {
     }
     if (sanitizedData.payoutWeekday !== undefined) {
       const { normalizeWeekday } = await import('@/lib/payout-schedule');
-      sanitizedData.payoutWeekday = normalizeWeekday(sanitizedData.payoutWeekday, 1);
+      sanitizedData.payoutWeekday = normalizeWeekday(sanitizedData.payoutWeekday);
     }
     if (sanitizedData.payoutDayOfMonth !== undefined) {
       const { normalizeDayOfMonth } = await import('@/lib/payout-schedule');
-      sanitizedData.payoutDayOfMonth = normalizeDayOfMonth(sanitizedData.payoutDayOfMonth, 1);
+      sanitizedData.payoutDayOfMonth = normalizeDayOfMonth(sanitizedData.payoutDayOfMonth);
     }
 
     const updatedSettings = await prisma.programSettings.update({

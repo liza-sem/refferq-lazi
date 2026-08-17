@@ -181,7 +181,7 @@ export default function AffiliateDashboard() {
           hint: sentHint,
         }
       : {
-          title: 'Available',
+          title: 'Unpaid',
           value: formatMoney(available, currencySymbol),
           hint: available > 0 ? nextHint : undefined,
         },

@@ -64,8 +64,8 @@ export async function POST(request: NextRequest) {
         autoApprove: autoApprove || false,
         minPayoutCents: minPayoutCents || 100000,
         payoutFrequency: payoutFrequency || 'MONTHLY',
-        payoutWeekday: normalizeWeekday(payoutWeekday, 1),
-        payoutDayOfMonth: normalizeDayOfMonth(payoutDayOfMonth, 1),
+        payoutWeekday: normalizeWeekday(payoutWeekday),
+        payoutDayOfMonth: normalizeDayOfMonth(payoutDayOfMonth),
         termsUrl: termsUrl || null,
         logoUrl: logoUrl || null,
         brandColor: brandColor || '#10b981',
@@ -133,10 +133,10 @@ export async function PUT(request: NextRequest) {
     }
 
     if (updates.payoutWeekday !== undefined) {
-      updates.payoutWeekday = normalizeWeekday(updates.payoutWeekday, 1);
+      updates.payoutWeekday = normalizeWeekday(updates.payoutWeekday);
     }
     if (updates.payoutDayOfMonth !== undefined) {
-      updates.payoutDayOfMonth = normalizeDayOfMonth(updates.payoutDayOfMonth, 1);
+      updates.payoutDayOfMonth = normalizeDayOfMonth(updates.payoutDayOfMonth);
     }
 
     if (Object.keys(updates).length === 0) {
