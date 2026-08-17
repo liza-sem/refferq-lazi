@@ -21,6 +21,7 @@ function InviteInner() {
   const { brand, title, subtitle, buttonColor } = useAuthBrand();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [kind, setKind] = useState<'team' | 'partner'>('partner');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'loading' | 'ready' | 'otp' | 'error'>('loading');
   const [error, setError] = useState('');
@@ -43,6 +44,7 @@ function InviteInner() {
         }
         setEmail(data.email);
         setName(data.name);
+        setKind(data.kind === 'team' ? 'team' : 'partner');
         if (data.alreadyActive) {
           router.replace('/login');
           return;
@@ -98,7 +100,11 @@ function InviteInner() {
         setError(data.error || 'Invalid code');
         return;
       }
-      router.replace(data.user?.onboardingComplete ? '/affiliate' : '/affiliate/onboarding');
+      if (data.user?.role === 'ADMIN' || kind === 'team') {
+        router.replace('/admin');
+      } else {
+        router.replace(data.user?.onboardingComplete ? '/affiliate' : '/affiliate/onboarding');
+      }
     } catch {
       setError('Could not verify the code');
     } finally {
@@ -111,9 +117,13 @@ function InviteInner() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <AuthBrandHeader title={title} subtitle={subtitle} logo={brand.companyLogo} />
-          <CardTitle>Join as a partner</CardTitle>
+          <CardTitle>{kind === 'team' ? 'Join the admin team' : 'Join as a partner'}</CardTitle>
           <CardDescription>
-            {step === 'otp' ? `Enter the code we sent to ${email}` : 'Accept your invite to the partner program'}
+            {step === 'otp'
+              ? `Enter the code we sent to ${email}`
+              : kind === 'team'
+                ? 'Accept your invite to the admin team'
+                : 'Accept your invite to the partner program'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

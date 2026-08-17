@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyPartnerInviteToken } from '@/lib/invite-token';
+import { verifyAnyInviteToken } from '@/lib/invite-token';
 
 export async function GET(request: NextRequest) {
   const token = new URL(request.url).searchParams.get('token') || '';
-  const payload = token ? await verifyPartnerInviteToken(token) : null;
+  const payload = token ? await verifyAnyInviteToken(token) : null;
   if (!payload) {
     return NextResponse.json({ error: 'This invite link is invalid or expired' }, { status: 400 });
   }
@@ -14,12 +14,19 @@ export async function GET(request: NextRequest) {
     select: { id: true, email: true, name: true, status: true, role: true },
   });
 
-  if (!user || user.role !== 'AFFILIATE') {
+  const expectedRole = payload.purpose === 'team-invite' ? 'ADMIN' : 'AFFILIATE';
+  if (!user || user.role !== expectedRole) {
     return NextResponse.json({ error: 'This invite link is invalid or expired' }, { status: 400 });
   }
 
   if (user.status === 'ACTIVE') {
-    return NextResponse.json({ success: true, alreadyActive: true, email: user.email, name: user.name });
+    return NextResponse.json({
+      success: true,
+      alreadyActive: true,
+      email: user.email,
+      name: user.name,
+      kind: payload.purpose === 'team-invite' ? 'team' : 'partner',
+    });
   }
 
   if (user.status !== 'INVITED') {
@@ -31,5 +38,6 @@ export async function GET(request: NextRequest) {
     alreadyActive: false,
     email: user.email,
     name: user.name,
+    kind: payload.purpose === 'team-invite' ? 'team' : 'partner',
   });
 }

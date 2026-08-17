@@ -50,6 +50,12 @@ export async function POST(request: NextRequest) {
         data: { status: 'ACTIVE' },
       });
       user.status = 'ACTIVE';
+      if (user.role === 'ADMIN') {
+        await prisma.teamMember.updateMany({
+          where: { email: user.email.toLowerCase() },
+          data: { status: 'ACTIVE', userId: user.id, acceptedAt: new Date() },
+        });
+      }
     }
 
     if (user.role === 'AFFILIATE') {

@@ -519,6 +519,35 @@ class EmailService {
     });
   }
 
+  async sendTeamInviteEmail(data: {
+    name: string;
+    email: string;
+    inviteUrl: string;
+    role: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const brand = await getProgramBrand();
+    const roleLabel = data.role.charAt(0) + data.role.slice(1).toLowerCase();
+    const html = wrapLaziEmail({
+      preheader: `Join the ${brand.companyName} admin team.`,
+      kicker: 'Team invitation',
+      heading: 'You are invited',
+      intro: `Hi ${this.escapeHtml(data.name)},`,
+      paragraphs: [
+        `You have been invited to join the ${this.escapeHtml(brand.companyName)} admin team as ${this.escapeHtml(roleLabel)}.`,
+        'Open the link below, then we will email you a login code to finish joining.',
+      ],
+      ctaLabel: 'Accept invite',
+      ctaUrl: data.inviteUrl,
+      footer: 'If you were not expecting this, you can ignore this email.',
+      wordmark: EMAIL_WORDMARK,
+    });
+    return this.sendEmail({
+      to: data.email,
+      subject: `You are invited to the ${brand.companyName} admin team`,
+      html,
+    });
+  }
+
   async sendWelcomeEmail(data: WelcomeEmailData): Promise<{ success: boolean; message: string }> {
     const referralCode = data.referralCode?.trim() || '';
     const publicReferralLink = data.publicReferralLink?.trim() || '';

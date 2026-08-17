@@ -47,6 +47,7 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
   const [form, setForm] = useState({ email: '', name: '', role: 'MANAGER' });
 
   useEffect(() => { fetchMembers(); }, []);
@@ -64,23 +65,35 @@ export default function TeamPage() {
   };
 
   const handleInvite = async () => {
+    const email = form.email.trim();
+    if (!email) {
+      setFormError('Enter an email address');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFormError('Enter a complete email (include .com or another domain ending)');
+      return;
+    }
+    setFormError('');
     setSaving(true);
     try {
       const res = await fetch('/api/admin/team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, email }),
       });
       const data = await res.json();
       if (data.success) {
         await fetchMembers();
         setDialogOpen(false);
         setForm({ email: '', name: '', role: 'MANAGER' });
+        alert(data.message || `Invite sent to ${email}`);
       } else {
-        alert(data.error || 'Failed to invite member');
+        setFormError(data.error || 'Failed to invite member');
       }
     } catch (error) {
       console.error('Failed to invite member:', error);
+      setFormError('Failed to invite member');
     } finally {
       setSaving(false);
     }
@@ -147,7 +160,7 @@ export default function TeamPage() {
           <h1 className="text-2xl font-bold tracking-tight">Team Members</h1>
           <p className="text-muted-foreground">Manage who has access to your admin dashboard</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => { setFormError(''); setDialogOpen(true); }}>
           <UserPlus className="mr-2 h-4 w-4" />
           Invite Member
         </Button>
@@ -221,8 +234,16 @@ export default function TeamPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         {member.status === 'PENDING' && (
-                          <Button variant="ghost" size="sm" onClick={() => updateMember(member.id, { status: 'ACTIVE' })}>
-                            Activate
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setForm({ email: member.email, name: member.name, role: member.role });
+                              setFormError('');
+                              setDialogOpen(true);
+                            }}
+                          >
+                            Resend
                           </Button>
                         )}
                         {member.status === 'ACTIVE' && member.role !== 'OWNER' && (
@@ -254,13 +275,14 @@ export default function TeamPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>Name *</Label>
+              <Label>Name</Label>
               <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="John Doe" />
             </div>
             <div className="grid gap-2">
               <Label>Email *</Label>
-              <Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="john@example.com" />
+              <Input type="email" value={form.email} onChange={e => { setForm({...form, email: e.target.value}); setFormError(''); }} placeholder="john@example.com" />
             </div>
+            {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             <div className="grid gap-2">
               <Label>Role</Label>
               <Select value={form.role} onValueChange={v => setForm({...form, role: v})}>
@@ -280,8 +302,8 @@ export default function TeamPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleInvite} disabled={saving || !form.email || !form.name}>
-              {saving ? 'Inviting...' : 'Send Invite'}
+            <Button onClick={handleInvite} disabled={saving || !form.email.trim()}>
+              {saving ? 'Sending…' : 'Send Invite'}
             </Button>
           </DialogFooter>
         </DialogContent>
