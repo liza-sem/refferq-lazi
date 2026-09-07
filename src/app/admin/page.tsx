@@ -18,8 +18,7 @@ import { formatMoney } from '@/lib/money';
 
 interface DashboardStats {
   totalRevenue: number;
-  totalEstimatedRevenue: number;
-  totalEstimatedCommission: number;
+  owedCommissionCents: number;
   totalClicks: number;
   totalLeads: number;
   totalReferredCustomers: number;
@@ -81,8 +80,7 @@ export default function AdminDashboardPage() {
         setCurrencySymbol(statsData.currencySymbol || '$');
         setStats({
           totalRevenue: statsData.stats.totalRevenue || 0,
-          totalEstimatedRevenue: statsData.stats.totalEstimatedRevenue || 0,
-          totalEstimatedCommission: statsData.stats.totalEstimatedCommission || 0,
+          owedCommissionCents: statsData.stats.owedCommissionCents || 0,
           totalClicks: statsData.stats.totalClicks || 0,
           totalLeads: statsData.stats.totalReferrals || 0,
           totalReferredCustomers: statsData.stats.approvedReferrals || 0,
@@ -125,24 +123,24 @@ export default function AdminDashboardPage() {
 
   const metrics = [
     {
-      title: 'Estimated revenue',
-      value: formatMoney(stats?.totalEstimatedRevenue, currencySymbol),
-      hint: 'Projected value',
-    },
-    {
       title: 'Confirmed revenue',
       value: formatMoney(stats?.totalRevenue, currencySymbol),
-      hint: 'Approved transactions',
+      hint: 'Confirmed purchases',
     },
     {
       title: 'Commission owed',
-      value: formatMoney(stats?.totalEstimatedCommission, currencySymbol),
-      hint: 'Pending payouts',
+      value: formatMoney(stats?.owedCommissionCents, currencySymbol),
+      hint: 'Unpaid (hold + matured)',
     },
     {
       title: 'Partners',
       value: String(stats?.totalAffiliates || 0),
       hint: 'Active affiliates',
+    },
+    {
+      title: 'Visits',
+      value: String(stats?.totalClicks || 0),
+      hint: 'Referral clicks',
     },
   ];
 
