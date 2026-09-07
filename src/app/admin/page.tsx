@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Users, UserCheck } from 'lucide-react';
+import { UserCheck } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
 
 interface DashboardStats {
@@ -64,15 +64,13 @@ export default function AdminDashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [statsRes, analyticsRes, referralsRes] = await Promise.all([
+      const [statsRes, referralsRes] = await Promise.all([
         fetch('/api/admin/dashboard'),
-        fetch('/api/admin/analytics?days=30'),
         fetch('/api/admin/referrals'),
       ]);
 
-      const [statsData, analyticsData, referralsData] = await Promise.all([
+      const [statsData, referralsData] = await Promise.all([
         statsRes.json(),
-        analyticsRes.json(),
         referralsRes.json(),
       ]);
 
@@ -87,10 +85,7 @@ export default function AdminDashboardPage() {
           totalAffiliates: statsData.stats.totalAffiliates || 0,
           pendingReferrals: statsData.stats.pendingReferrals || 0,
         });
-      }
-
-      if (analyticsData.success && analyticsData.analytics.topAffiliates) {
-        setTopAffiliates(analyticsData.analytics.topAffiliates.slice(0, 5));
+        setTopAffiliates(Array.isArray(statsData.topPartners) ? statsData.topPartners : []);
       }
 
       if (referralsData.success) {
@@ -222,17 +217,17 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-sm">{formatMoney(affiliate.totalRevenue, currencySymbol)}</p>
-                      <p className="text-xs text-muted-foreground">{affiliate.totalReferrals} referrals</p>
+                      <p className="text-xs text-muted-foreground">
+                        {affiliate.totalReferrals === 1
+                          ? '1 referral'
+                          : `${affiliate.totalReferrals} referrals`}
+                      </p>
                     </div>
                   </button>
                 ))}
               </div>
             ) : (
-              <EmptyState
-                icon={Users}
-                title="No partners yet"
-                description="Partners will appear here once they join"
-              />
+              <p className="py-8 text-sm text-muted-foreground">No confirmed sales yet</p>
             )}
           </CardContent>
         </Card>

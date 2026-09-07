@@ -28,12 +28,8 @@ export async function GET(request: NextRequest) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Top performing affiliates
-    const topAffiliates = await prisma.affiliate.findMany({
-      take: 10,
-      orderBy: {
-        balanceCents: 'desc'
-      },
+    // Top performing affiliates by confirmed Stripe revenue (same filter as the dashboard card)
+    const rankedAffiliates = await prisma.affiliate.findMany({
       include: {
         user: true,
         referrals: {
@@ -45,6 +41,16 @@ export async function GET(request: NextRequest) {
         },
       }
     });
+
+    const topAffiliates = rankedAffiliates
+      .map((affiliate) => ({
+        affiliate,
+        totalRevenue: affiliate.conversions.reduce((sum, conversion) => sum + conversion.amountCents, 0),
+      }))
+      .filter((row) => row.totalRevenue > 0)
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, 8)
+      .map((row) => row.affiliate);
 
     // Referral conversion rate
     const totalReferrals = await prisma.referral.count({

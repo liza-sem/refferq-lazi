@@ -78,9 +78,59 @@ export async function GET(request: NextRequest) {
       owedCommissionCents,
     };
 
+    const revenueByPartner = await prisma.conversion.groupBy({
+      by: ['affiliateId'],
+      where: confirmedPurchaseWhere,
+      _sum: { amountCents: true },
+      _count: { _all: true },
+      orderBy: { _sum: { amountCents: 'desc' } },
+    });
+
+    const topRevenue = revenueByPartner
+      .filter((row) => (row._sum.amountCents || 0) > 0)
+      .slice(0, 5);
+    const topIds = topRevenue.map((row) => row.affiliateId);
+
+    const [topAffiliates, customerCounts] = topIds.length
+      ? await Promise.all([
+          prisma.affiliate.findMany({
+            where: { id: { in: topIds } },
+            select: {
+              id: true,
+              referralCode: true,
+              user: { select: { name: true, email: true } },
+            },
+          }),
+          prisma.referral.groupBy({
+            by: ['affiliateId'],
+            where: { affiliateId: { in: topIds }, ...approvedCustomerWhere },
+            _count: { _all: true },
+          }),
+        ])
+      : [[], []];
+
+    const affiliateById = new Map(topAffiliates.map((affiliate) => [affiliate.id, affiliate]));
+    const customersById = new Map(
+      customerCounts.map((row) => [row.affiliateId, row._count._all])
+    );
+
+    const topPartners = topRevenue.flatMap((row) => {
+      const affiliate = affiliateById.get(row.affiliateId);
+      if (!affiliate) return [];
+      const customers = customersById.get(row.affiliateId) || 0;
+      return [{
+        id: affiliate.id,
+        name: affiliate.user.name || 'Partner',
+        email: affiliate.user.email,
+        referralCode: affiliate.referralCode,
+        totalRevenue: row._sum.amountCents || 0,
+        totalReferrals: customers > 0 ? customers : row._count._all,
+      }];
+    });
+
     const currencySymbol = await getCurrencySymbol();
 
-    return NextResponse.json({ success: true, stats, currencySymbol });
+    return NextResponse.json({ success: true, stats, topPartners, currencySymbol });
 
   } catch (error) {
     console.error('Admin dashboard API error:', error);
