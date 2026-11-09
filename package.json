@@ -32,7 +32,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "test:email": "node scripts/test-email.js"
+    "test:email": "node scripts/test-email.js",
+    "test": "tsx --test src/lib/pinit-integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

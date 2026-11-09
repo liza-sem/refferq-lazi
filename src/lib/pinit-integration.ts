@@ -4,7 +4,7 @@ import { commissionPercent } from './commission-rate';
 export function pinitKeyAllowed(key:{isActive:boolean;scopes:unknown;expiresAt:Date|null}|null,now=Date.now()){return Boolean(key?.isActive && Array.isArray(key.scopes) && key.scopes.includes('admin') && (!key.expiresAt || key.expiresAt.getTime()>now));}
 // Dependency injection permits contract tests without a live database.
 export async function pinitIntegration(db:any,action:string,b:any){
- if(!['affiliate','stats','conversion','refund'].includes(action))throw new Error('Unknown action');
+ if(!['affiliate','stats','conversion','refund','mirror'].includes(action))throw new Error('Unknown action');
  if(!/^([23456789a-hjkmnp-z]{8}|[a-f0-9]{24})$/.test(b.referral_code||''))throw new Error('Invalid referral_code');
  return db.$transaction(async(tx:any)=>{
   // One affiliate serializes enrollment, payment and refund; retries share a durable receipt.
@@ -12,10 +12,33 @@ export async function pinitIntegration(db:any,action:string,b:any){
   const rule=await tx.commissionRule.findFirst({where:{isActive:true,isDefault:true,type:'PERCENTAGE'}});
   const rate=rule?commissionPercent(rule.value):15;
   let affiliate=await tx.affiliate.findUnique({where:{referralCode:b.referral_code},include:{user:true}});
+  if(action==='mirror'){
+   if(!['signup','reward','revoke'].includes(b.event_type) || !['free','cash'].includes(b.reward_type) ||
+    typeof b.referred_studio_id!=='string' || !b.referred_studio_id || b.referred_studio_id.length>100 ||
+    b.event_id!==`${b.event_type}:${b.referred_studio_id}` || !Number.isFinite(Date.parse(b.occurred_at)))throw new Error('Invalid mirror event');
+   if(typeof b.external_id!=='string' || !b.external_id || b.external_id.length>100 || typeof b.email!=='string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email) || typeof b.name!=='string' || b.name.length>100)throw new Error('Invalid affiliate');
+   const binding=await tx.pinitReceipt.findUnique({where:{id:'affiliate:'+b.external_id}});
+   if(binding){if(!affiliate || binding.result.affiliateId!==affiliate.id)throw new Error('Affiliate binding mismatch');}
+   else{
+    if(affiliate || await tx.user.findUnique({where:{email:b.email.toLowerCase()}}))throw new Error('Account exists; owner must resolve enrollment');
+    const user=await tx.user.create({data:{email:b.email.toLowerCase(),name:b.name,password:await hash(randomBytes(48).toString('hex'),12),role:'AFFILIATE',status:'PENDING',affiliate:{create:{referralCode:b.referral_code,pinitRewardMode:b.reward_type,notifySaleEarned:false,notifyPayouts:false,notifyTierUpgraded:false}}},include:{affiliate:true}});
+    affiliate={...user.affiliate,user};
+    await tx.pinitReceipt.create({data:{id:'affiliate:'+b.external_id,result:{affiliateId:affiliate.id,status:'PENDING',commissionPercent:rate}}});
+   }
+   const digest=createHash('sha256').update(JSON.stringify({affiliate:affiliate.id,studio:b.referred_studio_id,type:b.event_type,reward:b.reward_type,date:b.occurred_at})).digest('hex');
+   const previous=await tx.pinitReferralEvent.findUnique({where:{id:b.event_id}});
+   if(previous){if(previous.digest!==digest)throw new Error('Idempotency conflict');return {eventId:previous.id};}
+   await tx.pinitReferralEvent.create({data:{id:b.event_id,affiliateId:affiliate.id,referredStudioId:b.referred_studio_id,eventType:b.event_type,rewardType:b.reward_type,occurredAt:new Date(b.occurred_at),digest}});
+   return {eventId:b.event_id};
+  }
   if(action==='affiliate'){
    if(!b.external_id || typeof b.email!=='string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email) || typeof b.name!=='string' || b.name.length>100)throw new Error('Invalid affiliate');
    const binding=await tx.pinitReceipt.findUnique({where:{id:'affiliate:'+b.external_id}});
-   if(binding){if(!affiliate || binding.result.affiliateId!==affiliate.id)throw new Error('Affiliate binding mismatch');return binding.result;}
+   if(binding){if(!affiliate || binding.result.affiliateId!==affiliate.id)throw new Error('Affiliate binding mismatch');if(affiliate.pinitRewardMode==='free'){
+     await tx.affiliate.update({where:{id:affiliate.id},data:{pinitRewardMode:'cash'}});
+     await tx.user.update({where:{id:affiliate.userId},data:{status:'PENDING'}});
+     return {...binding.result,status:'PENDING'};
+    }return binding.result;}
    // Never claim an existing Refferq account by supplying its email.
    if(affiliate || await tx.user.findUnique({where:{email:b.email.toLowerCase()}}))throw new Error('Account exists; owner must resolve enrollment');
    const user=await tx.user.create({data:{email:b.email.toLowerCase(),name:b.name,password:await hash(randomBytes(48).toString('hex'),12),role:'AFFILIATE',status:'PENDING',affiliate:{create:{referralCode:b.referral_code,notifySaleEarned:false,notifyPayouts:false,notifyTierUpgraded:false}}},include:{affiliate:true}});
@@ -37,6 +60,7 @@ export async function pinitIntegration(db:any,action:string,b:any){
   if(previous){if(previous.result.digest!==digest)throw new Error('Idempotency conflict');return previous.result;}
   let result:any;
   if(action==='conversion'){
+   if(affiliate.pinitRewardMode==='free')throw new Error('Free rewards cannot earn commissions');
    if(affiliate.user.status!=='ACTIVE')throw new Error('Affiliate awaits owner approval');
    const conversion=await tx.conversion.create({data:{affiliateId:affiliate.id,eventType:'PURCHASE',amountCents:b.amount_cents,currency:'USD',eventMetadata:{customerEmail:b.customer_email,pinitExternalId:b.external_id}}});
    const settings=await tx.programSettings.findFirst();

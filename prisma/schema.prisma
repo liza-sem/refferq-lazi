@@ -27,6 +27,8 @@ model User {
 }
 
 model Affiliate {
+  pinitReferralEvents PinitReferralEvent[]
+  pinitRewardMode String @default("cash") @map("pinit_reward_mode")
   id             String        @id @default(cuid())
   userId         String        @unique @map("user_id")
   referralCode   String        @unique @map("referral_code")
@@ -761,4 +763,19 @@ model PinitReceipt {
   result    Json
   createdAt DateTime @default(now()) @map("created_at")
   @@map("pinit_receipts")
+}
+
+// Immutable events: free rewards deliberately never create Commission rows.
+model PinitReferralEvent {
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  id String @id
+  affiliateId String @map("affiliate_id")
+  referredStudioId String @map("referred_studio_id")
+  eventType String @map("event_type")
+  rewardType String @map("reward_type")
+  occurredAt DateTime @map("occurred_at")
+  digest String
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([affiliateId, occurredAt])
+  @@map("pinit_referral_events")
 }

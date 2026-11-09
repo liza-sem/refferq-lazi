@@ -160,6 +160,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
     }
 
+    if (affiliate.pinitRewardMode === 'free') return NextResponse.json({ error: 'Free-project partners cannot receive payouts' }, { status: 409 });
+
     // Fetch commissions for these IDs (must be APPROVED)
     const commissions = await prisma.commission.findMany({
       where: {

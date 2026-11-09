@@ -97,6 +97,7 @@ export async function listEligiblePayoutPartners(opts?: {
     where: {
       ...maturedUnpaidWhere(now),
       affiliate: {
+        pinitRewardMode: { not: 'free' },
         user: { status: 'ACTIVE' },
         ...(ids && ids.length > 0 ? { id: { in: ids } } : {}),
       },
@@ -803,7 +804,7 @@ export async function runAutoPayouts(input: {
   const approved = await prisma.commission.findMany({
     where: {
       ...maturedUnpaidWhere(now),
-      affiliate: { user: { status: 'ACTIVE' } },
+      affiliate: { pinitRewardMode: { not: 'free' }, user: { status: 'ACTIVE' } },
     },
     include: {
       affiliate: {
@@ -1039,6 +1040,7 @@ export async function runManualPaypalPayout(input: {
     };
   }
 
+  if (affiliate.pinitRewardMode === 'free') blockers.push('Free-project partners cannot receive payouts.');
   const paypalEmail = paypalEmailFromDetails(affiliate.payoutDetails);
   if (!isValidPaypalEmail(paypalEmail)) {
     blockers.push('No PayPal email on this partner. Add a sandbox personal email in their payout details.');
@@ -1229,7 +1231,7 @@ export async function getAutoPayoutStatus() {
   const approved = await prisma.commission.findMany({
     where: {
       ...maturedUnpaidWhere(now),
-      affiliate: { user: { status: 'ACTIVE' } },
+      affiliate: { pinitRewardMode: { not: 'free' }, user: { status: 'ACTIVE' } },
     },
     include: {
       affiliate: {

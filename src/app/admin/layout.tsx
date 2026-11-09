@@ -52,6 +52,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 const mainNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Partners', url: '/admin/partners', icon: Users },
+  { title: 'Pinit referrals', url: '/admin/pinit-referrals', icon: UserCheck },
   { title: 'Customers', url: '/admin/customers', icon: UserCheck },
   { title: 'Payouts', url: '/admin/payouts', icon: Wallet },
   { title: 'Emails', url: '/admin/emails', icon: Mail },
