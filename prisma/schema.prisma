@@ -754,3 +754,11 @@ enum TeamMemberStatus {
   ACTIVE
   DEACTIVATED
 }
+
+// Server-to-server integration receipts. No public affiliate authentication.
+model PinitReceipt {
+  id        String   @id
+  result    Json
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("pinit_receipts")
+}
