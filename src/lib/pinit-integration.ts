@@ -5,7 +5,7 @@ export function pinitKeyAllowed(key:{isActive:boolean;scopes:unknown;expiresAt:D
 // Dependency injection permits contract tests without a live database.
 export async function pinitIntegration(db:any,action:string,b:any){
  if(!['affiliate','stats','conversion','refund'].includes(action))throw new Error('Unknown action');
- if(!/^[a-f0-9]{24}$/.test(b.referral_code||''))throw new Error('Invalid referral_code');
+ if(!/^([23456789a-hjkmnp-z]{8}|[a-f0-9]{24})$/.test(b.referral_code||''))throw new Error('Invalid referral_code');
  return db.$transaction(async(tx:any)=>{
   // One affiliate serializes enrollment, payment and refund; retries share a durable receipt.
   await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))','pinit:'+b.referral_code);
