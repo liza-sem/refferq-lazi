@@ -4,31 +4,29 @@ import { prisma } from '@/lib/prisma';
 import { getRequestUserId } from '@/lib/request-user';
 
 
-// Only allow in development, or require admin auth in production
-async function requireAdminOrDev(request: NextRequest): Promise<{ error?: string; status?: number }> {
+// An opt-in never bypasses authentication, including in development.
+async function requireAdmin(request: NextRequest): Promise<NextResponse | null> {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_EMAIL_ROUTE !== 'true') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
   try {
-    // Block entirely in production unless authenticated as admin
     const userId = await getRequestUserId(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-    if (!user || user.role !== 'ADMIN') {
-      return { error: 'Admin access required', status: 403 };
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.role !== 'ADMIN' || user.status !== 'ACTIVE') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
-    return {};
-  } catch (_error) {
-    return { error: 'Invalid token', status: 401 };
+    return null;
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdminOrDev(request);
-  if (auth.error) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
+  const denied = await requireAdmin(request);
+  if (denied) return denied;
 
   try {
     // Test email functionality
@@ -57,10 +55,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAdminOrDev(request);
-  if (auth.error) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
+  const denied = await requireAdmin(request);
+  if (denied) return denied;
 
   return NextResponse.json({
     success: true,

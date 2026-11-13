@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
+import { getRequestSession } from '@/lib/request-user';
 
-const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_SECRET!
-);
-
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+    // Strip client identity hints before redirects, auth checks or pass-throughs.
+    const requestHeaders = new Headers(request.headers);
+    for (const name of Array.from(requestHeaders.keys())) {
+        if (name.startsWith('x-user-')) requestHeaders.delete(name);
+    }
     const host = (request.headers.get('host') || '').split(':')[0];
     if (host === 'referrals.lazi.studio') {
         const url = request.nextUrl.clone();
@@ -23,7 +24,7 @@ export async function middleware(request: NextRequest) {
     const isAffiliateRoute = pathname.startsWith('/api/affiliate') || pathname.startsWith('/affiliate');
 
     if (!isAdminRoute && !isAffiliateRoute) {
-        return NextResponse.next();
+        return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
     // 2. Get token from cookies
@@ -43,8 +44,9 @@ export async function middleware(request: NextRequest) {
 
     try {
         // 3. Verify JWT
-        const { payload } = await jwtVerify(token, JWT_SECRET);
-        const userRole = payload.role as string;
+        const session = await getRequestSession(request);
+        if (!session) throw new Error('Invalid session');
+        const userRole = session.role;
 
         // 4. Role-based access control
         if (isAdminRoute && userRole !== 'ADMIN') {
@@ -67,13 +69,7 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(new URL('/login', request.url));
         }
 
-        // Pass identity on the *request* so API routes can read it.
-        // Setting response.headers only sends them to the browser, which
-        // breaks /api/auth/me in Next standalone (see Refferq#19).
-        const requestHeaders = new Headers(request.headers);
-        requestHeaders.set('x-user-id', payload.userId as string);
-        requestHeaders.set('x-user-role', userRole);
-
+        // Route handlers independently verify the cookie; no identity header is trusted.
         return NextResponse.next({
             request: {
                 headers: requestHeaders,
@@ -93,6 +89,6 @@ export async function middleware(request: NextRequest) {
 // See "Matching Paths" below to learn more
 export const config = {
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico).*)',
+        '/:path*',
     ],
 };

@@ -66,12 +66,14 @@ function validateWebhookUrl(urlString: string): { valid: boolean; error?: string
 }
 
 // Helper: Verify admin auth
-async function verifyAdminAuth(request: NextRequest) {
+async function verifyAdminAuth(request: NextRequest): Promise<
+  { error: string; status: number } | { user: { id: string } }
+> {
   try {
     const userId = await getRequestUserId(request);
     
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return { error: 'Unauthorized', status: 401 };
     }
     const user = await prisma.user.findUnique({
       where: { id: userId }

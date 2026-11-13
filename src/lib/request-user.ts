@@ -1,8 +1,6 @@
 import { jwtVerify } from 'jose';
 import type { NextRequest } from 'next/server';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!);
-
 function readAuthToken(request: Request): string | undefined {
   const withCookies = request as NextRequest;
   if (typeof withCookies.cookies?.get === 'function') {
@@ -15,22 +13,31 @@ function readAuthToken(request: Request): string | undefined {
   return match?.[1] ? decodeURIComponent(match[1]) : undefined;
 }
 
-/**
- * Resolve the signed-in user id.
- * Middleware injects `x-user-id` on the request in some Next runtimes.
- * Standalone / Docker often drops that header, so fall back to the JWT cookie.
- */
-export async function getRequestUserId(request: Request): Promise<string | null> {
-  const fromHeader = request.headers.get('x-user-id');
-  if (fromHeader) return fromHeader;
-
-  const token = readAuthToken(request);
-  if (!token) return null;
-
+/** Only a verified session cookie establishes identity; request headers never do. */
+export async function getRequestSession(request: Request): Promise<{
+  userId: string;
+  role: 'ADMIN' | 'AFFILIATE';
+} | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return (payload.userId as string) || (payload.sub as string) || null;
+    const secret = process.env.JWT_SECRET;
+    const token = readAuthToken(request);
+    if (!secret || !token) return null;
+
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
+      algorithms: ['HS256'],
+      requiredClaims: ['exp'],
+    });
+    const userId = payload.userId ?? payload.sub;
+    // Invite tokens use the same signing key but are not login sessions.
+    if (payload.purpose !== undefined || typeof userId !== 'string' || !userId.trim()) return null;
+    if (payload.role !== 'ADMIN' && payload.role !== 'AFFILIATE') return null;
+    return { userId, role: payload.role };
   } catch {
+    // Includes expired/invalid tokens and malformed cookie encoding.
     return null;
   }
+}
+
+export async function getRequestUserId(request: Request): Promise<string | null> {
+  return (await getRequestSession(request))?.userId ?? null;
 }
